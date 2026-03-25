@@ -172,9 +172,7 @@ export class InventoryLotService {
     limit: number = 10,
   ): Promise<PaginatedInventoryLotResponse> {
     if (!query.trim()) {
-      throw new BadRequestException(
-        'Vui lòng nhập từ khóa tìm kiếm (tối thiểu 2 ký tự)',
-      );
+      throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
     }
 
     const { data, total } =
