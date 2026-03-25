@@ -154,10 +154,16 @@ export class InventoryLotAPI {
 
     if (error) {
       console.error("[InventoryLotAPI] Search failed:", error.message);
-      return { results: [], error };
+      return { inventoryLots: [], total: 0, page, limit, error };
     }
 
-    return { results: Array.isArray(data) ? data : [], error: null };
+    return {
+      inventoryLots: Array.isArray(data.data) ? data.data : [],
+      total: data?.total ?? 0,
+      page: data?.page ?? page,
+      limit: data?.limit ?? limit,
+      error: null,
+    };
   }
 
   /**
