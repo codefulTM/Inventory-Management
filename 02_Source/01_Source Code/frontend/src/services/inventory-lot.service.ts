@@ -55,9 +55,9 @@ export class InventoryLotAPI {
     const lots = Array.isArray(data.data) ? data.data : [];
     return {
       inventoryLots: lots,
-      total: lots.length,
-      page,
-      limit,
+      total: typeof data.total === "number" ? data.total : lots.length,
+      page: typeof data.page === "number" ? data.page : page,
+      limit: typeof data.limit === "number" ? data.limit : limit,
       error: null,
     };
   }

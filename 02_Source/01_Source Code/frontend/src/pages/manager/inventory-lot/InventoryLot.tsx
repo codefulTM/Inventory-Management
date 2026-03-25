@@ -25,57 +25,43 @@ export default function InventoryLot() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
 
-  // Fetch data on component mount
-  useEffect(() => {
-    const fetchInventoryLots = async (searchTerm: string) => {
-      setError(null);
-
-      const { inventoryLots, error: apiError } =
-        searchTerm === ""
-          ? await InventoryLotAPI.getAll()
-          : await InventoryLotAPI.search(searchTerm);
-
-      if (apiError) {
-        const errorMsg = "Không thể tải dữ liệu hàng hóa";
-        setError(errorMsg);
-        setLoading(false);
-        handleApiError(apiError);
-        logApiError(apiError, "fetch_inventory_lots");
-        return;
-      }
-      setLoading(false);
-      setInventoryLots(inventoryLots);
-    };
-
-    fetchInventoryLots(searchTerm);
-  }, [searchTerm]);
-
-  const fetchInventoryLots = async () => {
+  const fetchInventoryLots = async (query: string, pageToFetch: number = 1) => {
     setLoading(true);
     setError(null);
 
-    const { inventoryLots, error: apiError } = await InventoryLotAPI.getAll();
+    const {
+      inventoryLots,
+      total,
+      page: responsePage,
+      limit: responseLimit,
+      error: apiError,
+    } = query === ""
+      ? await InventoryLotAPI.getAll(pageToFetch, limit)
+      : await InventoryLotAPI.search(query, pageToFetch, limit);
 
     if (apiError) {
       const errorMsg = "Không thể tải dữ liệu hàng hóa";
       setError(errorMsg);
+      setLoading(false);
       handleApiError(apiError);
       logApiError(apiError, "fetch_inventory_lots");
       return;
     }
 
     setInventoryLots(inventoryLots);
+    setTotal(total ?? 0);
+    setPage(responsePage ?? pageToFetch);
     setLoading(false);
   };
 
-  const filteredInventoryLots = inventoryLots.filter(
-    (inventoryLot) =>
-      inventoryLot.lot_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inventoryLot.manufacturer_name
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()),
-  );
+  useEffect(() => {
+    setPage(1);
+    fetchInventoryLots(searchTerm, 1);
+  }, [searchTerm]);
 
   const handleViewDetail = (inventoryLot: InventoryLot) => {
     setSelectedInventoryLot(inventoryLot);
@@ -164,7 +150,7 @@ export default function InventoryLot() {
       <LoadingAndError
         isLoading={loading}
         error={error}
-        onRetry={fetchInventoryLots}
+        onRetry={() => fetchInventoryLots(searchTerm, page)}
       />
 
       {/* Search and Filters */}
@@ -178,10 +164,49 @@ export default function InventoryLot() {
 
       {/* Inventory Lots Table */}
       <InventoryLotTable
-        lots={filteredInventoryLots}
+        lots={inventoryLots}
         onViewDetail={handleViewDetail}
         onEdit={handleEditClick}
       />
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between mt-4 bg-white p-4 rounded-xl border border-gray-100">
+        <span className="text-sm text-gray-600">
+          Hiển thị {inventoryLots.length} / {total} bản ghi
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (page > 1) {
+                const nextPage = page - 1;
+                setPage(nextPage);
+                fetchInventoryLots(searchTerm, nextPage);
+              }
+            }}
+            disabled={page <= 1 || loading}
+            className="px-3 py-1 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trước
+          </button>
+          <span className="text-sm text-gray-700">
+            Trang {page} / {Math.max(1, Math.ceil(total / limit))}
+          </span>
+          <button
+            onClick={() => {
+              const maxPage = Math.max(1, Math.ceil(total / limit));
+              if (page < maxPage) {
+                const nextPage = page + 1;
+                setPage(nextPage);
+                fetchInventoryLots(searchTerm, nextPage);
+              }
+            }}
+            disabled={page >= Math.max(1, Math.ceil(total / limit)) || loading}
+            className="px-3 py-1 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Sau
+          </button>
+        </div>
+      </div>
 
       {/* Modals */}
       <DetailModal
