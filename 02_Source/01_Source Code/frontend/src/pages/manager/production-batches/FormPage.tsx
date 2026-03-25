@@ -30,7 +30,7 @@ const EMPTY_FORM: FormState = {
   unit_of_measure: "",
   // manufacture_date: "",
   // expiration_date: "",
-  status: "In Progress",
+  status: "On Hold",
   batch_size: "",
   shelf_life_value: "",
   shelf_life_unit: "month",
