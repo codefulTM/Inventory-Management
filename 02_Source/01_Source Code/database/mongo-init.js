@@ -139,7 +139,7 @@ db.createCollection("production_batches", {
         shelf_life_value: { bsonType: "int" },
         shelf_life_unit: { bsonType: "string" },
         status: { bsonType: "string", enum: ["In Progress", "Complete", "On Hold", "Cancelled"] },
-        batch_size: { bsonType: "string" },
+        batch_size: { bsonType: "decimal" },
         created_by: { bsonType: ["string", "null"] },
         approved_by: { bsonType: ["string", "null"] },
         completed_by: { bsonType: ["string", "null"] },
