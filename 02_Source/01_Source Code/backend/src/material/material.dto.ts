@@ -17,6 +17,12 @@ export enum MaterialType {
   TESTING_MATERIAL = 'Testing Material',
 }
 
+export enum MaterialStatus {
+  PENDING = 'Pending',
+  APPROVED = 'Approved',
+  REJECTED = 'Rejected',
+}
+
 /**
  * DTO for creating a new material
  * Used for POST /materials endpoint
@@ -45,6 +51,12 @@ export class CreateMaterialDto {
   })
   @IsNotEmpty({ message: 'material_type is required' })
   material_type: MaterialType | string;
+
+  @IsEnum(MaterialStatus, {
+    message: `status must be one of: ${Object.values(MaterialStatus).join(', ')}`,
+  })
+  @IsOptional()
+  status?: MaterialStatus | string;
 
   @IsString({ message: 'storage_conditions must be a string' })
   @IsOptional()
@@ -78,6 +90,12 @@ export class UpdateMaterialDto {
   })
   @IsOptional()
   material_type?: MaterialType | string;
+
+  @IsEnum(MaterialStatus, {
+    message: `status must be one of: ${Object.values(MaterialStatus).join(', ')}`,
+  })
+  @IsOptional()
+  status?: MaterialStatus | string;
 
   @IsString({ message: 'storage_conditions must be a string' })
   @IsOptional()
