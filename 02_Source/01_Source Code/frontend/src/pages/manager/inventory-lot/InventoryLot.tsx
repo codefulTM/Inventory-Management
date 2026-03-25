@@ -30,7 +30,6 @@ export default function InventoryLot() {
   const [total, setTotal] = useState(0);
 
   const fetchInventoryLots = async (query: string, pageToFetch: number = 1) => {
-    setLoading(true);
     setError(null);
 
     const {
