@@ -39,6 +39,7 @@ export default function InventoryLot() {
 
       if (apiError) {
         const errorMsg = "Không thể tải dữ liệu hàng hóa";
+        setLoading(false);
         setError(errorMsg);
         handleApiError(apiError);
         logApiError(apiError, "fetch_inventory_lots");

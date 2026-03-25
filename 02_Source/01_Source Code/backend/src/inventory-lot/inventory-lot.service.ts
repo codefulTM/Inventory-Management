@@ -171,9 +171,9 @@ export class InventoryLotService {
     page: number = 1,
     limit: number = 10,
   ): Promise<PaginatedInventoryLotResponse> {
-    if (!query || query.trim().length < 2) {
+    if (!query.trim()) {
       throw new BadRequestException(
-        'Search query must be at least 2 characters',
+        'Vui lòng nhập từ khóa tìm kiếm (tối thiểu 2 ký tự)',
       );
     }
 
@@ -312,18 +312,14 @@ export class InventoryLotService {
     this.validateStatusTransition(existingLot.status, newStatus);
 
     // If marking as Depleted but quantity still > 0, adjust quantity and record a Usage transaction.
-    if (
-      newStatus === InventoryLotStatus.DEPLETED &&
-      existingLot.quantity > 0
-    ) {
+    if (newStatus === InventoryLotStatus.DEPLETED && existingLot.quantity > 0) {
       await this.inventoryLotRepository.update(lot_id, { quantity: 0 });
       await this.inventoryTransactionService.create({
         lot_id,
         transaction_type: TransactionType.Usage,
         quantity: -existingLot.quantity,
         unit_of_measure: existingLot.unit_of_measure,
-        performed_by:
-          existingLot.qc_by || existingLot.received_by || 'system',
+        performed_by: existingLot.qc_by || existingLot.received_by || 'system',
         reference_number: `lot-deplete:${lot_id}`,
         notes: `Auto-adjusted quantity to 0 when marking lot as Depleted.`,
         transaction_date: new Date().toISOString(),
