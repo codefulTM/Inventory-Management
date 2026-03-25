@@ -70,7 +70,7 @@ export default function ProductionBatchForm() {
           //   ? b.expiration_date.substring(0, 10)
           //   : '',
           status: b.status,
-          batch_size: b.batch_size,
+          batch_size: b.batch_size.toString(),
           shelf_life_value: b.shelf_life_value || "",
           shelf_life_unit: b.shelf_life_unit || "month",
         });
@@ -111,7 +111,7 @@ export default function ProductionBatchForm() {
     try {
       const payload = {
         ...form,
-        batch_size: parseFloat(form.batch_size) as any,
+        batch_size: form.batch_size, // Keep as string to match backend DTO
         shelf_life_value: Number(form.shelf_life_value),
         shelf_life_unit: form.shelf_life_unit,
       };
