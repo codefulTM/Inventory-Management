@@ -166,7 +166,7 @@ export class InventoryLotService {
     return lots.map((lot) => this.convertToResponse(lot));
   }
 
-  async searchByManufacturer(
+  async search(
     query: string,
     page: number = 1,
     limit: number = 10,
@@ -175,12 +175,11 @@ export class InventoryLotService {
       throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
     }
 
-    const { data, total } =
-      await this.inventoryLotRepository.searchByManufacturer(
-        query,
-        page,
-        limit,
-      );
+    const { data, total } = await this.inventoryLotRepository.search(
+      query,
+      page,
+      limit,
+    );
     return {
       data: data.map((lot) => this.convertToResponse(lot)),
       total,

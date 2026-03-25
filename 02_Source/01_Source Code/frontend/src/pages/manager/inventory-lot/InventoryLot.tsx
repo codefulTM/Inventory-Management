@@ -29,7 +29,6 @@ export default function InventoryLot() {
   // Fetch data on component mount
   useEffect(() => {
     const fetchInventoryLots = async (searchTerm: string) => {
-      setLoading(true);
       setError(null);
 
       const { inventoryLots, error: apiError } =
@@ -39,15 +38,14 @@ export default function InventoryLot() {
 
       if (apiError) {
         const errorMsg = "Không thể tải dữ liệu hàng hóa";
-        setLoading(false);
         setError(errorMsg);
+        setLoading(false);
         handleApiError(apiError);
         logApiError(apiError, "fetch_inventory_lots");
         return;
       }
-
-      setInventoryLots(inventoryLots);
       setLoading(false);
+      setInventoryLots(inventoryLots);
     };
 
     fetchInventoryLots(searchTerm);

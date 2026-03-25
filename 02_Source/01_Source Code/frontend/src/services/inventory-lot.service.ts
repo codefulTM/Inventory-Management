@@ -152,6 +152,7 @@ export class InventoryLotAPI {
       },
     );
 
+    console.log("test search inventory-lot", data);
     if (error) {
       console.error("[InventoryLotAPI] Search failed:", error.message);
       return { inventoryLots: [], total: 0, page, limit, error };
