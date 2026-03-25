@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   ProductionBatch,
   ProductionBatchDocument,
@@ -30,7 +30,10 @@ export class ProductionBatchRepository {
     createDto: CreateProductionBatchDto,
   ): Promise<ProductionBatchDocument> {
     this.logger.debug(`Creating production batch: ${createDto.batch_number}`);
-    const newBatch = new this.batchModel(createDto);
+    const newBatch = new this.batchModel({
+      ...createDto,
+      batch_size: Types.Decimal128.fromString(createDto.batch_size.toString()),
+    });
     return newBatch.save();
   }
 
@@ -84,9 +87,11 @@ export class ProductionBatchRepository {
    */
   async findByIdOrNumber(id: string): Promise<ProductionBatchDocument | null> {
     this.logger.debug(`Finding production batch by id or number: ${id}`);
-    return this.batchModel.findOne({ 
-      $or: [{ batch_id: id }, { batch_number: id }] 
-    }).exec();
+    return this.batchModel
+      .findOne({
+        $or: [{ batch_id: id }, { batch_number: id }],
+      })
+      .exec();
   }
 
   /**
@@ -175,7 +180,14 @@ export class ProductionBatchRepository {
     return this.batchModel
       .findOneAndUpdate(
         { $or: [{ batch_id: batchId }, { batch_number: batchId }] },
-        updateDto,
+        {
+          ...updateDto,
+          ...(updateDto.batch_size && {
+            batch_size: Types.Decimal128.fromString(
+              updateDto.batch_size.toString(),
+            ),
+          }),
+        },
         {
           new: true,
           runValidators: true,
