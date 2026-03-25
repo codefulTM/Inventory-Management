@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   RefreshCw,
@@ -9,20 +9,20 @@ import {
   ChevronLeft,
   ChevronRight,
   FlaskConical,
-} from 'lucide-react';
-import type { ProductionBatch, BatchStatus } from '../../../types/production';
-import { BATCH_STATUS_LIST } from '../../../types/production';
+} from "lucide-react";
+import type { ProductionBatch, BatchStatus } from "../../../types/production";
+import { BATCH_STATUS_LIST } from "../../../types/production";
 import {
   fetchProductionBatches,
   fetchProductionBatchesByStatus,
   deleteProductionBatch,
-} from '../../../services/productionBatchService';
+} from "../../../services/productionBatchService";
 
 const STATUS_COLORS: Record<string, string> = {
-  'In Progress': 'bg-blue-100 text-blue-700',
-  Complete: 'bg-green-100 text-green-700',
-  'On Hold': 'bg-yellow-100 text-yellow-700',
-  Cancelled: 'bg-red-100 text-red-700',
+  "In Progress": "bg-blue-100 text-blue-700",
+  Complete: "bg-green-100 text-green-700",
+  "On Hold": "bg-yellow-100 text-yellow-700",
+  Cancelled: "bg-red-100 text-red-700",
 };
 
 export default function ProductionBatchList() {
@@ -31,7 +31,7 @@ export default function ProductionBatchList() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<BatchStatus | ''>('');
+  const [statusFilter, setStatusFilter] = useState<BatchStatus | "">("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -46,21 +46,25 @@ export default function ProductionBatchList() {
         : await fetchProductionBatches(page, LIMIT);
 
       // DEBUG: log object trả về từ API
-      console.log('[DEBUG] ProductionBatch API result:', result);
+      console.log("[DEBUG] ProductionBatch API result:", result);
       if (Array.isArray(result?.data)) {
-        setBatches(result.data.map(b => ({
-          ...b,
-          batch_id: b.batch_id || b._id
-        })));
+        setBatches(
+          result.data.map((b) => ({
+            ...b,
+            batch_id: b.batch_id || b._id,
+          })),
+        );
       } else {
         setBatches([]);
-        console.error('[ERROR] API trả về không đúng định dạng: thiếu mảng data');
+        console.error(
+          "[ERROR] API trả về không đúng định dạng: thiếu mảng data",
+        );
       }
       setTotal(result?.pagination?.total || 0);
       setTotalPages(result?.pagination?.totalPages || 1);
     } catch (e: any) {
-      console.error('Failed to load production batches:', e);
-      setError(e.message || 'Failed to load production batches');
+      console.error("Failed to load production batches:", e);
+      setError(e.message || "Failed to load production batches");
       setBatches([]);
       setTotal(0);
       setTotalPages(1);
@@ -91,7 +95,7 @@ export default function ProductionBatchList() {
     }
   };
 
-  const handleStatusFilter = (s: BatchStatus | '') => {
+  const handleStatusFilter = (s: BatchStatus | "") => {
     setStatusFilter(s);
     setPage(1);
   };
@@ -118,11 +122,11 @@ export default function ProductionBatchList() {
             Làm mới
           </button>
           <button
-            onClick={() => navigate('/manager/production-batches/create')}
+            onClick={() => navigate("/manager/production-batches/create")}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
           >
             <Plus size={16} />
-            + New Batch
+            New Batch
           </button>
         </div>
       </div>
@@ -130,11 +134,11 @@ export default function ProductionBatchList() {
       {/* Status filter tabs */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => handleStatusFilter('')}
+          onClick={() => handleStatusFilter("")}
           className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-            statusFilter === ''
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-              : 'bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200'
+            statusFilter === ""
+              ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+              : "bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200"
           }`}
         >
           Tất cả
@@ -145,8 +149,8 @@ export default function ProductionBatchList() {
             onClick={() => handleStatusFilter(s)}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
               statusFilter === s
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                : 'bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200'
+                ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                : "bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200"
             }`}
           >
             {s}
@@ -186,13 +190,13 @@ export default function ProductionBatchList() {
               <thead className="bg-gray-50">
                 <tr>
                   {[
-                    'Batch Number',
-                    'Product ID',
-                    'Batch Size',
-                    'Status',
-                    'Manufacture Date',
-                    'Expiration Date',
-                    'Actions',
+                    "Batch Number",
+                    "Product ID",
+                    "Batch Size",
+                    "Status",
+                    // "Manufacture Date",
+                    // "Expiration Date",
+                    "Actions",
                   ].map((h) => (
                     <th
                       key={h}
@@ -222,17 +226,21 @@ export default function ProductionBatchList() {
                     </td>
                     <td className="px-5 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-black ${STATUS_COLORS[batch.status] ?? 'bg-gray-100 text-gray-600'}`}
+                        className={`px-2.5 py-1 rounded-full text-xs font-black ${STATUS_COLORS[batch.status] ?? "bg-gray-100 text-gray-600"}`}
                       >
                         {batch.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-gray-500 text-xs">
-                      {new Date(batch.manufacture_date).toLocaleDateString('vi-VN')}
+                    {/* <td className="px-5 py-4 text-gray-500 text-xs">
+                      {new Date(batch.manufacture_date).toLocaleDateString(
+                        "vi-VN",
+                      )}
                     </td>
                     <td className="px-5 py-4 text-gray-500 text-xs">
-                      {new Date(batch.expiration_date).toLocaleDateString('vi-VN')}
-                    </td>
+                      {new Date(batch.expiration_date).toLocaleDateString(
+                        "vi-VN",
+                      )}
+                    </td> */}
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1">
                         <button
