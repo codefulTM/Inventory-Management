@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Edit2,
@@ -9,22 +9,25 @@ import {
   Package,
   RefreshCw,
   X,
-} from 'lucide-react';
-import type { ProductionBatch, BatchComponent } from '../../../types/production';
+} from "lucide-react";
+import type {
+  ProductionBatch,
+  BatchComponent,
+} from "../../../types/production";
 import {
   fetchProductionBatch,
   fetchBatchComponents,
   deleteProductionBatch,
   createBatchComponent,
   deleteBatchComponent,
-} from '../../../services/productionBatchService';
-import { v4 as uuidv4 } from 'uuid';
+} from "../../../services/productionBatchService";
+import { v4 as uuidv4 } from "uuid";
 
 const STATUS_COLORS: Record<string, string> = {
-  'In Progress': 'bg-blue-100 text-blue-700',
-  Complete: 'bg-green-100 text-green-700',
-  'On Hold': 'bg-yellow-100 text-yellow-700',
-  Cancelled: 'bg-red-100 text-red-700',
+  "In Progress": "bg-blue-100 text-blue-700",
+  Complete: "bg-green-100 text-green-700",
+  "On Hold": "bg-yellow-100 text-yellow-700",
+  Cancelled: "bg-red-100 text-red-700",
 };
 
 function AddComponentModal({
@@ -37,22 +40,20 @@ function AddComponentModal({
   onSaved: () => void;
 }) {
   const [form, setForm] = useState({
-    lot_id: '',
-    planned_quantity: '',
-    unit_of_measure: '',
-    added_by: '',
+    lot_id: "",
+    planned_quantity: "",
+    unit_of_measure: "",
+    added_by: "",
   });
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState('');
+  const [err, setErr] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setErr('');
+    setErr("");
     try {
       await createBatchComponent(batchId, {
-        component_id: uuidv4(),
-        batch_id: batchId,
         lot_id: form.lot_id,
         planned_quantity: form.planned_quantity,
         unit_of_measure: form.unit_of_measure,
@@ -71,8 +72,13 @@ function AddComponentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-black text-gray-900">Thêm Batch Component</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+          <h3 className="text-lg font-black text-gray-900">
+            Thêm Batch Component
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-lg"
+          >
             <X size={20} />
           </button>
         </div>
@@ -152,7 +158,7 @@ function AddComponentModal({
               disabled={saving}
               className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? 'Đang lưu...' : 'Thêm Component'}
+              {saving ? "Đang lưu..." : "Thêm Component"}
             </button>
           </div>
         </form>
@@ -169,7 +175,9 @@ export default function ProductionBatchDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [deletingCompId, setDeletingCompId] = useState<string | null>(null);
+  const [deletingCompId, setDeletingCompId] = useState<
+    string | null | undefined
+  >(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -198,7 +206,7 @@ export default function ProductionBatchDetail() {
     if (!window.confirm(`Xóa batch "${batch.batch_number}"?`)) return;
     try {
       await deleteProductionBatch(batch.batch_id);
-      navigate('/manager/production-batches');
+      navigate("/manager/production-batches");
     } catch (e: any) {
       alert(e.message);
     }
@@ -206,6 +214,7 @@ export default function ProductionBatchDetail() {
 
   const handleDeleteComponent = async (comp: BatchComponent) => {
     if (!batch) return;
+    if (!comp.component_id) return;
     if (!window.confirm(`Xóa component "${comp.component_id}"?`)) return;
     setDeletingCompId(comp.component_id);
     try {
@@ -247,7 +256,7 @@ export default function ProductionBatchDetail() {
       {/* Back + Actions */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => navigate('/manager/production-batches')}
+          onClick={() => navigate("/manager/production-batches")}
           className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors"
         >
           <ArrowLeft size={16} /> Quay lại
@@ -293,7 +302,7 @@ export default function ProductionBatchDetail() {
             </div>
           </div>
           <span
-            className={`px-3 py-1 rounded-full text-xs font-black ${STATUS_COLORS[batch.status] ?? 'bg-gray-100 text-gray-600'}`}
+            className={`px-3 py-1 rounded-full text-xs font-black ${STATUS_COLORS[batch.status] ?? "bg-gray-100 text-gray-600"}`}
           >
             {batch.status}
           </span>
@@ -301,23 +310,27 @@ export default function ProductionBatchDetail() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {[
-            { label: 'Product ID', value: batch.product_id },
+            { label: "Product ID", value: batch.product_id },
             {
-              label: 'Batch Size',
+              label: "Batch Size",
               value: `${batch.batch_size} ${batch.unit_of_measure}`,
             },
-            { label: 'Unit of Measure', value: batch.unit_of_measure },
+            { label: "Unit of Measure", value: batch.unit_of_measure },
             {
-              label: 'Manufacture Date',
-              value: new Date(batch.manufacture_date).toLocaleDateString('vi-VN'),
+              label: "Manufacture Date",
+              value: new Date(batch.manufacture_date).toLocaleDateString(
+                "vi-VN",
+              ),
             },
             {
-              label: 'Expiration Date',
-              value: new Date(batch.expiration_date).toLocaleDateString('vi-VN'),
+              label: "Expiration Date",
+              value: new Date(batch.expiration_date).toLocaleDateString(
+                "vi-VN",
+              ),
             },
             {
-              label: 'Created Date',
-              value: new Date(batch.created_date).toLocaleDateString('vi-VN'),
+              label: "Created Date",
+              value: new Date(batch.created_date).toLocaleDateString("vi-VN"),
             },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-50 rounded-xl p-3">
@@ -358,14 +371,14 @@ export default function ProductionBatchDetail() {
               <thead className="bg-gray-50">
                 <tr>
                   {[
-                    'Component ID',
-                    'Lot ID',
-                    'Planned Qty',
-                    'Actual Qty',
-                    'Unit',
-                    'Added By',
-                    'Addition Date',
-                    '',
+                    "Component ID",
+                    "Lot ID",
+                    "Planned Qty",
+                    "Actual Qty",
+                    "Unit",
+                    "Added By",
+                    "Addition Date",
+                    "",
                   ].map((h) => (
                     <th
                       key={h}
@@ -379,12 +392,14 @@ export default function ProductionBatchDetail() {
               <tbody>
                 {components.map((comp) => (
                   <tr
-                    key={comp.component_id}
+                    key={comp.component_id ?? comp.lot_id}
                     className="border-t border-gray-50 hover:bg-blue-50/20 transition-colors"
                   >
                     <td className="px-5 py-3">
                       <code className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono text-purple-700">
-                        {comp.component_id.substring(0, 8)}...
+                        {comp.component_id
+                          ? `${comp.component_id.substring(0, 8)}...`
+                          : "—"}
                       </code>
                     </td>
                     <td className="px-5 py-3 font-mono text-xs text-gray-600">
@@ -408,8 +423,10 @@ export default function ProductionBatchDetail() {
                     </td>
                     <td className="px-5 py-3 text-xs text-gray-400">
                       {comp.addition_date
-                        ? new Date(comp.addition_date).toLocaleDateString('vi-VN')
-                        : '—'}
+                        ? new Date(comp.addition_date).toLocaleDateString(
+                            "vi-VN",
+                          )
+                        : "—"}
                     </td>
                     <td className="px-5 py-3">
                       <button
