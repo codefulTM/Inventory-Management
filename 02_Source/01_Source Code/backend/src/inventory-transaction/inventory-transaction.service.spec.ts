@@ -4,6 +4,10 @@ import { InventoryTransactionService } from './inventory-transaction.service';
 import { InventoryTransactionRepository } from './inventory-transaction.repository';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
 
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mock-transaction-id'),
+}));
+
 describe('InventoryTransactionService', () => {
   let service: InventoryTransactionService;
   let repository: InventoryTransactionRepository;
