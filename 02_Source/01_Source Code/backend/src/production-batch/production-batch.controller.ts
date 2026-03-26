@@ -19,7 +19,9 @@ import { UpdateProductionBatchDto } from './dto/update-production-batch.dto';
 import { CreateBatchComponentDto } from './dto/create-batch-component.dto';
 import { UpdateBatchComponentDto } from './dto/update-batch-component.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '../schemas/user.schema';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 
 /**
  * ProductionBatch Controller
@@ -123,8 +125,10 @@ export class ProductionBatchController {
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, skipMissingProperties: true }))
     updateDto: UpdateProductionBatchDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.productionBatchService.update(id, updateDto);
+    const performedBy = user?.username || user?.email || user?.keycloak_id || 'system';
+    return this.productionBatchService.update(id, updateDto, performedBy);
   }
 
   /**

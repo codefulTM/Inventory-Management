@@ -417,6 +417,7 @@ export class ProductionBatchService {
   async update(
     batchId: string,
     updateDto: UpdateProductionBatchDto,
+    performedBy: string = 'system',
   ): Promise<ProductionBatchResponseDto> {
     this.logger.log(`Updating production batch: ${batchId}`);
 
@@ -452,8 +453,6 @@ export class ProductionBatchService {
           await this.verifyInventoryAvailability(components);
 
           // Step 3: Deduct materials from inventory and create transactions
-          // Extract user from request context (assuming it's passed via request)
-          const performedBy = 'system'; // TODO: Get from request.user in controller
           await this.deductMaterialsFromInventory(batchId, components, performedBy);
 
           // Step 4: Create finished product lot
