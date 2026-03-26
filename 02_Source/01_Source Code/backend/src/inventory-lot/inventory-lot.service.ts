@@ -216,7 +216,7 @@ export class InventoryLotService {
 
   async update(
     lot_id: string,
-    updateDto: UpdateInventoryLotDto,
+    updateDto: Partial<UpdateInventoryLotDto>,
   ): Promise<InventoryLotResponseDto> {
     // Verify lot exists
     const existingLot = await this.inventoryLotRepository.findById(lot_id);
@@ -235,20 +235,38 @@ export class InventoryLotService {
       }
     }
 
-    // Determine quantity change and validate new quantity
-    const quantityDelta = updateDto.quantity - existingLot.quantity;
-    const quantityChanged = quantityDelta !== 0;
+    if (updateDto.quantity) {
+      // Determine quantity change and validate new quantity
+      const quantityDelta = updateDto.quantity - existingLot.quantity;
+      const quantityChanged = quantityDelta !== 0;
 
-    if (updateDto.quantity < 0) {
-      throw new BadRequestException('Quantity cannot be negative');
-    }
+      if (updateDto.quantity < 0) {
+        throw new BadRequestException('Quantity cannot be negative');
+      }
 
-    // Check if lot would become Depleted
-    if (
-      updateDto.quantity === 0 &&
-      existingLot.status !== InventoryLotStatus.DEPLETED
-    ) {
-      updateDto.status = InventoryLotStatus.DEPLETED;
+      // Check if lot would become Depleted
+      if (
+        updateDto.quantity === 0 &&
+        existingLot.status !== InventoryLotStatus.DEPLETED
+      ) {
+        updateDto.status = InventoryLotStatus.DEPLETED;
+      }
+
+      if (quantityChanged) {
+        // Create inventory transaction for quantity change (Receipt if +, Usage if -)
+        await this.inventoryTransactionService.create({
+          lot_id,
+          transaction_type:
+            quantityDelta > 0 ? TransactionType.Receipt : TransactionType.Usage,
+          quantity: quantityDelta,
+          unit_of_measure:
+            updateDto.unit_of_measure || existingLot.unit_of_measure,
+          performed_by: updateDto.qc_by || existingLot.received_by || 'system',
+          reference_number: `lot-update:${lot_id}`,
+          notes: `Quantity changed from ${existingLot.quantity} to ${updateDto.quantity}`,
+          transaction_date: new Date().toISOString(),
+        });
+      }
     }
 
     // Validate status transitions
@@ -274,22 +292,6 @@ export class InventoryLotService {
     );
     if (!updatedLot) {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
-    }
-
-    if (quantityChanged) {
-      // Create inventory transaction for quantity change (Receipt if +, Usage if -)
-      await this.inventoryTransactionService.create({
-        lot_id,
-        transaction_type:
-          quantityDelta > 0 ? TransactionType.Receipt : TransactionType.Usage,
-        quantity: quantityDelta,
-        unit_of_measure:
-          updateDto.unit_of_measure || existingLot.unit_of_measure,
-        performed_by: updateDto.qc_by || existingLot.received_by || 'system',
-        reference_number: `lot-update:${lot_id}`,
-        notes: `Quantity changed from ${existingLot.quantity} to ${updateDto.quantity}`,
-        transaction_date: new Date().toISOString(),
-      });
     }
 
     return this.convertToResponse(updatedLot);
