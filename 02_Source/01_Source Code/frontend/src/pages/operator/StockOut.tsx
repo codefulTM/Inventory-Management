@@ -3,7 +3,7 @@
  * Handles outgoing material dispatch and inventory transaction recording
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Form,
@@ -49,7 +49,7 @@ export default function StockOut() {
   const [dispatchItems, setDispatchItems] = useState<DispatchItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [barcodeScanValue, setBarcodeScanValue] = useState('');
-  const [inventoryLots, setInventoryLots] = useState<any[]>([]);
+  const [inventoryLots] = useState<any[]>([]);
   const [isPreviewModalVisible, setIsPreviewModalVisible] = useState(false);
 
   // Fetch available inventory lots on mount

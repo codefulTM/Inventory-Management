@@ -3,7 +3,7 @@
  * Handles incoming material receipt and inventory lot creation
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Card,
   Form,
@@ -21,7 +21,6 @@ import {
 } from 'antd';
 import { ScanOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import ComingSoon from '../../components/ComingSoon';
 
 interface ScannedItem {
   id: string;

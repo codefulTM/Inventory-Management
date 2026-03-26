@@ -165,7 +165,7 @@ class ErrorLoggingService {
   /**
    * Report to error tracking service (Sentry, etc.)
    */
-  private reportToErrorTracking(log: ErrorLog): void {
+  private reportToErrorTracking(_log: ErrorLog): void {
     // TODO: Integrate with error tracking service (Sentry, Rollbar, etc.)
     if (window.location.hostname !== 'localhost') {
       // Only report in production
