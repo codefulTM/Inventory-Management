@@ -20,6 +20,8 @@ import { CreateBatchComponentDto } from './dto/create-batch-component.dto';
 import { UpdateBatchComponentDto } from './dto/update-batch-component.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 
 /**
  * ProductionBatch Controller
@@ -123,8 +125,10 @@ export class ProductionBatchController {
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, skipMissingProperties: true }))
     updateDto: UpdateProductionBatchDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.productionBatchService.update(id, updateDto);
+    const actor = user?.username || user?.email || 'system';
+    return this.productionBatchService.update(id, updateDto, actor);
   }
 
   /**
