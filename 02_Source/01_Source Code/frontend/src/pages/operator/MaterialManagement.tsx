@@ -1,4 +1,5 @@
-import ComingSoon from "../../components/ComingSoon";
+import MaterialList from '../manager/materials/List';
+
 export default function MaterialManagement() {
-  return <ComingSoon title="Quan ly nguyen lieu" description="Quan ly nguyen lieu" />;
+  return <MaterialList />;
 }

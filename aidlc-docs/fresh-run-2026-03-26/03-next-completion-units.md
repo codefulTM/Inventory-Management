@@ -1,21 +1,16 @@
 # Fresh AI-DOC - Next Completion Units
 
 ## Priority Queue (Based on 01_Documents Backlog P0/P1)
-1. Operator Inventory Audit (US04, P0)
-   - Replace placeholder page
-   - Implement count entry and discrepancy detection
-   - Persist adjustment proposal records
-
-2. IT Admin Monitoring and Backup (US01, US03, P0)
-   - Replace DashboardIT/SystemMonitoring/BackupRestore placeholders
-   - Implement health summary + backup schedule UI against available APIs
-
-3. Label Template Real Data Integration
-   - Replace mock data usage in backend label-template service
-   - Integrate InventoryLot and ProductionBatch lookups
-
-4. QC Re-test and Quarantine bulk operations
+1. QC Re-test and Quarantine bulk operations
    - Extend QC workflows with pending re-test queue and lot status actions
+
+2. Operator dashboard and material workflows hardening
+   - Add dedicated operator-focused material list (instead of shared manager list)
+   - Add KPI trend widgets and alert feed for operator dashboard
+
+3. IT Admin backend integration hardening
+   - Replace demo local-storage backup snapshots with backend backup APIs
+   - Add persistent system health checks and error-source filtering
 
 ## Exit Criteria for "Finished" Claim
 A practical completion threshold for this repository state:
