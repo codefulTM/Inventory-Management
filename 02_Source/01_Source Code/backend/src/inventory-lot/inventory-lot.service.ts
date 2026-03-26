@@ -235,7 +235,7 @@ export class InventoryLotService {
       }
     }
 
-    if (updateDto.quantity) {
+    if (updateDto.quantity && updateDto.quantity >= 0) {
       // Determine quantity change and validate new quantity
       const quantityDelta = updateDto.quantity - existingLot.quantity;
       const quantityChanged = quantityDelta !== 0;
