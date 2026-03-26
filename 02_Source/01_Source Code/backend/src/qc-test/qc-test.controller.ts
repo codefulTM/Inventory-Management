@@ -59,6 +59,22 @@ export class QCTestController {
   }
 
   @Roles(UserRole.QC_TECHNICIAN, UserRole.MANAGER)
+  @Post('batch/:batch_id/init')
+  @HttpCode(HttpStatus.CREATED)
+  initTestFromBatch(
+    @Param('batch_id') batch_id: string,
+    @Body()
+    dto: {
+      performed_by: string;
+      test_type?: CreateQCTestDto['test_type'];
+      test_method?: string;
+      acceptance_criteria?: string;
+    },
+  ) {
+    return this.qcTestService.initTestFromBatch(batch_id, dto);
+  }
+
+  @Roles(UserRole.QC_TECHNICIAN, UserRole.MANAGER)
   @Post('lot/:lot_id/decision')
   @HttpCode(HttpStatus.OK)
   submitDecision(
