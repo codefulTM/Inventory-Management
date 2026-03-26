@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsPositive, IsEnum, IsOptional, IsDate } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsPositive, IsEnum, IsOptional, IsDateString } from 'class-validator';
 
 /**
  * DTO for creating a new inventory transaction
@@ -25,9 +25,9 @@ export class CreateInventoryTransactionDto {
   @IsNotEmpty()
   unit_of_measure: string;
 
-  @IsDate()
+  @IsDateString()
   @IsNotEmpty()
-  transaction_date: Date;
+  transaction_date: string;
 
   @IsString()
   @IsOptional()

@@ -1,23 +1,47 @@
 import {
   Controller,
   Get,
+  Post,
+  Body,
   Query,
   DefaultValuePipe,
   ParseIntPipe,
   UseGuards,
   BadRequestException,
+  ValidationPipe,
 } from '@nestjs/common';
 import { InventoryTransactionService } from './inventory-transaction.service';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
+import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 
 @Controller('inventory-transactions')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class InventoryTransactionController {
   constructor(private readonly service: InventoryTransactionService) {}
+
+  /**
+   * Create a new inventory transaction
+   * Accessible to OPERATOR and MANAGER to support stock-in/stock-out workflow
+   */
+  @Post()
+  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  async create(
+    @Body(new ValidationPipe({ transform: true })) dto: CreateInventoryTransactionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const performedBy = user?.username || user?.email || user?.keycloak_id || dto.performed_by;
+    return await this.service.create({
+      ...dto,
+      performed_by: performedBy,
+    });
+  }
 
   /**
    * Get all inventory transactions with optional filters and pagination
