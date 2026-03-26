@@ -16,6 +16,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { InventoryTransactionModule } from './inventory-transaction/inventory-transaction.module';
 import { AppService } from "./app.service";
+import { KafkaModule } from './event-bus/kafka.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AppService } from "./app.service";
     // AiModule,
     LabelTemplateModule,
     InventoryTransactionModule,
+    KafkaModule,
   ],
   controllers: [AppController],
   providers: [
