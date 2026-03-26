@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaOptions, Schema as MongooseSchema } from 'mongoose';
-import type { Decimal128 } from 'mongoose';
 
 export type BatchComponentDocument = BatchComponent & Document;
 
@@ -20,11 +19,11 @@ export class BatchComponent {
   @Prop({ type: String, required: true, maxlength: 36 })
   lot_id: string;
 
-  @Prop({ type: MongooseSchema.Types.Decimal128, required: true })
-  planned_quantity: Decimal128;
+  @Prop({ type: Number, required: true })
+  planned_quantity: number;
 
-  @Prop({ type: MongooseSchema.Types.Decimal128, required: false })
-  actual_quantity?: Decimal128;
+  @Prop({ type: Number, required: false })
+  actual_quantity?: number;
 
   @Prop({ type: String, required: true, maxlength: 10 })
   unit_of_measure: string;

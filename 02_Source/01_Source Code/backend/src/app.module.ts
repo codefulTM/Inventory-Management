@@ -14,6 +14,7 @@ import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
+import { InventoryTransactionModule } from './inventory-transaction/inventory-transaction.module';
 import { AppService } from "./app.service";
 
 @Module({
@@ -29,6 +30,7 @@ import { AppService } from "./app.service";
     QCTestModule,
     AiModule,
     LabelTemplateModule,
+    InventoryTransactionModule,
   ],
   controllers: [AppController],
   providers: [

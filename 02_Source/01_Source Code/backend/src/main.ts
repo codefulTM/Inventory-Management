@@ -7,9 +7,9 @@ async function bootstrap() {
 
   // lấy cấu hình từ ConfigService
   const config = app.get(ConfigService);
-  const port = config.get<string>('PORT') ?? '3000';
+  const port = config.get<string>('PORT') ?? '3001';
   const frontendOrigin =
-    config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3000';
+    config.get<string>('FRONTEND_ORIGIN') ?? 'http://localhost:3000';
 
   // Cấu hình CORS: cho phép các nguồn, phương thức, header và credentials cụ thể
   app.enableCors({

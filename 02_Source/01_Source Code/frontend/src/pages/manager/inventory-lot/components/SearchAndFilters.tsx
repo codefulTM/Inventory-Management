@@ -41,7 +41,7 @@ export function SearchAndFilters({
           className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg flex items-center space-x-2 transition"
         >
           <Edit size={20} />
-          <span>Thêm mới</span>
+          <span>Thêm</span>
         </button>
       </div>
     </div>

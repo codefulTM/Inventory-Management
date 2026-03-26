@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API Client
  * Wrapper tái sử dụng với error handling tổng quát
@@ -47,7 +48,11 @@ export function isTokenValid(): boolean {
 /**
  * Get current user info từ localStorage
  */
-export function getCurrentUser(): { user_id?: string; role?: string; username?: string } | null {
+export function getCurrentUser(): {
+  user_id?: string;
+  role?: string;
+  username?: string;
+} | null {
   try {
     const userStr = localStorage.getItem("user");
     if (!userStr) return null;
@@ -106,13 +111,16 @@ class ApiClient {
     this.axiosInstance.interceptors.request.use(
       (config) => {
         // Không require token cho auth endpoints
-        const isAuthEndpoint = config.url?.includes('/auth/');
+        const isAuthEndpoint = config.url?.includes("/auth/");
 
         // Thêm Authorization header với token (ngoại trừ auth endpoints)
         const token = localStorage.getItem("auth_token");
         if (token && !isAuthEndpoint) {
           config.headers.Authorization = `Bearer ${token}`;
-          console.log(`[API] Request to ${config.url} - Token added:`, token.substring(0, 20) + '...');
+          console.log(
+            `[API] Request to ${config.url} - Token added:`,
+            token.substring(0, 20) + "...",
+          );
         } else if (!isAuthEndpoint && !token) {
           console.warn(`[API] Request to ${config.url} - NO TOKEN FOUND!`);
         } else if (isAuthEndpoint) {
@@ -138,8 +146,13 @@ class ApiClient {
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       (error) => {
-        // Nếu token hết hạn hoặc unauthorized, redirect to login
-        if (error.response?.status === 401) {
+        // Không redirect tự động cho auth endpoints (login, register, logout)
+        // Để cho component xử lý error message
+        const url = error.config?.url || "";
+        const isAuthEndpoint = url.includes("/auth/");
+
+        // Nếu token hết hạn hoặc unauthorized, redirect to login (chỉ cho non-auth requests)
+        if (error.response?.status === 401 && !isAuthEndpoint) {
           console.error(`[API] 401 Unauthorized - Token invalid or expired`);
           console.error(`[API] Response:`, error.response?.data);
           localStorage.removeItem("auth_token");
@@ -240,9 +253,12 @@ class ApiClient {
 
       // Nếu response.data.data không tồn tại, trả về response.data (hỗ trợ cả 2 kiểu API)
       return {
-        data: (response.data && typeof response.data === 'object' && 'data' in response.data)
-          ? response.data.data as T
-          : response.data as T,
+        data:
+          response.data &&
+          typeof response.data === "object" &&
+          "data" in response.data
+            ? (response.data.data as T)
+            : (response.data as T),
         error: null,
       };
     } catch (error) {

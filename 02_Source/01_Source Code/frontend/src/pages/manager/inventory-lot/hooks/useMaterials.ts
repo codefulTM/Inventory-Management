@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiClient } from "../../../../services/apiClient";
 
 export interface Material {
   _id: string;
@@ -21,14 +22,15 @@ export function useMaterials() {
     const fetchMaterials = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:3000/materials");
+        const { data, error: apiError } = await apiClient.get<any>("/materials");
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch materials: ${response.statusText}`);
+        if (apiError) {
+          throw new Error(apiError.message || "Failed to fetch materials");
         }
 
-        const result = await response.json();
-        setMaterials(result);
+        // Handle both direct array response and wrapped response
+        const materials = Array.isArray(data) ? data : data?.payload || data?.data || [];
+        setMaterials(materials);
         setError(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";

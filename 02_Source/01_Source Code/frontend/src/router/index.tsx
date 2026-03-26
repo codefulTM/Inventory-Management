@@ -18,7 +18,6 @@ import InventoryLot from "../pages/manager/inventory-lot/InventoryLot";
 import MaterialManagementManager from "../pages/manager/MaterialManagement";
 import ProductManagementManager from "../pages/manager/ProductManagement";
 import ReportsManager from "../pages/manager/Reports";
-import TransactionManagementManager from "../pages/manager/TransactionManagement";
 import UserManagementManager from "../pages/manager/UserManagement";
 import LabelManagement from "../pages/manager/LabelManagement";
 import ProductCreationManager from "../pages/manager/ProductCreation";
@@ -42,6 +41,7 @@ import OperatorProductionBatchForm from "../pages/operator/production-batches/Fo
 import type { JSX } from "react";
 import { isTokenValid } from "../utils/authUtils";
 import StockManagement from "../pages/manager/StockManagement.tsx";
+import {TransactionManagementManager} from "../pages/manager/TransactionManagementManager.tsx";
 
 /**
  * Get user role from localStorage with normalization

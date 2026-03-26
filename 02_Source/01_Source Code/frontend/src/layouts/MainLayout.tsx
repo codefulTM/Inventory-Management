@@ -140,6 +140,11 @@ export default function Layout() {
             label: "Báo cáo",
           },
           {
+            to: "/manager/transaction",
+            icon: <History size={20} />,
+            label: "Lịch sử giao dịch",
+          },
+          {
             to: "/manager/users",
             icon: <FileText size={20} />,
             label: "Quản lý Users",
@@ -394,7 +399,7 @@ export default function Layout() {
           <div className="px-8 py-6 flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-none uppercase">
-                Quản lý hệ thống
+                Week 7 - Demo - 456
               </h1>
               <p className="text-[11px] text-gray-400 font-bold mt-2 flex items-center gap-1 uppercase tracking-widest">
                 Hệ thống Quản lý Dược phẩm <ChevronRight size={10} />{" "}

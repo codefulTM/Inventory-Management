@@ -1,4 +1,18 @@
-export type LotStatus = 'Pending' | 'Received' | 'QC_Pending' | 'QC_Passed' | 'QC_Failed' | 'In_Use' | 'Consumed' | 'Disposed' | 'Quarantine' | 'Accepted' | 'Rejected' | 'Depleted' | 'Hold';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export type LotStatus =
+  | "Pending"
+  | "Received"
+  | "QC_Pending"
+  | "QC_Passed"
+  | "QC_Failed"
+  | "In_Use"
+  | "Consumed"
+  | "Disposed"
+  | "Quarantine"
+  | "Accepted"
+  | "Rejected"
+  | "Depleted"
+  | "Hold";
 
 export interface InventoryLot {
   _id: string;
@@ -24,7 +38,13 @@ export interface InventoryLot {
   history?: Record<string, any>[];
 }
 
-export type TransactionType = 'Receipt' | 'Usage' | 'Split' | 'Adjustment' | 'Transfer' | 'Disposal';
+export type TransactionType =
+  | "Receipt"
+  | "Usage"
+  | "Split"
+  | "Adjustment"
+  | "Transfer"
+  | "Disposal";
 
 export interface InventoryTransaction {
   _id: string;

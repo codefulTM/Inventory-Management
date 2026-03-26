@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { UserService } from '../user/user.service';
-import {UserDocument, UserRole} from '../schemas/user.schema';
+import { UserDocument, UserRole } from '../schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -26,18 +26,25 @@ export class AuthService {
   async login(dto: LoginDto) {
     try {
       // 1. Xác thực qua Keycloak
-      const tokenSet = await this.keycloakService.loginUser(dto.username, dto.password);
+      const tokenSet = await this.keycloakService.loginUser(
+        dto.username,
+        dto.password,
+      );
 
       // 2. Tìm user trong MongoDB theo username
       let user = await this.userService.findByUsername(dto.username);
       if (!user) {
         // Nếu không có user trong MongoDB, lấy info từ Keycloak
-        const kcUser = await this.keycloakService.findKeycloakUserByUsername(dto.username);
+        const kcUser = await this.keycloakService.findKeycloakUserByUsername(
+          dto.username,
+        );
         if (!kcUser) {
           throw new UnauthorizedException('Không tìm thấy tài khoản Keycloak');
         }
         // Lấy realm roles từ Keycloak
-        const realmRoles = await this.keycloakService.getRealmRolesForUser(kcUser.id);
+        const realmRoles = await this.keycloakService.getRealmRolesForUser(
+          kcUser.id,
+        );
         let role: UserRole = UserRole.OPERATOR;
         for (const r of Object.values(UserRole)) {
           if (realmRoles.includes(r)) {
@@ -54,7 +61,9 @@ export class AuthService {
           is_active: kcUser.enabled,
         });
         if (!userCreated) {
-          throw new UnauthorizedException('Không thể tạo tài khoản trong hệ thống');
+          throw new UnauthorizedException(
+            'Không thể tạo tài khoản trong hệ thống',
+          );
         }
         user = <UserDocument>{
           user_id: userCreated.user_id,
@@ -62,7 +71,7 @@ export class AuthService {
           email: userCreated.email,
           role: userCreated.role,
           is_active: userCreated.is_active,
-        }
+        };
       }
 
       if (!user.is_active) {
@@ -88,7 +97,9 @@ export class AuthService {
         },
       };
     } catch (error) {
-      this.logger.warn(`Login failed for username: ${dto.username} - ${error.message}`);
+      this.logger.warn(
+        `Login failed for username: ${dto.username} - ${error.message}`,
+      );
       throw new UnauthorizedException('Đăng nhập thất bại: ' + error.message);
     }
   }

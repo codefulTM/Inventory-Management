@@ -5,7 +5,6 @@ import {
   Types,
   Schema as MongooseSchema,
 } from 'mongoose';
-import type { Decimal128 } from 'mongoose';
 
 export type LabelTemplateDocument = LabelTemplate & Document;
 
@@ -42,12 +41,11 @@ export class LabelTemplate {
   @Prop({ type: String, required: true })
   template_content: string;
 
-  // sử dụng Decimal128 vì mongoose không có kiểu decimal25
-  @Prop({ type: MongooseSchema.Types.Decimal128, required: true })
-  width: Decimal128;
+  @Prop({ type: Number, required: true })
+  width: number;
 
-  @Prop({ type: MongooseSchema.Types.Decimal128, required: true })
-  height: Decimal128;
+  @Prop({ type: Number, required: true })
+  height: number;
 }
 
 export const LabelTemplateSchema = SchemaFactory.createForClass(LabelTemplate);

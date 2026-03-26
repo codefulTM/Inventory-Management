@@ -81,5 +81,5 @@ out/
 # ======================
 # AI-DLC state
 aidlc-state.md
-# Bỏ qua file Config.md trong thư mục 01_Documents/AIGenDocs
-01_Documents/AIGenDocs/Config.md
+# Bỏ qua thư mục aidlc-docs
+aidlc-docs

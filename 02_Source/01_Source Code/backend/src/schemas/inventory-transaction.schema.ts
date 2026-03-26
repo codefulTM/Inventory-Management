@@ -5,11 +5,11 @@ import {
   Types,
   Schema as MongooseSchema,
 } from 'mongoose';
-import type { Decimal128 } from 'mongoose';
 
 export type InventoryTransactionDocument = InventoryTransaction & Document;
 
 const options: SchemaOptions = {
+  collection: 'inventory_transactions',
   timestamps: { createdAt: 'created_date', updatedAt: 'modified_date' },
 };
 
@@ -32,8 +32,8 @@ export class InventoryTransaction {
   })
   transaction_type: string;
 
-  @Prop({ type: MongooseSchema.Types.Decimal128, required: true })
-  quantity: Decimal128;
+  @Prop({ type: Number, required: true })
+  quantity: number;
 
   @Prop({ type: String, required: true, maxlength: 10 })
   unit_of_measure: string;

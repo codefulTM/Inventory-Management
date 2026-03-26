@@ -162,6 +162,7 @@ export class ProductionBatchService {
         performed_by: performedBy,
         notes: `Material deduction for production batch ${batchId}`,
       });
+      console.log('Creating inventory transaction:', transaction);
 
       await transaction.save();
       this.logger.debug(

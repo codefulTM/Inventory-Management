@@ -35,8 +35,8 @@ export class ProductionBatch {
   })
   status: string;
 
-  @Prop({ type: 'Decimal128', required: true })
-  batch_size: any; // Decimal128 will be cast by Mongoose
+  @Prop({ type: Number, required: true })
+  batch_size: number;
 
   // Traceability & audit
   @Prop({ type: String, maxlength: 50, required: false })
