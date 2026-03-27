@@ -8,6 +8,7 @@ import type {
   CreateMaterialRequest,
   UpdateMaterialRequest,
   PaginatedMaterialResponse,
+  MaterialSearchParams,
   MaterialType,
 } from "../types/Material";
 import { API_ENDPOINTS } from "../config/api.config";
@@ -21,12 +22,16 @@ class MaterialService {
    * @returns Paginated list of materials
    */
   async findAll(
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
   ): Promise<PaginatedMaterialResponse> {
+    const params: Record<string, number> = {};
+    if (page !== undefined) params.page = page;
+    if (limit !== undefined) params.limit = limit;
+
     const { data, error } = await apiClient.get<PaginatedMaterialResponse>(
       API_ENDPOINTS.MATERIALS,
-      { params: { page, limit } },
+      { params: Object.keys(params).length ? params : undefined },
     );
     if (error) throw error;
     return data!;
@@ -58,9 +63,9 @@ class MaterialService {
     limit: number = 20,
   ): Promise<PaginatedMaterialResponse> {
     const { data, error } = await apiClient.get<PaginatedMaterialResponse>(
-        API_ENDPOINTS.MATERIALS_SEARCH,
-        { params: { q: query, page, limit } },
-      );
+      API_ENDPOINTS.MATERIALS_SEARCH,
+      { params: { q: query, page, limit } },
+    );
     if (error) throw error;
     return data!;
   }

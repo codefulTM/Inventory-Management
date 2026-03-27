@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  kafka-broker:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-broker
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    environment:
+      # kRaft-specific nhóm biến
+      # KAFKA_PROCESS_ROLES: vai trò của node trong cluster (broker, controller hoặc cả hai)
+      KAFKA_PROCESS_ROLES: broker,controller
+      # KAFKA_NODE_ID: ID duy nhất cho node này
+      KAFKA_NODE_ID: 1
+      # KAFKA_LISTENERS: danh sách URI mà broker sẽ lắng nghe
+      #  - PLAINTEXT cho client bình thường
+      #  - CONTROLLER cho giao tiếp nội bộ giữa các controller/broker
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      # KAFKA_ADVERTISED_LISTENERS: địa chỉ broker công bố cho client bên ngoài
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # KAFKA_CONTROLLER_QUORUM_VOTERS: các voter trong quorum controller (1@host:port)
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      # KAFKA_CONTROLLER_LISTENER_NAMES: tên listener dùng cho controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # KAFKA_NUM_PARTITIONS: số phân vùng mặc định khi tạo topic mới
+      KAFKA_NUM_PARTITIONS: 3
+      # KAFKA_AUTO_CREATE_TOPICS_ENABLE: cho phép tự động tạo topic khi publish
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # storage/config đường dẫn dữ liệu
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # internal topics must be RF=1 in single‑broker setup
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    command:
+      - sh
+      - -c
+      - |
+        # start broker in foreground (no topic setup needed with auto-create enabled)
+        exec /etc/confluent/docker/run
+
+volumes:
+  kafka-data:
+    driver: local

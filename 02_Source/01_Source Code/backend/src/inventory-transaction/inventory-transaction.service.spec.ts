@@ -1,223 +1,146 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { InventoryTransactionService } from './inventory-transaction.service';
 import { InventoryTransactionRepository } from './inventory-transaction.repository';
-import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
+import {
+  CreateInventoryTransactionDto,
+  TransactionType,
+} from './dto/create-inventory-transaction.dto';
+import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
+
+// utility helper
+function makeDto(
+  overrides: Partial<CreateInventoryTransactionDto> = {},
+): CreateInventoryTransactionDto {
+  return {
+    lot_id: 'lot1',
+    transaction_type: TransactionType.Receipt,
+    quantity: 10,
+    unit_of_measure: 'pcs',
+    transaction_date: new Date().toISOString(),
+    reference_number: undefined,
+    performed_by: 'user1',
+    notes: undefined,
+    ...overrides,
+  } as any;
+}
 
 describe('InventoryTransactionService', () => {
-  let service: InventoryTransactionService;
-  let repository: InventoryTransactionRepository;
+  let svc: InventoryTransactionService;
+  let repo: Partial<InventoryTransactionRepository>;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        InventoryTransactionService,
-        {
-          provide: InventoryTransactionRepository,
-          useValue: {
-            create: jest.fn(),
-            findAll: jest.fn(),
-            findByLotId: jest.fn(),
-          },
-        },
-      ],
-    }).compile();
-
-    service = module.get<InventoryTransactionService>(InventoryTransactionService);
-    repository = module.get<InventoryTransactionRepository>(InventoryTransactionRepository);
+  beforeEach(() => {
+    repo = {
+      findAll: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest
+        .fn()
+        .mockImplementation((dto) => Promise.resolve({ ...dto, _id: '123' })),
+      update: jest.fn().mockResolvedValue(null),
+      remove: jest.fn().mockResolvedValue(null),
+    };
+    svc = new InventoryTransactionService(repo as any);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  describe('basic delegation', () => {
+    it('getAll passes filters & paging to repo', async () => {
+      const f = { lot_id: 'x' };
+      const p = { page: 2, limit: 5 };
+      await svc.getAll(f, p);
+      expect(repo.findAll).toHaveBeenCalledWith(f, p);
+    });
+
+    it('getOne delegates', async () => {
+      await svc.getOne('id');
+      expect(repo.findOne).toHaveBeenCalledWith('id');
+    });
+
+    it('update delegates', async () => {
+      const dto: UpdateInventoryTransactionDto = { quantity: 1 } as any;
+      await svc.update('id', dto);
+      expect(repo.update).toHaveBeenCalledWith('id', dto);
+    });
+
+    it('remove delegates', async () => {
+      await svc.remove('id');
+      expect(repo.remove).toHaveBeenCalledWith('id');
+    });
   });
 
-  describe('create', () => {
-    it('should create a valid Receipt transaction', async () => {
-      const dto: CreateInventoryTransactionDto = {
-        lot_id: '507f1f77bcf86cd799439011',
-        material_id: '507f1f77bcf86cd799439012',
-        transaction_type: 'Receipt',
-        quantity: 100,
-        unit_of_measure: 'kg',
-        transaction_date: new Date(),
-        reference_number: 'PO-001',
-        performed_by: '507f1f77bcf86cd799439013',
-        notes: 'Test receipt',
-      };
-
-      const mockResult = {
-        _id: '507f1f77bcf86cd799439014',
-        transaction_id: 'abc-123',
-        ...dto,
-        created_date: new Date(),
-        modified_date: new Date(),
-      };
-
-      jest.spyOn(repository, 'create').mockResolvedValue(mockResult);
-
-      const result = await service.create(dto);
-
-      expect(result).toEqual(mockResult);
-      expect(repository.create).toHaveBeenCalledWith(expect.objectContaining(dto));
+  describe('create()', () => {
+    it('routes to receipt handler', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Receipt,
+        quantity: 5,
+      });
+      const created = await svc.create(dto);
+      expect(created).toHaveProperty('_id');
     });
 
-    it('should create a valid Usage transaction', async () => {
-      const dto: CreateInventoryTransactionDto = {
-        lot_id: '507f1f77bcf86cd799439011',
-        material_id: '507f1f77bcf86cd799439012',
-        transaction_type: 'Usage',
-        quantity: 50,
-        unit_of_measure: 'kg',
-        transaction_date: new Date(),
-        reference_number: 'BATCH-001',
-        performed_by: '507f1f77bcf86cd799439013',
-        notes: 'Test usage',
-      };
-
-      const mockResult = {
-        _id: '507f1f77bcf86cd799439014',
-        transaction_id: 'xyz-789',
-        ...dto,
-        created_date: new Date(),
-        modified_date: new Date(),
-      };
-
-      jest.spyOn(repository, 'create').mockResolvedValue(mockResult);
-
-      const result = await service.create(dto);
-
-      expect(result).toEqual(mockResult);
-      expect(repository.create).toHaveBeenCalled();
-    });
-
-    it('should throw BadRequestException for negative quantity', async () => {
-      const dto: CreateInventoryTransactionDto = {
-        lot_id: '507f1f77bcf86cd799439011',
-        material_id: '507f1f77bcf86cd799439012',
-        transaction_type: 'Receipt',
-        quantity: -10,
-        unit_of_measure: 'kg',
-        transaction_date: new Date(),
-        performed_by: '507f1f77bcf86cd799439013',
-      };
-
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException for zero quantity', async () => {
-      const dto: CreateInventoryTransactionDto = {
-        lot_id: '507f1f77bcf86cd799439011',
-        material_id: '507f1f77bcf86cd799439012',
-        transaction_type: 'Receipt',
+    it('throws when receipt quantity <=0', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Receipt,
         quantity: 0,
-        unit_of_measure: 'kg',
-        transaction_date: new Date(),
-        performed_by: '507f1f77bcf86cd799439013',
-      };
-
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+      });
+      await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('should throw BadRequestException for missing lot_id', async () => {
-      const dto: CreateInventoryTransactionDto = {
-        lot_id: '',
-        material_id: '507f1f77bcf86cd799439012',
-        transaction_type: 'Receipt',
-        quantity: 100,
-        unit_of_measure: 'kg',
-        transaction_date: new Date(),
-        performed_by: '507f1f77bcf86cd799439013',
-      };
-
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+    it('throws when usage quantity >=0', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Usage,
+        quantity: 5,
+      });
+      await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('should throw BadRequestException for invalid transaction_type', async () => {
-      const dto = {
-        lot_id: '507f1f77bcf86cd799439011',
-        material_id: '507f1f77bcf86cd799439012',
-        transaction_type: 'Invalid',
-        quantity: 100,
-        unit_of_measure: 'kg',
-        transaction_date: new Date(),
-        performed_by: '507f1f77bcf86cd799439013',
-      } as CreateInventoryTransactionDto;
-
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  describe('findAll', () => {
-    it('should return paginated transactions without filters', async () => {
-      const mockResult = {
-        data: [
-          {
-            _id: '507f1f77bcf86cd799439014',
-            transaction_id: 'abc-123',
-            lot_id: '507f1f77bcf86cd799439011',
-            material_id: '507f1f77bcf86cd799439012',
-            transaction_type: 'Receipt',
-            quantity: 100,
-            unit_of_measure: 'kg',
-            transaction_date: new Date(),
-            performed_by: '507f1f77bcf86cd799439013',
-            created_date: new Date(),
-            modified_date: new Date(),
-          },
-        ],
-        pagination: {
-          page: 1,
-          limit: 20,
-          total: 1,
-          pages: 1,
-        },
-      };
-
-      jest.spyOn(repository, 'findAll').mockResolvedValue(mockResult);
-
-      const result = await service.findAll({}, 1, 20);
-
-      expect(result).toEqual(mockResult);
-      expect(repository.findAll).toHaveBeenCalledWith({}, 1, 20);
+    it('allows split with nonzero quantity', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Split,
+        quantity: -3,
+      });
+      const res = await svc.create(dto);
+      expect(res).toHaveProperty('_id');
     });
 
-    it('should return filtered transactions by lot_id', async () => {
-      const mockResult = {
-        data: [],
-        pagination: { page: 1, limit: 20, total: 0, pages: 0 },
-      };
-
-      jest.spyOn(repository, 'findAll').mockResolvedValue(mockResult);
-
-      const result = await service.findAll({ lot_id: '507f1f77bcf86cd799439011' }, 1, 20);
-
-      expect(result).toEqual(mockResult);
-      expect(repository.findAll).toHaveBeenCalled();
+    it('throws on split zero quantity', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Split,
+        quantity: 0,
+      });
+      await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('should throw BadRequestException for invalid page', async () => {
-      await expect(service.findAll({}, 0, 20)).rejects.toThrow(BadRequestException);
+    it('adjustment quantity cannot be zero', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Adjustment,
+        quantity: 0,
+      });
+      await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('should throw BadRequestException for invalid limit', async () => {
-      await expect(service.findAll({}, 1, 101)).rejects.toThrow(BadRequestException);
+    it('transfer quantity cannot be zero', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Transfer,
+        quantity: 0,
+      });
+      await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('disposal quantity must be negative', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Disposal,
+        quantity: 5,
+      });
+      await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
-  describe('findByLotId', () => {
-    it('should return transactions for a specific lot', async () => {
-      const mockResult = [];
-
-      jest.spyOn(repository, 'findByLotId').mockResolvedValue(mockResult);
-
-      const result = await service.findByLotId('507f1f77bcf86cd799439011');
-
-      expect(result).toEqual(mockResult);
-      expect(repository.findByLotId).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
-    });
-
-    it('should throw BadRequestException for missing lotId', async () => {
-      await expect(service.findByLotId('')).rejects.toThrow(BadRequestException);
+  describe('createMany()', () => {
+    it('calls create for each dto and returns results', async () => {
+      const spy = jest.spyOn(svc, 'create');
+      const dtos = [makeDto(), makeDto()];
+      const out = await svc.createMany(dtos);
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(out).toHaveLength(2);
     });
   });
 });

@@ -1,10 +1,10 @@
-export type BatchStatus = 'In Progress' | 'Complete' | 'On Hold' | 'Cancelled';
+export type BatchStatus = "In Progress" | "Complete" | "On Hold" | "Cancelled";
 
 export const BATCH_STATUS_LIST: BatchStatus[] = [
-  'In Progress',
-  'Complete',
-  'On Hold',
-  'Cancelled',
+  "In Progress",
+  "Complete",
+  "On Hold",
+  "Cancelled",
 ];
 
 export interface ProductionBatch {
@@ -28,8 +28,8 @@ export interface ProductionBatch {
 
 export interface BatchComponent {
   _id: string;
-  component_id: string;
-  batch_id: string;
+  component_id?: string;
+  batch_id?: string;
   lot_id: string;
   planned_quantity: string;
   actual_quantity?: string;

@@ -81,6 +81,30 @@ export class MaterialService {
   }
 
   /**
+   * Get all materials; returns unified pagination response
+   * page/limit optional; when undefined returns all results as one page
+   */
+  async findAll(
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedMaterialResponseDto> {
+    if (page !== undefined && limit !== undefined) {
+      return this.findAllWithPagination(page, limit);
+    }
+
+    const all = await this.findAllWithoutPagination();
+    return {
+      data: all,
+      pagination: {
+        page: 1,
+        limit: all.length,
+        total: all.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  /**
    * Get all materials with pagination
    * @param page - Page number (1-indexed)
    * @param limit - Records per page

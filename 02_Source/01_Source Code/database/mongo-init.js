@@ -139,7 +139,7 @@ db.createCollection("production_batches", {
         shelf_life_value: { bsonType: "int" },
         shelf_life_unit: { bsonType: "string" },
         status: { bsonType: "string", enum: ["In Progress", "Complete", "On Hold", "Cancelled"] },
-        batch_size: { bsonType: "string" },
+        batch_size: { bsonType: "decimal" },
         created_by: { bsonType: ["string", "null"] },
         approved_by: { bsonType: ["string", "null"] },
         completed_by: { bsonType: ["string", "null"] },
@@ -160,8 +160,8 @@ db.createCollection("batch_components", {
         component_id: { bsonType: "string" },
         batch_id: { bsonType: "string" },
         lot_id: { bsonType: "string" },
-        planned_quantity: { bsonType: "string" },
-        actual_quantity: { bsonType: ["string", "null"] },
+        planned_quantity: { bsonType: "decimal" },
+        actual_quantity: { bsonType: ["decimal", "null"] },
         unit_of_measure: { bsonType: "string" },
         addition_date: { bsonType: ["date", "null"] },
         added_by: { bsonType: ["string", "null"] },
@@ -441,6 +441,22 @@ db.batch_components.insertMany([
   { component_id: "BC-029", batch_id: "PB-021", lot_id: "LOT-009", planned_quantity: "170.00", actual_quantity: "170.00", unit_of_measure: "capsule", addition_date: new Date("2026-03-15"), added_by: "USR-011", created_date: new Date("2026-03-15"), modified_date: new Date("2026-03-15") },
   { component_id: "BC-030", batch_id: "PB-021", lot_id: "LOT-030", planned_quantity: "165.00", actual_quantity: "165.00", unit_of_measure: "capsule", addition_date: new Date("2026-03-15"), added_by: "USR-011", created_date: new Date("2026-03-15"), modified_date: new Date("2026-03-15") }
 ]);
+// thêm nhiều giao dịch mẫu
+const extraTxns = [];
+for (let i = 2; i <= 30; i++) {
+  extraTxns.push({
+    transaction_id: `txn-uuid-${String(i).padStart(3,'0')}`,
+    lot_id: i % 2 === 0 ? "lot-uuid-001" : "lot-uuid-002",
+    transaction_type: ["Receipt","Usage","Adjustment"][i % 3],
+    quantity: NumberDecimal((Math.random() * 50 + 1).toFixed(3)),
+    unit_of_measure: "kg",
+    performed_by: i % 2 === 0 ? "jdoe" : "asmith",
+    transaction_date: new Date(2025, 0, i),
+    created_date: new Date(2025, 0, i),
+    notes: i % 5 === 0 ? "automated seed" : undefined,
+  });
+}
+db.inventorytransactions.insertMany(extraTxns);
 
 // ---- QC TESTS (30 tests) ----
 db.qc_tests.insertMany([

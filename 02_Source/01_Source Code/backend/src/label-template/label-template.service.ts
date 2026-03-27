@@ -82,11 +82,22 @@ export class LabelTemplateService {
    * Get all label templates with pagination
    */
   async findAll(
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
   ): Promise<PaginatedLabelTemplateResponseDto> {
-    if (page < 1) throw new BadRequestException('Page must be >= 1');
-    if (limit < 1) throw new BadRequestException('Limit must be >= 1');
+    if (page !== undefined && page < 1) {
+      throw new BadRequestException('Page must be >= 1');
+    }
+    if (limit !== undefined && limit < 1) {
+      throw new BadRequestException('Limit must be >= 1');
+    }
+
+    // If page/limit không truyền thì lấy toàn bộ hoặc mặc định từ repository
+    if (page === undefined || limit === undefined) {
+      const result = await this.repository.findAll();
+      return this.toPaginatedResponse(result);
+    }
+
     if (limit > 100) limit = 100;
 
     const result = await this.repository.findAll(page, limit);
@@ -112,7 +123,11 @@ export class LabelTemplateService {
     page: number = 1,
     limit: number = 20,
   ): Promise<PaginatedLabelTemplateResponseDto> {
-    const result = await this.repository.findByLabelType(labelType, page, limit);
+    const result = await this.repository.findByLabelType(
+      labelType,
+      page,
+      limit,
+    );
     return this.toPaginatedResponse(result);
   }
 
@@ -152,7 +167,9 @@ export class LabelTemplateService {
       throw new NotFoundException(`LabelTemplate with id '${id}' not found`);
     }
     await this.repository.delete(id);
-    return { message: `LabelTemplate '${existing.template_id}' deleted successfully` };
+    return {
+      message: `LabelTemplate '${existing.template_id}' deleted successfully`,
+    };
   }
 
   /**
@@ -209,7 +226,9 @@ export class LabelTemplateService {
   ): string {
     return content.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
       const value = data[key];
-      return value !== undefined && value !== null ? String(value) : `{{${key}}}`;
+      return value !== undefined && value !== null
+        ? String(value)
+        : `{{${key}}}`;
     });
   }
 

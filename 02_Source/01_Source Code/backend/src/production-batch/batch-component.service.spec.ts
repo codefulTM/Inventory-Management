@@ -8,290 +8,399 @@ import { InventoryLot } from '../schemas/inventory-lot.schema';
 import { CreateBatchComponentDto } from './dto/create-batch-component.dto';
 import { UpdateBatchComponentDto } from './dto/update-batch-component.dto';
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+jest.mock('uuid', () => ({
+  v4: () => '00000000-0000-4000-8000-000000000002',
+}));
 
-const mockBatchDoc: any = {
-  batch_id: 'batch-uuid-1',
-  batch_number: 'BATCH-2026-001',
-  status: 'In Progress',
+jest.mock(
+  'src/inventory-lot/inventory-lot.dto',
+  () => ({
+    InventoryLotStatus: {
+      QUARANTINE: 'Quarantine',
+      ACCEPTED: 'Accepted',
+      REJECTED: 'Rejected',
+      DEPLETED: 'Depleted',
+    },
+  }),
+  { virtual: true },
+);
+
+type BatchComponentLike = {
+  _id: { toString: () => string };
+  component_id: string;
+  batch_id: string;
+  lot_id: string;
+  planned_quantity: { toString: () => string };
+  actual_quantity?: { toString: () => string };
+  unit_of_measure: string;
+  addition_date?: Date;
+  added_by?: string;
+  created_date: Date;
+  modified_date: Date;
 };
 
-const mockLotDoc: any = {
-  lot_id: 'lot-uuid-1',
-  lot_number: 'LOT-2026-001',
+type MockedComponentRepository = {
+  create: jest.Mock;
+  findByBatchId: jest.Mock;
+  findOne: jest.Mock;
+  findOneByBatch: jest.Mock;
+  update: jest.Mock;
+  remove: jest.Mock;
 };
 
-const mockComponentDoc: any = {
-  component_id: 'comp-uuid-1',
-  batch_id: 'batch-uuid-1',
-  lot_id: 'lot-uuid-1',
-  planned_quantity: { toString: () => '100' },
-  actual_quantity: { toString: () => '95' },
-  unit_of_measure: 'kg',
-  addition_date: new Date('2026-01-15'),
-  added_by: 'operator-01',
+type MockedBatchRepository = {
+  findAll: jest.Mock;
+  findOne: jest.Mock;
+  findByBatchNumber: jest.Mock;
+  findByProductId: jest.Mock;
+  findByStatus: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+  remove: jest.Mock;
 };
 
-const mockCreateDto: CreateBatchComponentDto = {
-  lot_id: 'lot-uuid-1',
-  planned_quantity: 100,
-  actual_quantity: 95,
-  unit_of_measure: 'kg',
-  addition_date: '2026-01-15',
-  added_by: 'operator-01',
+type MockedLotModel = {
+  findOne: jest.Mock;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function buildMockBatchComponentRepository() {
+function mockExec<T>(value: T): { exec: jest.Mock } {
   return {
-    create: jest.fn(),
-    findByBatchId: jest.fn(),
-    findOne: jest.fn(),
-    findOneByBatch: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
+    exec: jest.fn().mockResolvedValue(value),
   };
 }
 
-function buildMockProductionBatchRepository() {
+function buildComponent(
+  overrides: Partial<BatchComponentLike> = {},
+): BatchComponentLike {
+  const now = new Date('2026-01-15T08:00:00.000Z');
+
   return {
-    findAll: jest.fn(),
-    findOne: jest.fn(),
-    findByBatchNumber: jest.fn(),
-    findByProductId: jest.fn(),
-    findByStatus: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
+    _id: { toString: () => '507f191e810c19729de860ea' },
+    component_id: 'f5f7d95c-95e2-4314-81d2-3989f95a11a4',
+    batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb',
+    lot_id: '34b8ad57-1f77-468c-8f96-df6f8bdb3354',
+    planned_quantity: { toString: () => '100' },
+    actual_quantity: { toString: () => '95' },
+    unit_of_measure: 'kg',
+    addition_date: new Date('2026-01-15T00:00:00.000Z'),
+    added_by: 'operator-01',
+    created_date: now,
+    modified_date: now,
+    ...overrides,
   };
 }
 
-function buildMockLotModel() {
-  const execMock = jest.fn();
-  const findOneMock = jest.fn().mockReturnValue({ exec: execMock });
-  return { findOne: findOneMock, _exec: execMock };
+function buildCreateDto(
+  overrides: Partial<CreateBatchComponentDto> = {},
+): CreateBatchComponentDto {
+  return {
+    lot_id: '34b8ad57-1f77-468c-8f96-df6f8bdb3354',
+    planned_quantity: 100,
+    actual_quantity: 95,
+    unit_of_measure: 'kg',
+    addition_date: '2026-01-15T00:00:00.000Z',
+    added_by: 'operator-01',
+    ...overrides,
+  };
 }
-
-// ─── Test suite ───────────────────────────────────────────────────────────────
 
 describe('BatchComponentService', () => {
   let service: BatchComponentService;
-  let componentRepo: ReturnType<typeof buildMockBatchComponentRepository>;
-  let batchRepo: ReturnType<typeof buildMockProductionBatchRepository>;
-  let lotModel: ReturnType<typeof buildMockLotModel>;
+  let componentRepository: MockedComponentRepository;
+  let batchRepository: MockedBatchRepository;
+  let lotModel: MockedLotModel;
 
   beforeEach(async () => {
-    componentRepo = buildMockBatchComponentRepository();
-    batchRepo = buildMockProductionBatchRepository();
-    lotModel = buildMockLotModel();
+    const componentRepositoryMock: MockedComponentRepository = {
+      create: jest.fn(),
+      findByBatchId: jest.fn(),
+      findOne: jest.fn(),
+      findOneByBatch: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+    };
+
+    const batchRepositoryMock: MockedBatchRepository = {
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      findByBatchNumber: jest.fn(),
+      findByProductId: jest.fn(),
+      findByStatus: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+    };
+
+    const lotModelMock: MockedLotModel = {
+      findOne: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BatchComponentService,
-        { provide: BatchComponentRepository, useValue: componentRepo },
-        { provide: ProductionBatchRepository, useValue: batchRepo },
-        { provide: getModelToken(InventoryLot.name), useValue: lotModel },
+        {
+          provide: BatchComponentRepository,
+          useValue: componentRepositoryMock,
+        },
+        {
+          provide: ProductionBatchRepository,
+          useValue: batchRepositoryMock,
+        },
+        {
+          provide: getModelToken(InventoryLot.name),
+          useValue: lotModelMock,
+        },
       ],
     }).compile();
 
     service = module.get<BatchComponentService>(BatchComponentService);
+    componentRepository = module.get<MockedComponentRepository>(
+      BatchComponentRepository,
+    );
+    batchRepository = module.get<MockedBatchRepository>(
+      ProductionBatchRepository,
+    );
+    lotModel = module.get<MockedLotModel>(getModelToken(InventoryLot.name));
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-  // ─── create() ───────────────────────────────────────────────────────────────
+  describe('create', () => {
+    it('should create component when batch and lot exist', async () => {
+      const createDto = buildCreateDto();
+      const created = buildComponent();
+      batchRepository.findOne.mockResolvedValue({ batch_id: created.batch_id });
+      lotModel.findOne.mockReturnValue(mockExec({ lot_id: created.lot_id }));
+      componentRepository.create.mockResolvedValue(created);
 
-  describe('create()', () => {
-    it('happy path — should create component, auto-fill addition_date, and return response', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      lotModel._exec.mockResolvedValue(mockLotDoc);
-      componentRepo.create.mockResolvedValue(mockComponentDoc);
+      const result = await service.create(created.batch_id, createDto);
 
-      const result = await service.create('batch-uuid-1', mockCreateDto);
-
-      expect(result.component_id).toBe('comp-uuid-1');
-      expect(result.lot_id).toBe('lot-uuid-1');
+      expect(batchRepository.findOne).toHaveBeenCalledWith(created.batch_id);
+      expect(lotModel.findOne).toHaveBeenCalledWith({ lot_id: created.lot_id });
+      expect(componentRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          batch_id: created.batch_id,
+          lot_id: created.lot_id,
+          planned_quantity: 100,
+          unit_of_measure: 'kg',
+        }),
+      );
+      expect(result.component_id).toBe(created.component_id);
       expect(result.planned_quantity).toBe('100');
-      expect(batchRepo.findOne).toHaveBeenCalledWith('batch-uuid-1');
-      expect(lotModel.findOne).toHaveBeenCalledWith({ lot_id: 'lot-uuid-1' });
-      expect(componentRepo.create).toHaveBeenCalled();
+      expect(result.actual_quantity).toBe('95');
     });
 
-    it('happy path — should auto-fill addition_date when not provided', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      lotModel._exec.mockResolvedValue(mockLotDoc);
-      componentRepo.create.mockResolvedValue(mockComponentDoc);
+    it('should auto-fill addition_date when not provided', async () => {
+      const createDto = buildCreateDto({ addition_date: undefined });
+      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      lotModel.findOne.mockReturnValue(mockExec({ lot_id: createDto.lot_id }));
+      let capturedAdditionDate: unknown;
+      componentRepository.create.mockImplementation((payload: unknown) => {
+        if (typeof payload === 'object' && payload !== null) {
+          capturedAdditionDate = (payload as { addition_date?: unknown })
+            .addition_date;
+        }
 
-      const dtoWithoutDate: CreateBatchComponentDto = {
-        lot_id: 'lot-uuid-1',
-        planned_quantity: 100,
-        unit_of_measure: 'kg',
-      };
+        return Promise.resolve(buildComponent());
+      });
 
-      await service.create('batch-uuid-1', dtoWithoutDate);
+      await service.create('batch-1', createDto);
 
-      const createCallArgs = componentRepo.create.mock.calls[0][0];
-      expect(createCallArgs.addition_date).toBeDefined();
+      expect(typeof capturedAdditionDate).toBe('string');
+      if (typeof capturedAdditionDate === 'string') {
+        expect(capturedAdditionDate.length).toBeGreaterThan(0);
+      }
     });
 
-    it('happy path — should generate a component_id (UUID) automatically', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      lotModel._exec.mockResolvedValue(mockLotDoc);
-      componentRepo.create.mockResolvedValue(mockComponentDoc);
+    it('should generate UUID component_id during creation', async () => {
+      const createDto = buildCreateDto();
+      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      lotModel.findOne.mockReturnValue(mockExec({ lot_id: createDto.lot_id }));
+      let capturedCreatePayload:
+        | {
+            component_id?: string;
+          }
+        | undefined;
+      componentRepository.create.mockImplementation((payload: unknown) => {
+        if (typeof payload === 'object' && payload !== null) {
+          capturedCreatePayload = {
+            component_id: (payload as { component_id?: string }).component_id,
+          };
+        }
 
-      await service.create('batch-uuid-1', mockCreateDto);
+        return Promise.resolve(buildComponent());
+      });
 
-      const createCallArgs = componentRepo.create.mock.calls[0][0];
-      expect(createCallArgs.component_id).toBeDefined();
-      // UUID v4 pattern
-      expect(createCallArgs.component_id).toMatch(
+      await service.create('batch-1', createDto);
+
+      expect(capturedCreatePayload?.component_id).toBeDefined();
+      expect(capturedCreatePayload?.component_id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
     });
 
-    it('should throw NotFoundException when parent batch does not exist', async () => {
-      batchRepo.findOne.mockResolvedValue(null);
+    it('should throw NotFoundException when batch is missing', async () => {
+      batchRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.create('non-existent-batch', mockCreateDto)).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(componentRepo.create).not.toHaveBeenCalled();
+      await expect(
+        service.create('batch-404', buildCreateDto()),
+      ).rejects.toThrow(NotFoundException);
+      expect(componentRepository.create).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when lot_id does not exist', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      lotModel._exec.mockResolvedValue(null); // lot not found
+    it('should throw NotFoundException when lot is missing', async () => {
+      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      lotModel.findOne.mockReturnValue(mockExec(null));
 
-      await expect(service.create('batch-uuid-1', mockCreateDto)).rejects.toThrow(NotFoundException);
-      expect(componentRepo.create).not.toHaveBeenCalled();
+      await expect(service.create('batch-1', buildCreateDto())).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(componentRepository.create).not.toHaveBeenCalled();
     });
   });
 
-  // ─── findByBatchId() ────────────────────────────────────────────────────────
+  describe('findByBatchId', () => {
+    it('should return mapped components when batch exists', async () => {
+      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      componentRepository.findByBatchId.mockResolvedValue([buildComponent()]);
 
-  describe('findByBatchId()', () => {
-    it('should return list of components for an existing batch', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findByBatchId.mockResolvedValue([mockComponentDoc]);
+      const result = await service.findByBatchId('batch-1');
 
-      const result = await service.findByBatchId('batch-uuid-1');
-
+      expect(componentRepository.findByBatchId).toHaveBeenCalledWith('batch-1');
       expect(result).toHaveLength(1);
-      expect(result[0].component_id).toBe('comp-uuid-1');
-    });
-
-    it('should return empty array when batch has no components', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findByBatchId.mockResolvedValue([]);
-
-      const result = await service.findByBatchId('batch-uuid-1');
-
-      expect(result).toHaveLength(0);
+      expect(result[0]?.planned_quantity).toBe('100');
     });
 
     it('should throw NotFoundException when batch does not exist', async () => {
-      batchRepo.findOne.mockResolvedValue(null);
+      batchRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.findByBatchId('non-existent')).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  // ─── findOne() ──────────────────────────────────────────────────────────────
-
-  describe('findOne()', () => {
-    it('should return a component when batch and component both exist', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findOneByBatch.mockResolvedValue(mockComponentDoc);
-
-      const result = await service.findOne('batch-uuid-1', 'comp-uuid-1');
-
-      expect(result.component_id).toBe('comp-uuid-1');
-    });
-
-    it('should throw NotFoundException when batch does not exist', async () => {
-      batchRepo.findOne.mockResolvedValue(null);
-
-      await expect(service.findOne('non-existent-batch', 'comp-uuid-1')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should throw NotFoundException when component does not belong to batch', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findOneByBatch.mockResolvedValue(null);
-
-      await expect(service.findOne('batch-uuid-1', 'wrong-comp-id')).rejects.toThrow(
+      await expect(service.findByBatchId('batch-404')).rejects.toThrow(
         NotFoundException,
       );
     });
   });
 
-  // ─── update() ───────────────────────────────────────────────────────────────
+  describe('findOne', () => {
+    it('should return a component that belongs to batch', async () => {
+      componentRepository.findOneByBatch.mockResolvedValue(buildComponent());
 
-  describe('update()', () => {
-    it('should update component when it belongs to the batch', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findOneByBatch.mockResolvedValue(mockComponentDoc);
-      const updatedDoc = { ...mockComponentDoc, unit_of_measure: 'g' };
-      componentRepo.update.mockResolvedValue(updatedDoc);
+      const result = await service.findOne(
+        '3d594650-3436-453f-901f-f7f66f18f8eb',
+        'f5f7d95c-95e2-4314-81d2-3989f95a11a4',
+      );
 
-      const dto: UpdateBatchComponentDto = { unit_of_measure: 'g' };
-      const result = await service.update('batch-uuid-1', 'comp-uuid-1', dto);
+      expect(componentRepository.findOneByBatch).toHaveBeenCalledWith(
+        '3d594650-3436-453f-901f-f7f66f18f8eb',
+        'f5f7d95c-95e2-4314-81d2-3989f95a11a4',
+      );
+      expect(result.component_id).toBe('f5f7d95c-95e2-4314-81d2-3989f95a11a4');
+    });
 
+    it('should throw NotFoundException when component is not in batch', async () => {
+      componentRepository.findOneByBatch.mockResolvedValue(null);
+
+      await expect(service.findOne('batch-1', 'component-404')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('update', () => {
+    it('should throw NotFoundException when component is not in batch', async () => {
+      componentRepository.findOneByBatch.mockResolvedValue(null);
+
+      await expect(
+        service.update(
+          'batch-1',
+          'component-404',
+          {} as UpdateBatchComponentDto,
+        ),
+      ).rejects.toThrow(NotFoundException);
+      expect(componentRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should validate changed lot_id exists', async () => {
+      componentRepository.findOneByBatch.mockResolvedValue(buildComponent());
+      lotModel.findOne.mockReturnValue(mockExec(null));
+
+      await expect(
+        service.update('batch-1', 'component-1', {
+          lot_id: '9b4d20dc-30dd-4258-b3b9-6ff7ce3d5dd7',
+        } as UpdateBatchComponentDto),
+      ).rejects.toThrow(NotFoundException);
+      expect(componentRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should skip lot lookup when lot_id is unchanged and update succeeds', async () => {
+      const existing = buildComponent();
+      componentRepository.findOneByBatch.mockResolvedValue(existing);
+      componentRepository.update.mockResolvedValue(
+        buildComponent({ unit_of_measure: 'g' }),
+      );
+
+      const result = await service.update('batch-1', existing.component_id, {
+        lot_id: existing.lot_id,
+        unit_of_measure: 'g',
+      } as UpdateBatchComponentDto);
+
+      expect(lotModel.findOne).not.toHaveBeenCalled();
+      expect(componentRepository.update).toHaveBeenCalledWith(
+        existing.component_id,
+        expect.objectContaining({ unit_of_measure: 'g' }),
+      );
       expect(result.unit_of_measure).toBe('g');
     });
 
-    it('should re-validate lot_id if it changes', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findOneByBatch.mockResolvedValue(mockComponentDoc);
-      lotModel._exec.mockResolvedValue(null); // new lot not found
-
-      const dto: UpdateBatchComponentDto = { lot_id: 'non-existent-lot' };
-
-      await expect(service.update('batch-uuid-1', 'comp-uuid-1', dto)).rejects.toThrow(
-        NotFoundException,
+    it('should validate new lot_id and update component', async () => {
+      const existing = buildComponent();
+      componentRepository.findOneByBatch.mockResolvedValue(existing);
+      lotModel.findOne.mockReturnValue(
+        mockExec({ lot_id: '9b4d20dc-30dd-4258-b3b9-6ff7ce3d5dd7' }),
       );
-    });
+      componentRepository.update.mockResolvedValue(
+        buildComponent({
+          lot_id: '9b4d20dc-30dd-4258-b3b9-6ff7ce3d5dd7',
+          actual_quantity: { toString: () => '90' },
+        }),
+      );
 
-    it('should throw NotFoundException when component does not belong to batch', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findOneByBatch.mockResolvedValue(null);
+      const result = await service.update('batch-1', existing.component_id, {
+        lot_id: '9b4d20dc-30dd-4258-b3b9-6ff7ce3d5dd7',
+        actual_quantity: 90,
+      } as UpdateBatchComponentDto);
 
-      await expect(
-        service.update('batch-uuid-1', 'wrong-comp', {}),
-      ).rejects.toThrow(NotFoundException);
+      expect(lotModel.findOne).toHaveBeenCalledWith({
+        lot_id: '9b4d20dc-30dd-4258-b3b9-6ff7ce3d5dd7',
+      });
+      expect(result.actual_quantity).toBe('90');
     });
   });
 
-  // ─── remove() ───────────────────────────────────────────────────────────────
+  describe('remove', () => {
+    it('should throw NotFoundException when component is missing from batch', async () => {
+      componentRepository.findOneByBatch.mockResolvedValue(null);
 
-  describe('remove()', () => {
-    it('should remove component when it belongs to the batch', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findOneByBatch.mockResolvedValue(mockComponentDoc);
-      componentRepo.remove.mockResolvedValue(mockComponentDoc);
-
-      const result = await service.remove('batch-uuid-1', 'comp-uuid-1');
-
-      expect(result.message).toContain('comp-uuid-1');
-      expect(componentRepo.remove).toHaveBeenCalledWith('comp-uuid-1');
-    });
-
-    it('should throw NotFoundException when batch does not exist', async () => {
-      batchRepo.findOne.mockResolvedValue(null);
-
-      await expect(service.remove('non-existent-batch', 'comp-uuid-1')).rejects.toThrow(
+      await expect(service.remove('batch-1', 'component-404')).rejects.toThrow(
         NotFoundException,
       );
+      expect(componentRepository.remove).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when component does not belong to batch', async () => {
-      batchRepo.findOne.mockResolvedValue(mockBatchDoc);
-      componentRepo.findOneByBatch.mockResolvedValue(null);
+    it('should remove component and return confirmation', async () => {
+      const existing = buildComponent();
+      componentRepository.findOneByBatch.mockResolvedValue(existing);
+      componentRepository.remove.mockResolvedValue(existing);
 
-      await expect(service.remove('batch-uuid-1', 'wrong-comp')).rejects.toThrow(NotFoundException);
-      expect(componentRepo.remove).not.toHaveBeenCalled();
+      const result = await service.remove('batch-1', existing.component_id);
+
+      expect(componentRepository.remove).toHaveBeenCalledWith(
+        existing.component_id,
+      );
+      expect(result).toEqual({
+        message: `Batch component '${existing.component_id}' deleted successfully`,
+      });
     });
   });
 });

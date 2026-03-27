@@ -111,7 +111,7 @@ export class InventoryLotRepository {
       .exec();
   }
 
-  async searchByManufacturer(
+  async search(
     query: string,
     page: number = 1,
     limit: number = 10,
@@ -124,6 +124,7 @@ export class InventoryLotRepository {
           { manufacturer_name: regex },
           { manufacturer_lot: regex },
           { supplier_name: regex },
+          { lot_id: regex },
         ],
       })
       .skip(skip)
@@ -173,7 +174,7 @@ export class InventoryLotRepository {
 
   async update(
     lot_id: string,
-    updateDto: UpdateInventoryLotDto,
+    updateDto: Partial<UpdateInventoryLotDto>,
   ): Promise<InventoryLotDocument | null> {
     return this.inventoryLotModel
       .findOneAndUpdate({ lot_id }, updateDto, { new: true })

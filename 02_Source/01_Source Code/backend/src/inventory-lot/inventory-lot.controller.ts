@@ -89,7 +89,7 @@ export class InventoryLotController {
     if (!query) {
       return { data: [], total: 0, page: 1, limit };
     }
-    return await this.inventoryLotService.searchByManufacturer(
+    return await this.inventoryLotService.search(
       query,
       parseInt(page, 10),
       parseInt(limit, 10),

@@ -63,7 +63,10 @@ describe('QCTestService', () => {
   describe('createTest()', () => {
     it('should create a test successfully when lot exists', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
-      mockQCTestRepository.create.mockResolvedValue({ ...mockTest, test_id: expect.any(String) });
+      mockQCTestRepository.create.mockResolvedValue({
+        ...mockTest,
+        test_id: expect.any(String),
+      });
 
       const dto = {
         lot_id: 'lot-001',
@@ -77,7 +80,9 @@ describe('QCTestService', () => {
 
       const result = await service.createTest(dto);
 
-      expect(mockInventoryLotService.getLotById).toHaveBeenCalledWith('lot-001');
+      expect(mockInventoryLotService.getLotById).toHaveBeenCalledWith(
+        'lot-001',
+      );
       expect(mockQCTestRepository.create).toHaveBeenCalled();
       const createArg = mockQCTestRepository.create.mock.calls[0][0];
       expect(createArg.test_id).toBeDefined();
@@ -132,22 +137,35 @@ describe('QCTestService', () => {
   describe('submitDecision() — Accepted', () => {
     it('should update lot status to Accepted', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
-      mockQCTestRepository.updateManyByLotId.mockResolvedValue([{ ...mockTest, result_status: 'Pass' }]);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Accepted' });
+      mockQCTestRepository.updateManyByLotId.mockResolvedValue([
+        { ...mockTest, result_status: 'Pass' },
+      ]);
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Accepted',
+      });
 
       const result = await service.submitDecision('lot-001', {
         decision: 'Accepted',
         verified_by: 'qc_manager_01',
       });
 
-      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith('lot-001', 'Accepted');
+      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith(
+        'lot-001',
+        'Accepted',
+      );
       expect(result.lot.status).toBe('Accepted');
     });
 
     it('should update QCTest result_status to Pass', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
-      mockQCTestRepository.updateManyByLotId.mockResolvedValue([{ ...mockTest, result_status: 'Pass' }]);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Accepted' });
+      mockQCTestRepository.updateManyByLotId.mockResolvedValue([
+        { ...mockTest, result_status: 'Pass' },
+      ]);
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Accepted',
+      });
 
       const result = await service.submitDecision('lot-001', {
         decision: 'Accepted',
@@ -165,8 +183,13 @@ describe('QCTestService', () => {
   describe('submitDecision() — Rejected', () => {
     it('should update lot status to Rejected', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
-      mockQCTestRepository.updateManyByLotId.mockResolvedValue([{ ...mockTest, result_status: 'Fail' }]);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Rejected' });
+      mockQCTestRepository.updateManyByLotId.mockResolvedValue([
+        { ...mockTest, result_status: 'Fail' },
+      ]);
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Rejected',
+      });
 
       const result = await service.submitDecision('lot-001', {
         decision: 'Rejected',
@@ -174,14 +197,22 @@ describe('QCTestService', () => {
         verified_by: 'qc_manager_01',
       });
 
-      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith('lot-001', 'Rejected');
+      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith(
+        'lot-001',
+        'Rejected',
+      );
       expect(result.lot.status).toBe('Rejected');
     });
 
     it('should update QCTest result_status to Fail', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
-      mockQCTestRepository.updateManyByLotId.mockResolvedValue([{ ...mockTest, result_status: 'Fail' }]);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Rejected' });
+      mockQCTestRepository.updateManyByLotId.mockResolvedValue([
+        { ...mockTest, result_status: 'Fail' },
+      ]);
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Rejected',
+      });
 
       await service.submitDecision('lot-001', {
         decision: 'Rejected',
@@ -219,7 +250,10 @@ describe('QCTestService', () => {
     it('should save reject_reason to QCTest', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
       mockQCTestRepository.updateManyByLotId.mockResolvedValue([mockTest]);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Rejected' });
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Rejected',
+      });
 
       await service.submitDecision('lot-001', {
         decision: 'Rejected',
@@ -238,21 +272,30 @@ describe('QCTestService', () => {
     it('should update lot status to Hold', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
       mockQCTestRepository.updateManyByLotId.mockResolvedValue([mockTest]);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Hold' });
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Hold',
+      });
 
       const result = await service.submitDecision('lot-001', {
         decision: 'Hold',
         verified_by: 'qc_manager_01',
       });
 
-      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith('lot-001', 'Hold');
+      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith(
+        'lot-001',
+        'Hold',
+      );
       expect(result.lot.status).toBe('Hold');
     });
 
     it('should keep QCTest result_status as Pending', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
       mockQCTestRepository.updateManyByLotId.mockResolvedValue([mockTest]);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Hold' });
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Hold',
+      });
 
       await service.submitDecision('lot-001', {
         decision: 'Hold',
@@ -306,14 +349,20 @@ describe('QCTestService', () => {
   describe('submitRetestDecision() — discard', () => {
     it('should update lot status to Depleted', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
-      mockInventoryLotService.updateLotStatus.mockResolvedValue({ ...mockLot, status: 'Depleted' });
+      mockInventoryLotService.updateLotStatus.mockResolvedValue({
+        ...mockLot,
+        status: 'Depleted',
+      });
       mockQCTestRepository.create.mockResolvedValue(mockTest);
 
       const result = await service.submitRetestDecision('lot-001', 'discard', {
         performed_by: 'qc_user_01',
       });
 
-      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith('lot-001', 'Depleted');
+      expect(mockInventoryLotService.updateLotStatus).toHaveBeenCalledWith(
+        'lot-001',
+        'Depleted',
+      );
       expect(result.status).toBe('Depleted');
     });
   });
@@ -322,9 +371,12 @@ describe('QCTestService', () => {
 
   describe('getDashboardKPI()', () => {
     it('should calculate error_rate correctly', async () => {
-      mockInventoryLotService.getLotsByStatus.mockResolvedValue([mockLot, mockLot]);
+      mockInventoryLotService.getLotsByStatus.mockResolvedValue([
+        mockLot,
+        mockLot,
+      ]);
       mockQCTestRepository.countByResultStatus
-        .mockResolvedValueOnce(8)  // Pass
+        .mockResolvedValueOnce(8) // Pass
         .mockResolvedValueOnce(2); // Fail
 
       const result = await service.getDashboardKPI();
@@ -349,18 +401,37 @@ describe('QCTestService', () => {
   describe('traceability & audit fields', () => {
     it('should set performed_by and status on create', async () => {
       mockInventoryLotService.getLotById.mockResolvedValue(mockLot);
-      mockQCTestRepository.create.mockResolvedValue({ ...mockTest, performed_by: 'qc1', result_status: 'Pending' });
-      const dto = { ...mockTest, performed_by: 'qc1', result_status: 'Pending' };
+      mockQCTestRepository.create.mockResolvedValue({
+        ...mockTest,
+        performed_by: 'qc1',
+        result_status: 'Pending',
+      });
+      const dto = {
+        ...mockTest,
+        performed_by: 'qc1',
+        result_status: 'Pending',
+      };
       const result = await service.createTest(dto as any);
       expect(result.performed_by).toBe('qc1');
       expect(result.result_status).toBe('Pending');
     });
 
     it('should update approved_by and push to history on approve', async () => {
-      mockQCTestRepository.updateManyByLotId.mockResolvedValue([{ ...mockTest, approved_by: 'manager1', history: [{ action: 'Approve', by: 'manager1' }] }]);
-      const result = await service.submitDecision('lot-001', { decision: 'Accepted', verified_by: 'manager1' } as any);
-      expect(result.qcTests[0].approved_by).toBe('manager1');
-      expect(result.qcTests[0].history).toEqual(expect.arrayContaining([{ action: 'Approve', by: 'manager1' }]));
+      mockQCTestRepository.updateManyByLotId.mockResolvedValue([
+        {
+          ...mockTest,
+          approved_by: 'manager1',
+          history: [{ action: 'Approve', by: 'manager1' }],
+        },
+      ]);
+      const result = await service.submitDecision('lot-001', {
+        decision: 'Accepted',
+        verified_by: 'manager1',
+      } as any);
+      expect(result.tests[0].approved_by).toBe('manager1');
+      expect(result.tests[0].history).toEqual(
+        expect.arrayContaining([{ action: 'Approve', by: 'manager1' }]),
+      );
     });
   });
 });

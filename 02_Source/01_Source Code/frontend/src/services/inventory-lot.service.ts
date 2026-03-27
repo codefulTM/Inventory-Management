@@ -40,12 +40,9 @@ export class InventoryLotAPI {
     // apiClient.get<T> returns response.data.data — for the inventory-lots
     // endpoint the backend returns { data: [...], total, page, limit }, so
     // response.data.data is already the lots array.
-    const { data, error } = await apiClient.get<InventoryLot[]>(
-      "/inventory-lots",
-      {
-        params: { page, limit },
-      },
-    );
+    const { data, error } = await apiClient.get("/inventory-lots", {
+      params: { page, limit },
+    });
 
     if (error) {
       console.error(
@@ -55,12 +52,12 @@ export class InventoryLotAPI {
       return { inventoryLots: [], total: 0, page, limit, error };
     }
 
-    const lots = Array.isArray(data) ? data : [];
+    const lots = Array.isArray(data.data) ? data.data : [];
     return {
       inventoryLots: lots,
-      total: lots.length,
-      page,
-      limit,
+      total: typeof data.total === "number" ? data.total : lots.length,
+      page: typeof data.page === "number" ? data.page : page,
+      limit: typeof data.limit === "number" ? data.limit : limit,
       error: null,
     };
   }
@@ -155,12 +152,19 @@ export class InventoryLotAPI {
       },
     );
 
+    console.log("test search inventory-lot", data);
     if (error) {
       console.error("[InventoryLotAPI] Search failed:", error.message);
-      return { results: [], error };
+      return { inventoryLots: [], total: 0, page, limit, error };
     }
 
-    return { results: Array.isArray(data) ? data : [], error: null };
+    return {
+      inventoryLots: Array.isArray(data.data) ? data.data : [],
+      total: data?.total ?? 0,
+      page: data?.page ?? page,
+      limit: data?.limit ?? limit,
+      error: null,
+    };
   }
 
   /**
@@ -184,9 +188,10 @@ export class InventoryLotAPI {
    * Update inventory lot
    */
   static async update(id: string, payload: Partial<InventoryLot>) {
+    const { lot_id, ...body } = payload; // Ensure lot_id is not sent in the body
     const { data, error } = await apiClient.put<InventoryLot>(
       `/inventory-lots/${id}`,
-      payload,
+      body,
     );
 
     if (error) {

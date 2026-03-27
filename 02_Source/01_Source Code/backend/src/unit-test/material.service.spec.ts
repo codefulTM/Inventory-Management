@@ -26,13 +26,14 @@ describe('MaterialService', () => {
 
   beforeEach(async () => {
     repo = {
-      findAll: jest.fn(),
+      findAllWithPagination: jest.fn(),
       findByMaterialId: jest.fn(),
       findById: jest.fn(),
       findByPartNumber: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
+      findAllWithoutPagination: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -44,15 +45,18 @@ describe('MaterialService', () => {
   });
 
   it('should return all materials', async () => {
-    repo.findAll.mockResolvedValue({
+    repo.findAllWithPagination.mockResolvedValue({
       data: [sample],
       total: 1,
       page: 1,
       limit: 20,
     });
-    const result = await service.findAll();
+    const result = await service.findAllWithPagination(1, 20);
     expect(result.data[0].material_id).toBe('MAT-001');
-    expect(repo.findAll).toHaveBeenCalled();
+    expect(result.pagination.total).toBe(1);
+    expect(result.pagination.page).toBe(1);
+    expect(result.pagination.limit).toBe(20);
+    expect(repo.findAllWithPagination).toHaveBeenCalledWith(1, 20);
   });
 
   it('should return one material by id', async () => {

@@ -46,10 +46,7 @@ export class MaterialController {
     @Query('limit', new ParseIntPipe({ optional: true }))
     limit?: number,
   ) {
-    if (page && limit) {
-      return this.materialService.findAllWithPagination(page, limit);
-    }
-    return this.materialService.findAllWithoutPagination();
+    return this.materialService.findAll(page, limit);
   }
 
   /**
