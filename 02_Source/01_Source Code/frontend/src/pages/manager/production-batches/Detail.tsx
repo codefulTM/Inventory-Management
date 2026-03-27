@@ -21,7 +21,6 @@ import {
   createBatchComponent,
   deleteBatchComponent,
 } from "../../../services/productionBatchService";
-import { v4 as uuidv4 } from "uuid";
 
 const STATUS_COLORS: Record<string, string> = {
   "In Progress": "bg-blue-100 text-blue-700",

@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { DeleteResult } from 'mongodb';
 import { InventoryTransactionRepository } from './inventory-transaction.repository';
 import { MaterialRepository } from '../material/material.repository';
 import {
@@ -54,7 +55,7 @@ export class InventoryTransactionService {
     return this.repo.remove(id);
   }
 
-  async deleteByLotId(lot_id: string) {
+  async deleteByLotId(lot_id: string): Promise<DeleteResult> {
     return this.repo.deleteByLotId(lot_id);
   }
 

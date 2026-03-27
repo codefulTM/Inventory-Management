@@ -4,7 +4,6 @@ import {
   useNavigate,
   useLocation,
   Outlet,
-  Navigate,
 } from "react-router-dom";
 import {
   LayoutDashboard,

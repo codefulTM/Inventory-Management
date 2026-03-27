@@ -803,9 +803,9 @@ function DetailModal({
   const handleDeleteComponent = async (comp: BatchComponent) => {
     if (!selectedBatch) return;
     if (!window.confirm(`Xóa component này?`)) return;
-    setDeletingCompId(comp.component_id);
+    setDeletingCompId(comp.component_id || null);
     try {
-      await deleteBatchComponent(selectedBatch.batch_id, comp.component_id);
+      await deleteBatchComponent(selectedBatch.batch_id, comp.component_id || "");
       await loadComponents();
     } catch (e: any) {
       alert(e.message);

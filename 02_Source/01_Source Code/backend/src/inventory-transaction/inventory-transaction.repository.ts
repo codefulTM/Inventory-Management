@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { DeleteResult } from 'mongodb';
 import {
   InventoryTransaction,
   InventoryTransactionDocument,
@@ -87,7 +88,7 @@ export class InventoryTransactionRepository {
     return this.model.findByIdAndDelete(id).exec();
   }
 
-  async deleteByLotId(lot_id: string) {
+  async deleteByLotId(lot_id: string): Promise<DeleteResult> {
     return this.model.deleteMany({ lot_id }).exec();
   }
 }

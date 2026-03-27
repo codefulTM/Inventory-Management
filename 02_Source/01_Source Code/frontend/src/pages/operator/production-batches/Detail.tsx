@@ -205,7 +205,7 @@ function RecordActualModal({
     setSaving(true);
     setErr('');
     try {
-      await updateBatchComponent(batchId, component.component_id, {
+      await updateBatchComponent(batchId, component.component_id || "", {
         actual_quantity: actualQty as any,
       });
       onSaved();
@@ -339,9 +339,9 @@ export default function OperatorProductionBatchDetail() {
   const handleDeleteComponent = async (comp: BatchComponent) => {
     if (!batch) return;
     if (!window.confirm(`Xóa component lot "${comp.lot_id.substring(0, 8)}..."?`)) return;
-    setDeletingCompId(comp.component_id);
+    setDeletingCompId(comp.component_id || null);
     try {
-      await deleteBatchComponent(batch.batch_id, comp.component_id);
+      await deleteBatchComponent(batch.batch_id, comp.component_id || "");
       setComponents((prev) => prev.filter((c) => c.component_id !== comp.component_id));
     } catch (e: any) {
       alert(e.message);
@@ -562,7 +562,7 @@ export default function OperatorProductionBatchDetail() {
                     >
                       <td className="px-5 py-3">
                         <code className="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono text-purple-700">
-                          {comp.component_id.substring(0, 8)}...
+                          {(comp.component_id || "").substring(0, 8)}...
                         </code>
                       </td>
                       <td className="px-5 py-3 font-mono text-xs text-gray-600">

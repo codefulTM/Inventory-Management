@@ -36,7 +36,6 @@ export default function InventoryLot() {
       inventoryLots,
       total,
       page: responsePage,
-      limit: responseLimit,
       error: apiError,
     } = query === ""
       ? await InventoryLotAPI.getAll(pageToFetch, limit)
