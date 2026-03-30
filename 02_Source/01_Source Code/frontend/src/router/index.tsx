@@ -43,6 +43,7 @@ import { isTokenValid } from "../utils/authUtils";
 import StockManagement from "../pages/manager/StockManagement.tsx";
 import InventoryLot from "../pages/manager/inventory-lot/InventoryLot.tsx";
 import { TransactionManagementManager } from "../pages/manager/TransactionManagementManager.tsx";
+import AIAgentConsole from "../pages/shared/AIAgentConsole";
 
 /**
  * Get user role from localStorage with normalization
@@ -281,6 +282,10 @@ export const router = createBrowserRouter([
         path: "manager/inventory-transactions",
         element: requireManagerAuth(<InventoryTransactionListManager />),
       },
+      {
+        path: "manager/ai-agent",
+        element: requireManagerAuth(<AIAgentConsole />),
+      },
       // Operator - Chỉ allow role 'operator'
       {
         path: "/operator/dashboard",
@@ -329,6 +334,14 @@ export const router = createBrowserRouter([
       {
         path: "operator/production-batches/:id/edit",
         element: requireOperatorAuth(<OperatorProductionBatchForm />),
+      },
+      {
+        path: "operator/ai-agent",
+        element: requireOperatorAuth(<AIAgentConsole />),
+      },
+      {
+        path: "qc/ai-agent",
+        element: requireQCAuth(<AIAgentConsole />),
       },
 
       // Catch-all placeholder

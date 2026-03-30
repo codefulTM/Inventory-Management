@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Tag,
   FlaskConical,
+  Bot,
 } from "lucide-react";
 
 interface NavItem {
@@ -163,6 +164,11 @@ export default function Layout() {
             icon: <FlaskConical size={20} />,
             label: "Lô sản xuất",
           },
+          {
+            to: "/manager/ai-agent",
+            icon: <Bot size={20} />,
+            label: "AI Agent",
+          },
         ];
       case "quality-control":
         return [
@@ -195,6 +201,11 @@ export default function Layout() {
             to: "/qc/inspection",
             icon: <FileText size={20} />,
             label: "Kiểm định sản phẩm",
+          },
+          {
+            to: "/qc/ai-agent",
+            icon: <Bot size={20} />,
+            label: "AI Agent",
           },
         ];
       case "operator":
@@ -243,6 +254,11 @@ export default function Layout() {
             to: "/operator/labels",
             icon: <Tag size={20} />,
             label: "In nhãn",
+          },
+          {
+            to: "/operator/ai-agent",
+            icon: <Bot size={20} />,
+            label: "AI Agent",
           },
         ];
       case "it_admin":
