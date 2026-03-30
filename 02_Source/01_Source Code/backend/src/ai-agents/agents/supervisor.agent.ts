@@ -113,6 +113,11 @@ export class SupervisorAgent {
       'inventory',
       'transaction',
       'bao cao',
+      'het han',
+      'sắp hết hạn',
+      'sap het han',
+      'duoi 1 thang',
+      'còn hạn dưới 1 tháng',
     ];
 
     if (warehouseKeywords.some((k) => text.includes(k))) {
