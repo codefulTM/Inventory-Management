@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { passportJwtSecret } from 'jwks-rsa';
 import { KeycloakJwtPayload } from '../../keycloak/keycloak.service';
 import { UserRole } from '../../schemas/user.schema';
+import { mapRealmRolesToUserRole } from '../utils/role-mapper';
 
 export interface AuthenticatedUser {
   keycloak_id: string;
@@ -56,14 +57,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const realmRoles = payload.realm_access?.roles ?? [];
     this.logger.debug(`[JwtStrategy] Token realm_roles: ${JSON.stringify(realmRoles)}`);
 
-    // Map Keycloak role → UserRole enum
-    const appRoles: UserRole[] = Object.values(UserRole);
-    this.logger.debug(`[JwtStrategy] Available app roles: ${JSON.stringify(appRoles)}`);
-
-    const matchedRole = appRoles.find((r) => realmRoles.includes(r));
-    this.logger.debug(`[JwtStrategy] Matched role: ${matchedRole}`);
-
-    const role = matchedRole ?? UserRole.OPERATOR;
+    const role = mapRealmRolesToUserRole(
+      realmRoles,
+      payload.preferred_username,
+    );
     this.logger.log(`[JwtStrategy] User ${payload.preferred_username} assigned role: ${role}`);
 
     return {
