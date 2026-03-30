@@ -76,3 +76,16 @@
 | **US36** | Là IT Admin, tôi muốn kiểm tra trạng thái và tính toàn vẹn của các bản sao lưu gần nhất.                               | **P1**     | - Bảng lịch sử hiển thị rõ: Tên file, dung lượng, trạng thái (Success/Failed) và mã Checksum.<br>- Cảnh báo màu sắc cho các bản sao lưu có dung lượng bất thường.                                              | Chờ thực hiện |
 | **US37** | Là IT Admin, tôi muốn thực hiện phục hồi dữ liệu (Restore) khi hệ thống gặp sự cố mất mát thông tin.                   | **P0**     | - Quy trình Restore từng bước qua Wizard.<br>- Yêu cầu xác thực 2 lớp (2FA) trước khi thực hiện ghi đè dữ liệu Prod.<br>- Hiển thị tiến trình phục hồi theo phần trăm (%).                                     | Chờ thực hiện |
 | **US38** | Là IT Admin, tôi muốn xuất báo cáo định kỳ về chỉ số vận hành hệ thống (Uptime/SLA) để trình ban lãnh đạo.             | **P2**     | - Thống kê thời gian hoạt động (Uptime) và lịch sử các sự cố (Incident log).<br>- Xuất báo cáo định dạng PDF/HTML chuyên nghiệp.                                                                               | Chờ thực hiện |
+
+---
+
+## QUALITY CONTROL TECHNICIAN - BARCODE MANAGEMENT (3 stories: US39-US41)
+
+| ID       | User Story (Phát biểu yêu cầu)                                                                                        | Độ ưu tiên | Tiêu chí chấp nhận (Acceptance Criteria)                                                                                                                                                                                                                         | Trạng thái    |
+| :------- | :-------------------------------------------------------------------------------------------------------------------- | :--------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------ |
+| **US39** | Là QC, tôi muốn tạo barcode cho mỗi lô hàng đã được xác nhận để ghi nhận lô hàng đã kiểm tra.           | **P0**     | - Hệ thống tự động tạo barcode với format chuẩn (CODE128 hoặc EAN128).<br>- Barcode liên kết với lot_id và inspection_date.<br>- Barcode được lưu trữ trong cơ sở dữ liệu.<br>- Audit log ghi nhận sự tạo barcode.    | Chờ thực hiện |
+| **US40** | Là QC, tôi muốn tải xuống barcode để hỗ trợ in ấn label.           | **P0**     | - Hỗ trợ xuất barcode dưới dạng hình ảnh (PNG/SVG) hoặc PDF.<br>- Cho phép chọn định dạng và kích thước.<br>- Xuất được batch (nhiều barcode cùng lúc) hoặc lẻ từng cái.<br>- File tải xuống có tên rõ ràng (lot_id + date). | Chờ thực hiện |
+| **US41** | Là Manager/Operator/QC, tôi muốn nhập barcode để tra cứu thông tin lô hàng.        | **P0**     | - Hỗ trợ quét barcode hoặc nhập thủ công mã barcode.<br>- Trả về toàn bộ thông tin lô: Lot ID, Material, Qty, QC Status, Current Location.<br>- Hiển thị kết quả tra cứu ngay lập tức.<br>- Cảnh báo nếu barcode không tồn tại. | Chờ thực hiện |
+
+
+---
