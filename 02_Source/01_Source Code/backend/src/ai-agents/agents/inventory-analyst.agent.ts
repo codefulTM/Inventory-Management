@@ -3,6 +3,25 @@ import { InventoryLotService } from '../../inventory-lot/inventory-lot.service';
 import { InventoryTransactionService } from '../../inventory-transaction/inventory-transaction.service';
 import { AgentHandlerInput, AgentHandlerOutput } from '../ai-agents.types';
 
+type LotStatistics = {
+  total: number;
+  byStatus: Record<string, number>;
+  expiringSoon: number;
+  expired: number;
+};
+
+type TransactionPage = {
+  items: unknown[];
+  total: number;
+};
+
+type TransactionReader = {
+  getAll: (
+    filters: Record<string, unknown>,
+    paging: { page: number; limit: number },
+  ) => Promise<TransactionPage>;
+};
+
 @Injectable()
 export class InventoryAnalystAgent {
   constructor(
@@ -11,12 +30,24 @@ export class InventoryAnalystAgent {
   ) {}
 
   async handle(input: AgentHandlerInput): Promise<AgentHandlerOutput> {
-    const page = Number(input.payload?.page ?? 1);
-    const limit = Number(input.payload?.limit ?? 20);
+    const pageInput = Number(input.payload?.page ?? 1);
+    const limitInput = Number(input.payload?.limit ?? 20);
+    const page = Number.isFinite(pageInput) && pageInput > 0 ? pageInput : 1;
+    const limit =
+      Number.isFinite(limitInput) && limitInput > 0 ? limitInput : 20;
+
+    const transactionReader = this
+      .inventoryTransactionService as unknown as TransactionReader;
 
     const [lotStats, transactions] = await Promise.all([
-      this.inventoryLotService.getLotsStatistics(),
-      this.inventoryTransactionService.findAll({}, page, limit),
+      this.inventoryLotService.getLotsStatistics() as Promise<LotStatistics>,
+      transactionReader.getAll(
+        {},
+        {
+          page,
+          limit,
+        },
+      ),
     ]);
 
     const insights: string[] = [];
@@ -37,8 +68,13 @@ export class InventoryAnalystAgent {
       data: {
         query: input.query,
         lots: lotStats,
-        transactions: transactions.data,
-        pagination: transactions.pagination,
+        transactions: transactions.items,
+        pagination: {
+          page,
+          limit,
+          total: transactions.total,
+          totalPages: Math.ceil(transactions.total / limit),
+        },
         insights,
       },
     };
