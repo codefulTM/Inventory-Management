@@ -1,7 +1,8 @@
 export type AgentIntent =
   | "inventory_analyst"
   | "warehouse_operator"
-  | "qc_compliance_checker";
+  | "qc_compliance_checker"
+  | "unknown";
 
 export interface AssistantLotRow {
   lot_id: string;
@@ -25,6 +26,14 @@ export interface AgentRouteResult {
   result: {
     status: "ok" | "needs_input" | "error";
     message: string;
+    assistant_reply?: string;
+    agent_profile?: {
+      name: string;
+      description: string;
+      instructions: string[];
+      model: string;
+      tools: string[];
+    };
     data?: AgentResultData;
   };
   timestamp: string;
