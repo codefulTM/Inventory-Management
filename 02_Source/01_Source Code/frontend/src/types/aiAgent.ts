@@ -3,6 +3,21 @@ export type AgentIntent =
   | "warehouse_operator"
   | "qc_compliance_checker";
 
+export interface AssistantLotRow {
+  lot_id: string;
+  material_id: string;
+  expiration_date: string;
+  quantity: number;
+  unit_of_measure: string;
+  status: string;
+}
+
+export interface AgentResultData {
+  expiringLots?: AssistantLotRow[];
+  expiredLots?: AssistantLotRow[];
+  [key: string]: unknown;
+}
+
 export interface AgentRouteResult {
   intent: AgentIntent;
   confidence: number;
@@ -10,7 +25,7 @@ export interface AgentRouteResult {
   result: {
     status: "ok" | "needs_input" | "error";
     message: string;
-    data?: Record<string, unknown>;
+    data?: AgentResultData;
   };
   timestamp: string;
 }

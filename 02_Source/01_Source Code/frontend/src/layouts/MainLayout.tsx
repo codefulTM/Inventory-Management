@@ -28,8 +28,8 @@ import {
   ChevronRight,
   Tag,
   FlaskConical,
-  Bot,
 } from "lucide-react";
+import MyAssistantWidget from "../components/assistant/MyAssistantWidget";
 
 interface NavItem {
   to: string;
@@ -164,11 +164,6 @@ export default function Layout() {
             icon: <FlaskConical size={20} />,
             label: "Lô sản xuất",
           },
-          {
-            to: "/manager/ai-agent",
-            icon: <Bot size={20} />,
-            label: "AI Agent",
-          },
         ];
       case "quality-control":
         return [
@@ -201,11 +196,6 @@ export default function Layout() {
             to: "/qc/inspection",
             icon: <FileText size={20} />,
             label: "Kiểm định sản phẩm",
-          },
-          {
-            to: "/qc/ai-agent",
-            icon: <Bot size={20} />,
-            label: "AI Agent",
           },
         ];
       case "operator":
@@ -255,11 +245,6 @@ export default function Layout() {
             icon: <Tag size={20} />,
             label: "In nhãn",
           },
-          {
-            to: "/operator/ai-agent",
-            icon: <Bot size={20} />,
-            label: "AI Agent",
-          },
         ];
       case "it_admin":
         return [
@@ -295,6 +280,10 @@ export default function Layout() {
   };
 
   const navItems = getNavItems();
+  const canUseAssistant =
+    user?.role === "manager" ||
+    user?.role === "operator" ||
+    user?.role === "quality-control";
 
   // Thêm handleLogout
   const handleLogout = () => {
@@ -453,6 +442,8 @@ export default function Layout() {
           </span>
         </footer>
       </div>
+
+      {canUseAssistant && <MyAssistantWidget />}
     </div>
   );
 }
