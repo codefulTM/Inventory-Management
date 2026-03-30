@@ -8,6 +8,7 @@ import { SupervisorAgent } from './agents/supervisor.agent';
 import { InventoryAnalystAgent } from './agents/inventory-analyst.agent';
 import { WarehouseOperatorAgent } from './agents/warehouse-operator.agent';
 import { QcComplianceCheckerAgent } from './agents/qc-compliance-checker.agent';
+import { AgentLlmService } from './services/agent-llm.service';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { QcComplianceCheckerAgent } from './agents/qc-compliance-checker.agent';
   controllers: [AiAgentsController],
   providers: [
     SupervisorAgent,
+    AgentLlmService,
     InventoryAnalystAgent,
     WarehouseOperatorAgent,
     QcComplianceCheckerAgent,
