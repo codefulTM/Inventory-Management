@@ -23,7 +23,12 @@ export class UserRepository {
   ): Promise<{ data: UserDocument[]; total: number }> {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.userModel.find().skip(skip).limit(limit).sort({ created_date: -1 }).exec(),
+      this.userModel
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .sort({ created_date: -1 })
+        .exec(),
       this.userModel.countDocuments().exec(),
     ]);
     return { data, total };
@@ -52,7 +57,12 @@ export class UserRepository {
   ): Promise<{ data: UserDocument[]; total: number }> {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.userModel.find({ role }).skip(skip).limit(limit).sort({ created_date: -1 }).exec(),
+      this.userModel
+        .find({ role })
+        .skip(skip)
+        .limit(limit)
+        .sort({ created_date: -1 })
+        .exec(),
       this.userModel.countDocuments({ role }).exec(),
     ]);
     return { data, total };
@@ -67,13 +77,21 @@ export class UserRepository {
     const regex = new RegExp(query, 'i');
     const filter = { $or: [{ username: regex }, { email: regex }] };
     const [data, total] = await Promise.all([
-      this.userModel.find(filter).skip(skip).limit(limit).sort({ created_date: -1 }).exec(),
+      this.userModel
+        .find(filter)
+        .skip(skip)
+        .limit(limit)
+        .sort({ created_date: -1 })
+        .exec(),
       this.userModel.countDocuments(filter).exec(),
     ]);
     return { data, total };
   }
 
-  async update(user_id: string, data: Partial<User>): Promise<UserDocument | null> {
+  async update(
+    user_id: string,
+    data: Partial<User>,
+  ): Promise<UserDocument | null> {
     return this.userModel
       .findOneAndUpdate({ user_id }, { $set: data }, { new: true })
       .exec();

@@ -17,7 +17,7 @@ export class InventoryTransactionService {
     if (!transactionDto.transaction_date) {
       transactionDto.transaction_date = new Date().toISOString();
     }
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     transactionDto.transaction_id = require('uuid').v4();
 
     // các kiểm tra validation được thực hiện bên trong mỗi hàm xử lý; quy tắc dấu theo loại đã ghi chú ở đó

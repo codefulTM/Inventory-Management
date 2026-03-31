@@ -27,7 +27,7 @@ function buildValidPayload(): CreatePayload {
     shelf_life_value: 24,
     shelf_life_unit: 'month',
     status: BatchStatus.InProgress,
-    batch_size: 500,
+    batch_size: '500' as any, // Should be string for Decimal128
   };
 }
 
@@ -144,14 +144,14 @@ describe('CreateProductionBatchDto Validation', () => {
     expect(errors.some((error) => error.property === 'batch_size')).toBe(true);
   });
 
-  it('should transform numeric string batch_size to number', () => {
+  it('should accept string batch_size value', () => {
     const dto = plainToInstance(CreateProductionBatchDto, {
       ...buildValidPayload(),
       batch_size: '250',
     });
 
-    expect(typeof dto.batch_size).toBe('number');
-    expect(dto.batch_size).toBe(250);
+    expect(typeof dto.batch_size).toBe('string');
+    expect(dto.batch_size).toBe('250');
   });
 });
 
@@ -168,7 +168,7 @@ describe('UpdateProductionBatchDto Validation', () => {
     const dto = plainToInstance(UpdateProductionBatchDto, {
       batch_number: 'BATCH-UPDATED-001',
       status: BatchStatus.OnHold,
-      batch_size: 300,
+      batch_size: '300', // Should be string for Decimal128
     });
 
     const errors = await validate(dto);

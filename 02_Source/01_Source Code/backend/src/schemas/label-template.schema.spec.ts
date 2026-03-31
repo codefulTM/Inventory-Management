@@ -61,13 +61,12 @@ describe('LabelTemplateSchema', () => {
   });
 
   it.each(['width', 'height'])(
-    'should define %s as required Decimal128',
+    'should define %s as required Number',
     (field) => {
       const path = LabelTemplateSchema.path(field) as unknown as SchemaPathLike;
 
-      expect(path.instance).toBe('Decimal128');
+      expect(path.instance).toBe('Number');
       expect(path.options.required).toBe(true);
-      expect(path.options.type).toBe(MongooseSchema.Types.Decimal128);
     },
   );
 

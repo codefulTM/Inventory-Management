@@ -27,7 +27,10 @@ export class BatchComponentRepository {
    * @returns Created component document
    */
   async create(
-    createDto: CreateBatchComponentDto & { batch_id: string; component_id: string },
+    createDto: CreateBatchComponentDto & {
+      batch_id: string;
+      component_id: string;
+    },
   ): Promise<BatchComponentDocument> {
     this.logger.debug(
       `Creating batch component for batch_id: ${createDto.batch_id}`,

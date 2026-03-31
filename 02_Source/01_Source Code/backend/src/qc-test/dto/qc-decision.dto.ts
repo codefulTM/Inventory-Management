@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString, IsNotEmpty, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 
 export class QCDecisionDto {
   @IsEnum(['Accepted', 'Rejected', 'Hold'])

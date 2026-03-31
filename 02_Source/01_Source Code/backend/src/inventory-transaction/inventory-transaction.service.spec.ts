@@ -7,6 +7,15 @@ import {
 } from './dto/create-inventory-transaction.dto';
 import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
 
+// Mock uuid to avoid ESM import issues
+jest.mock(
+  'uuid',
+  () => ({
+    v4: () => 'test-uuid-1234-5678-90ab-cdef',
+  }),
+  { virtual: true },
+);
+
 // utility helper
 function makeDto(
   overrides: Partial<CreateInventoryTransactionDto> = {},

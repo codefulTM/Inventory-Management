@@ -64,7 +64,11 @@ export class ProductionBatchController {
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20,
   ) {
-    return await this.productionBatchService.findByProductId(productId, page, limit);
+    return await this.productionBatchService.findByProductId(
+      productId,
+      page,
+      limit,
+    );
   }
 
   /**
@@ -219,4 +223,3 @@ export class ProductionBatchController {
     return this.batchComponentService.remove(batchId, componentId);
   }
 }
-

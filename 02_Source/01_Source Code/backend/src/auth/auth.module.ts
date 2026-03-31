@@ -13,10 +13,7 @@ import { UserModule } from '../user/user.module';
  * Export guards để AppModule đăng ký toàn cục.
  */
 @Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    UserModule,
-  ],
+  imports: [PassportModule.register({ defaultStrategy: 'jwt' }), UserModule],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
   exports: [AuthService, JwtAuthGuard, RolesGuard, JwtStrategy],

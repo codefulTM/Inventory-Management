@@ -82,10 +82,31 @@ describe('ProductionBatchService', () => {
     repository = buildMockRepository();
     materialModel = buildMockMaterialModel();
 
+    const mockInventoryLotService = {
+      findById: jest.fn(),
+      findByStatus: jest.fn(),
+      findAll: jest.fn(),
+      update: jest.fn(),
+      updateStatus: jest.fn(),
+    };
+
+    const mockBatchComponentRepository = {
+      create: jest.fn(),
+      find: jest.fn(),
+      findOne: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductionBatchService,
         { provide: ProductionBatchRepository, useValue: repository },
+        {
+          provide: BatchComponentRepository,
+          useValue: mockBatchComponentRepository,
+        },
+        { provide: InventoryLotService, useValue: mockInventoryLotService },
         { provide: getModelToken(Material.name), useValue: materialModel },
       ],
     }).compile();
