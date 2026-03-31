@@ -18,6 +18,7 @@ import { LabelTemplateModule } from './label-template/label-template.module';
 import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
 import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
 import { LogModule } from './log-management/log.module';
+import { BarcodeModule } from './barcode/barcode.module';
 import { AppService } from './app.service';
 
 @Module({
@@ -37,6 +38,7 @@ import { AppService } from './app.service';
     WarehouseHierarchyModule,
     SystemMonitoringModule,
     LogModule,
+    BarcodeModule,
     InventoryTransactionModule,
   ],
   controllers: [AppController],
