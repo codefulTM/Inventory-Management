@@ -37,6 +37,7 @@ export class QCTestService {
   constructor(
     private readonly repository: QCTestRepository,
     private readonly inventoryLotService: InventoryLotService,
+    private readonly productionBatchService: ProductionBatchService,
   ) {}
 
   // ─── InventoryLotService helpers ─────────────────────────────────────
@@ -74,6 +75,65 @@ export class QCTestService {
     };
 
     return this.repository.create(data);
+  }
+
+  async initTestFromBatch(
+    batch_id: string,
+    dto: {
+      performed_by: string;
+      test_type?: CreateQCTestDto['test_type'];
+      test_method?: string;
+      acceptance_criteria?: string;
+    },
+  ): Promise<QCTestDocument> {
+    if (!dto.performed_by?.trim()) {
+      throw new BadRequestException('performed_by is required');
+    }
+
+    const batch = await this.productionBatchService.findOne(batch_id);
+
+    const lotSearch = await this.inventoryLotService.searchByManufacturer(
+      batch.batch_number,
+      1,
+      20,
+    );
+
+    const lot = lotSearch.data.find(
+      (item) =>
+        item.manufacturer_lot === batch.batch_number &&
+        item.material_id === batch.product_id,
+    );
+
+    if (!lot) {
+      throw new NotFoundException(
+        `Finished inventory lot for batch '${batch_id}' not found`,
+      );
+    }
+
+    const existed = await this.repository.findByLotId(lot.lot_id);
+    const hasPendingBatchQC = existed.some(
+      (test) =>
+        test.result_status === 'Pending' &&
+        test.test_method === 'Batch Completion QC',
+    );
+
+    if (hasPendingBatchQC) {
+      throw new BadRequestException(
+        `Pending QC test already exists for batch '${batch_id}'`,
+      );
+    }
+
+    return this.createTest({
+      lot_id: lot.lot_id,
+      test_type: dto.test_type ?? 'Physical',
+      test_method: dto.test_method ?? 'Batch Completion QC',
+      test_date: new Date().toISOString(),
+      test_result: `Pending QC test for completed batch ${batch.batch_number}`,
+      acceptance_criteria:
+        dto.acceptance_criteria ?? 'Internal batch release criteria',
+      result_status: 'Pending',
+      performed_by: dto.performed_by,
+    });
   }
 
   async updateTest(
