@@ -18,6 +18,7 @@ import {
   InventoryLotResponseDto,
 } from '../inventory-lot/inventory-lot.dto';
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
+import { ProductionBatchService } from '../production-batch/production-batch.service';
 
 // TODO [Workflow B]: After ProductionBatchModule is ready, inject ProductionBatchService
 // and call QCTestService.createTest() after batch QC completes.
@@ -92,7 +93,7 @@ export class QCTestService {
 
     const batch = await this.productionBatchService.findOne(batch_id);
 
-    const lotSearch = await this.inventoryLotService.searchByManufacturer(
+    const lotSearch = await this.inventoryLotService.search(
       batch.batch_number,
       1,
       20,

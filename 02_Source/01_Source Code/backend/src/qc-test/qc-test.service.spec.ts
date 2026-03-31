@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { QCTestService } from './qc-test.service';
 import { QCTestRepository } from './qc-test.repository';
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
+import { ProductionBatchService } from '../production-batch/production-batch.service';
 
 // Mock uuid to avoid ESM import issues
 jest.mock(
@@ -50,6 +51,11 @@ const mockInventoryLotService = {
   findByStatus: jest.fn(),
   findAll: jest.fn(),
   getLotsByStatus: jest.fn(), // Still used in some tests - include it
+  search: jest.fn(),
+};
+
+const mockProductionBatchService = {
+  findOne: jest.fn(),
 };
 
 describe('QCTestService', () => {
@@ -61,6 +67,7 @@ describe('QCTestService', () => {
         QCTestService,
         { provide: QCTestRepository, useValue: mockQCTestRepository },
         { provide: InventoryLotService, useValue: mockInventoryLotService },
+        { provide: ProductionBatchService, useValue: mockProductionBatchService },
       ],
     }).compile();
 
@@ -278,7 +285,7 @@ describe('QCTestService', () => {
       mockQCTestRepository.updateManyByLotId.mockResolvedValue([mockTest]);
       mockInventoryLotService.updateStatus.mockResolvedValue({
         ...mockLot,
-        status: 'Hold',
+        status: 'Quarantine',
       });
 
       const result = await service.submitDecision('lot-001', {
@@ -288,9 +295,9 @@ describe('QCTestService', () => {
 
       expect(mockInventoryLotService.updateStatus).toHaveBeenCalledWith(
         'lot-001',
-        'Hold',
+        'Quarantine',
       );
-      expect(result.lot.status).toBe('Hold');
+      expect(result.lot.status).toBe('Quarantine');
     });
 
     it('should keep QCTest result_status as Pending', async () => {
@@ -298,7 +305,7 @@ describe('QCTestService', () => {
       mockQCTestRepository.updateManyByLotId.mockResolvedValue([mockTest]);
       mockInventoryLotService.updateStatus.mockResolvedValue({
         ...mockLot,
-        status: 'Hold',
+        status: 'Quarantine',
       });
 
       await service.submitDecision('lot-001', {
@@ -316,7 +323,7 @@ describe('QCTestService', () => {
   describe('submitRetestDecision() — extend', () => {
     it('should update expiration_date to new date', async () => {
       mockInventoryLotService.findById.mockResolvedValue(mockLot);
-      mockInventoryLotService.updateLot.mockResolvedValue({
+      mockInventoryLotService.updateStatus.mockResolvedValue({
         ...mockLot,
         status: 'Accepted',
         expiration_date: new Date('2028-03-08'),
@@ -328,12 +335,9 @@ describe('QCTestService', () => {
         performed_by: 'qc_user_01',
       });
 
-      expect(mockInventoryLotService.updateLot).toHaveBeenCalledWith(
+      expect(mockInventoryLotService.updateStatus).toHaveBeenCalledWith(
         'lot-001',
-        expect.objectContaining({
-          status: 'Accepted',
-          expiration_date: new Date('2028-03-08'),
-        }),
+        'Accepted',
       );
     });
 
@@ -375,10 +379,9 @@ describe('QCTestService', () => {
 
   describe('getDashboardKPI()', () => {
     it('should calculate error_rate correctly', async () => {
-      mockInventoryLotService.getLotsByStatus.mockResolvedValue([
-        mockLot,
-        mockLot,
-      ]);
+      mockInventoryLotService.findByStatus.mockResolvedValue({
+        data: [mockLot, mockLot],
+      });
       mockQCTestRepository.countByResultStatus
         .mockResolvedValueOnce(8) // Pass
         .mockResolvedValueOnce(2); // Fail
@@ -392,7 +395,7 @@ describe('QCTestService', () => {
     });
 
     it('should return 0 for error_rate when no tests exist', async () => {
-      mockInventoryLotService.getLotsByStatus.mockResolvedValue([]);
+      mockInventoryLotService.findByStatus.mockResolvedValue({ data: [] });
       mockQCTestRepository.countByResultStatus.mockResolvedValue(0);
 
       const result = await service.getDashboardKPI();

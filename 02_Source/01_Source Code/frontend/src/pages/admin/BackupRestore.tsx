@@ -44,7 +44,7 @@ export default function BackupRestore() {
         id: `BK-${Date.now()}`,
         createdAt: new Date().toISOString(),
         totalLots: report.total_lots,
-        depletedLots: report.depleted_lots,
+        depletedLots: report.items.filter((item) => item.status === 'Depleted').length,
       };
       const updated = [next, ...snapshots].slice(0, 20);
       setSnapshots(updated);

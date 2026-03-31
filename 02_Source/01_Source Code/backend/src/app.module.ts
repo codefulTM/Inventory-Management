@@ -21,6 +21,7 @@ import { LogModule } from './log-management/log.module';
 import { BarcodeModule } from './barcode/barcode.module';
 import { AppService } from './app.service';
 import { AiAgentsModule } from './ai-agents/ai-agents.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -40,7 +41,6 @@ import { AiAgentsModule } from './ai-agents/ai-agents.module';
     SystemMonitoringModule,
     LogModule,
     BarcodeModule,
-    InventoryTransactionModule,
     ReportsModule,
   ],
   controllers: [AppController],

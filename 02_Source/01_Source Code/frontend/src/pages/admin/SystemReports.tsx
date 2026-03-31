@@ -24,8 +24,13 @@ export default function SystemReports() {
           getAuditReport(),
         ]);
         setInventoryTotal(inventory.total_lots);
-        setDepleted(inventory.depleted_lots);
-        setQcPassRate(qc.pass_rate_percentage);
+        setDepleted(
+          inventory.items.filter((item) => item.status === 'Depleted').length,
+        );
+        const totalApproved = qc.items.reduce((sum, item) => sum + item.approved, 0);
+        const totalRejected = qc.items.reduce((sum, item) => sum + item.rejected, 0);
+        const totalQc = totalApproved + totalRejected;
+        setQcPassRate(totalQc > 0 ? Number(((totalApproved / totalQc) * 100).toFixed(2)) : null);
         setAuditEntries(audit.entries.length);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load reports');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -151,7 +151,7 @@ export default function ErrorLogs() {
             <Pagination
               count={total}
               page={page}
-              onChange={(e, value) => setPage(value)}
+              onChange={(_, value) => setPage(value)}
               color="primary"
             />
           </Box>

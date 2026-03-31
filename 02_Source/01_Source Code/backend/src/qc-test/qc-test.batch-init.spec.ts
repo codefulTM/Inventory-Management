@@ -17,7 +17,7 @@ describe('QCTestService batch init', () => {
   } as unknown as QCTestRepository;
 
   const mockInventoryLotService = {
-    searchByManufacturer: jest.fn(),
+    search: jest.fn(),
     findById: jest.fn(),
   } as unknown as InventoryLotService;
 
@@ -42,7 +42,7 @@ describe('QCTestService batch init', () => {
       product_id: 'MAT-001',
     });
 
-    (mockInventoryLotService.searchByManufacturer as jest.Mock).mockResolvedValue({
+    (mockInventoryLotService.search as jest.Mock).mockResolvedValue({
       data: [
         {
           lot_id: 'LOT-001',
@@ -68,7 +68,7 @@ describe('QCTestService batch init', () => {
     });
 
     expect(mockProductionBatchService.findOne).toHaveBeenCalledWith('batch-1');
-    expect(mockInventoryLotService.searchByManufacturer).toHaveBeenCalledWith(
+    expect(mockInventoryLotService.search).toHaveBeenCalledWith(
       'BATCH-001',
       1,
       20,
@@ -83,7 +83,7 @@ describe('QCTestService batch init', () => {
       batch_number: 'BATCH-001',
       product_id: 'MAT-001',
     });
-    (mockInventoryLotService.searchByManufacturer as jest.Mock).mockResolvedValue({
+    (mockInventoryLotService.search as jest.Mock).mockResolvedValue({
       data: [],
       total: 0,
       page: 1,
@@ -102,7 +102,7 @@ describe('QCTestService batch init', () => {
       product_id: 'MAT-001',
     });
 
-    (mockInventoryLotService.searchByManufacturer as jest.Mock).mockResolvedValue({
+    (mockInventoryLotService.search as jest.Mock).mockResolvedValue({
       data: [
         {
           lot_id: 'LOT-001',

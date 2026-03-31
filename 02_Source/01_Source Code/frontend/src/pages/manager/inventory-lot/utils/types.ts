@@ -11,7 +11,7 @@ export type EditFormValues = {
   quantity: number;
   unit_of_measure: string;
   storage_location: string;
-  status: "Quarantine" | "Accepted" | "Rejected" | "Depleted";
+  status: "Pending" | "Quarantine" | "Accepted" | "Rejected" | "Depleted";
   is_sample: boolean;
   parent_lot_id: string;
   notes: string;

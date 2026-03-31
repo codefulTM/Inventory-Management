@@ -235,6 +235,7 @@ describe('ProductionBatchController', () => {
       expect(batchService.update).toHaveBeenCalledWith(
         '3d594650-3436-453f-901f-f7f66f18f8eb',
         dto,
+        'system',
       );
       expect(result.status).toBe(BatchStatus.Complete);
     });

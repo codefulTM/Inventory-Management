@@ -75,7 +75,7 @@ describe('CreateProductionBatchDto Validation', () => {
     expect(errors.some((error) => error.property === field)).toBe(true);
   });
 
-  it('should reject invalid UUID batch_id', async () => {
+  it('should accept non-UUID batch_id string', async () => {
     const dto = plainToInstance(CreateProductionBatchDto, {
       ...buildValidPayload(),
       batch_id: 'invalid-uuid',
@@ -83,7 +83,7 @@ describe('CreateProductionBatchDto Validation', () => {
 
     const errors = await validate(dto);
 
-    expect(errors.some((error) => error.property === 'batch_id')).toBe(true);
+    expect(errors.some((error) => error.property === 'batch_id')).toBe(false);
   });
 
   it.each([

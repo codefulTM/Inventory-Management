@@ -51,6 +51,7 @@ type MockedComponentRepository = {
 type MockedBatchRepository = {
   findAll: jest.Mock;
   findOne: jest.Mock;
+  findByIdOrNumber: jest.Mock;
   findByBatchNumber: jest.Mock;
   findByProductId: jest.Mock;
   findByStatus: jest.Mock;
@@ -123,6 +124,7 @@ describe('BatchComponentService', () => {
     const batchRepositoryMock: MockedBatchRepository = {
       findAll: jest.fn(),
       findOne: jest.fn(),
+      findByIdOrNumber: jest.fn(),
       findByBatchNumber: jest.fn(),
       findByProductId: jest.fn(),
       findByStatus: jest.fn(),
@@ -171,13 +173,18 @@ describe('BatchComponentService', () => {
     it('should create component when batch and lot exist', async () => {
       const createDto = buildCreateDto();
       const created = buildComponent();
-      batchRepository.findOne.mockResolvedValue({ batch_id: created.batch_id });
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: created.batch_id,
+        status: 'On Hold',
+      });
       lotModel.findOne.mockReturnValue(mockExec({ lot_id: created.lot_id }));
       componentRepository.create.mockResolvedValue(created);
 
       const result = await service.create(created.batch_id, createDto);
 
-      expect(batchRepository.findOne).toHaveBeenCalledWith(created.batch_id);
+      expect(batchRepository.findByIdOrNumber).toHaveBeenCalledWith(
+        created.batch_id,
+      );
       expect(lotModel.findOne).toHaveBeenCalledWith({ lot_id: created.lot_id });
       expect(componentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -194,7 +201,10 @@ describe('BatchComponentService', () => {
 
     it('should auto-fill addition_date when not provided', async () => {
       const createDto = buildCreateDto({ addition_date: undefined });
-      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       lotModel.findOne.mockReturnValue(mockExec({ lot_id: createDto.lot_id }));
       let capturedAdditionDate: unknown;
       componentRepository.create.mockImplementation((payload: unknown) => {
@@ -216,7 +226,10 @@ describe('BatchComponentService', () => {
 
     it('should generate UUID component_id during creation', async () => {
       const createDto = buildCreateDto();
-      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       lotModel.findOne.mockReturnValue(mockExec({ lot_id: createDto.lot_id }));
       let capturedCreatePayload:
         | {
@@ -242,7 +255,8 @@ describe('BatchComponentService', () => {
     });
 
     it('should throw NotFoundException when batch is missing', async () => {
-      batchRepository.findOne.mockResolvedValue(null);
+      batchRepository.findByIdOrNumber.mockResolvedValue(null);
+      batchRepository.findAll.mockResolvedValue({ data: [], total: 0 });
 
       await expect(
         service.create('batch-404', buildCreateDto()),
@@ -251,7 +265,10 @@ describe('BatchComponentService', () => {
     });
 
     it('should throw NotFoundException when lot is missing', async () => {
-      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       lotModel.findOne.mockReturnValue(mockExec(null));
 
       await expect(service.create('batch-1', buildCreateDto())).rejects.toThrow(
@@ -263,7 +280,7 @@ describe('BatchComponentService', () => {
 
   describe('findByBatchId', () => {
     it('should return mapped components when batch exists', async () => {
-      batchRepository.findOne.mockResolvedValue({ batch_id: 'batch-1' });
+      batchRepository.findByIdOrNumber.mockResolvedValue({ batch_id: 'batch-1' });
       componentRepository.findByBatchId.mockResolvedValue([buildComponent()]);
 
       const result = await service.findByBatchId('batch-1');
@@ -274,7 +291,7 @@ describe('BatchComponentService', () => {
     });
 
     it('should throw NotFoundException when batch does not exist', async () => {
-      batchRepository.findOne.mockResolvedValue(null);
+      batchRepository.findByIdOrNumber.mockResolvedValue(null);
 
       await expect(service.findByBatchId('batch-404')).rejects.toThrow(
         NotFoundException,
@@ -299,6 +316,7 @@ describe('BatchComponentService', () => {
     });
 
     it('should throw NotFoundException when component is not in batch', async () => {
+      batchRepository.findByIdOrNumber.mockResolvedValue({ batch_id: 'batch-1' });
       componentRepository.findOneByBatch.mockResolvedValue(null);
 
       await expect(service.findOne('batch-1', 'component-404')).rejects.toThrow(
@@ -322,6 +340,10 @@ describe('BatchComponentService', () => {
     });
 
     it('should validate changed lot_id exists', async () => {
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       componentRepository.findOneByBatch.mockResolvedValue(buildComponent());
       lotModel.findOne.mockReturnValue(mockExec(null));
 
@@ -335,6 +357,10 @@ describe('BatchComponentService', () => {
 
     it('should skip lot lookup when lot_id is unchanged and update succeeds', async () => {
       const existing = buildComponent();
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       componentRepository.findOneByBatch.mockResolvedValue(existing);
       componentRepository.update.mockResolvedValue(
         buildComponent({ unit_of_measure: 'g' }),
@@ -355,6 +381,10 @@ describe('BatchComponentService', () => {
 
     it('should validate new lot_id and update component', async () => {
       const existing = buildComponent();
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       componentRepository.findOneByBatch.mockResolvedValue(existing);
       lotModel.findOne.mockReturnValue(
         mockExec({ lot_id: '9b4d20dc-30dd-4258-b3b9-6ff7ce3d5dd7' }),
@@ -380,6 +410,10 @@ describe('BatchComponentService', () => {
 
   describe('remove', () => {
     it('should throw NotFoundException when component is missing from batch', async () => {
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       componentRepository.findOneByBatch.mockResolvedValue(null);
 
       await expect(service.remove('batch-1', 'component-404')).rejects.toThrow(
@@ -390,6 +424,10 @@ describe('BatchComponentService', () => {
 
     it('should remove component and return confirmation', async () => {
       const existing = buildComponent();
+      batchRepository.findByIdOrNumber.mockResolvedValue({
+        batch_id: 'batch-1',
+        status: 'On Hold',
+      });
       componentRepository.findOneByBatch.mockResolvedValue(existing);
       componentRepository.remove.mockResolvedValue(existing);
 

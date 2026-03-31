@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Container,
   Box,
-  Grid,
   Paper,
   CircularProgress,
   Alert,
@@ -160,32 +159,43 @@ const SystemMonitoring: React.FC = () => {
       ) : metrics ? (
         <>
           {/* Metrics Grid */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={4}>
+          <Box
+            sx={{
+              mb: 4,
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: 3,
+            }}
+          >
+            <Box>
               <MetricCard
                 title="CPU Usage"
                 usage={metrics.cpu.usage}
                 total={`${metrics.cpu.cores} cores (${metrics.cpu.model})`}
                 threshold={80}
               />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
+            </Box>
+            <Box>
               <MetricCard
                 title="Memory Usage"
                 usage={metrics.memory.usage_percent}
                 total={`${metrics.memory.total_gb} GB`}
                 threshold={85}
               />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
+            </Box>
+            <Box>
               <MetricCard
                 title="Disk Usage"
                 usage={metrics.disk.usage_percent}
                 total={`${metrics.disk.total_gb} GB`}
                 threshold={90}
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
           {/* Services Status */}
           <Paper sx={{ p: 3, mb: 4 }}>

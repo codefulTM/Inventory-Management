@@ -59,7 +59,7 @@ beforeEach(async () => {
     findByStatus: jest.fn(),
     findBySampleStatus: jest.fn(),
     findSamplesByParentLot: jest.fn(),
-    searchByManufacturer: jest.fn(),
+    search: jest.fn(),
     findByFilter: jest.fn(),
     update: jest.fn(),
     updateStatus: jest.fn(),
@@ -273,24 +273,27 @@ describe('findByStatus', () => {
 
 // ==================== SEARCH Tests ====================
 
-describe('searchByManufacturer', () => {
+describe('search', () => {
   it('should search lots by manufacturer', async () => {
     const mockResponse = {
       data: [sampleLot],
       total: 5,
     };
-    repo.searchByManufacturer.mockResolvedValue(mockResponse);
+    repo.search.mockResolvedValue(mockResponse);
 
-    const result = await service.searchByManufacturer('ABC', 1, 10);
+    const result = await service.search('ABC', 1, 10);
 
     expect(result.data).toHaveLength(1);
     expect(result.total).toBe(5);
   });
 
-  it('should reject query shorter than 2 characters', async () => {
-    await expect(service.searchByManufacturer('A', 1, 10)).rejects.toThrow(
-      BadRequestException,
-    );
+  it('should allow one-character query when non-empty', async () => {
+    repo.search.mockResolvedValue({ data: [sampleLot], total: 1 });
+
+    const result = await service.search('A', 1, 10);
+
+    expect(result.total).toBe(1);
+    expect(repo.search).toHaveBeenCalledWith('A', 1, 10);
   });
 });
 

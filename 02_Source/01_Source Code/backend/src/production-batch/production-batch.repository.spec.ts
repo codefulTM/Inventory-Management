@@ -156,7 +156,15 @@ describe('ProductionBatchRepository', () => {
 
       const result = await createRepository.create(createDto);
 
-      expect(constructorInputs).toEqual([createDto]);
+      expect(constructorInputs).toHaveLength(1);
+      expect(constructorInputs[0]).toEqual(
+        expect.objectContaining({
+          batch_id: createDto.batch_id,
+          product_id: createDto.product_id,
+          batch_number: createDto.batch_number,
+          unit_of_measure: createDto.unit_of_measure,
+        }),
+      );
       expect(result.batch_number).toBe('BATCH-2026-001');
     });
   });
