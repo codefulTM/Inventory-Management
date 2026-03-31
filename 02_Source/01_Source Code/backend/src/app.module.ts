@@ -41,6 +41,7 @@ import { AiAgentsModule } from './ai-agents/ai-agents.module';
     LogModule,
     BarcodeModule,
     InventoryTransactionModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [
