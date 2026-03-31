@@ -10,6 +10,10 @@ import { UserService } from '../user/user.service';
 import { UserDocument, UserRole } from '../schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import {
+  buildFallbackEmail,
+  mapRealmRolesToUserRole,
+} from './utils/role-mapper';
 
 @Injectable()
 export class AuthService {
@@ -45,17 +49,15 @@ export class AuthService {
         const realmRoles = await this.keycloakService.getRealmRolesForUser(
           kcUser.id,
         );
-        let role: UserRole = UserRole.OPERATOR;
-        for (const r of Object.values(UserRole)) {
-          if (realmRoles.includes(r)) {
-            role = r as UserRole;
-            break;
-          }
-        }
+        const role = mapRealmRolesToUserRole(realmRoles, dto.username);
+        const safeEmail =
+          kcUser.email && kcUser.email.trim().length > 0
+            ? kcUser.email
+            : buildFallbackEmail(kcUser.username || dto.username);
         // Tạo user trong MongoDB
         const userCreated = await this.userService.create({
-          username: kcUser.username,
-          email: kcUser.email,
+          username: kcUser.username || dto.username,
+          email: safeEmail,
           keycloak_id: kcUser.id,
           role,
           is_active: kcUser.enabled,

@@ -20,6 +20,7 @@ import { SystemMonitoringModule } from './system-monitoring/system-monitoring.mo
 import { LogModule } from './log-management/log.module';
 import { BarcodeModule } from './barcode/barcode.module';
 import { AppService } from './app.service';
+import { AiAgentsModule } from './ai-agents/ai-agents.module';
 
 @Module({
   imports: [

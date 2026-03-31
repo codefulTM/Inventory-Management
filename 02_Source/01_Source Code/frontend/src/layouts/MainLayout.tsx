@@ -29,6 +29,7 @@ import {
   Tag,
   FlaskConical,
 } from "lucide-react";
+import MyAssistantWidget from "../components/assistant/MyAssistantWidget";
 
 interface NavItem {
   to: string;
@@ -279,6 +280,10 @@ export default function Layout() {
   };
 
   const navItems = getNavItems();
+  const canUseAssistant =
+    user?.role === "manager" ||
+    user?.role === "operator" ||
+    user?.role === "quality-control";
 
   // Thêm handleLogout
   const handleLogout = () => {
@@ -437,6 +442,8 @@ export default function Layout() {
           </span>
         </footer>
       </div>
+
+      {canUseAssistant && <MyAssistantWidget />}
     </div>
   );
 }

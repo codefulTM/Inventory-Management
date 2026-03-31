@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { passportJwtSecret } from 'jwks-rsa';
 import { KeycloakJwtPayload } from '../../keycloak/keycloak.service';
 import { UserRole } from '../../schemas/user.schema';
+import { mapRealmRolesToUserRole } from '../utils/role-mapper';
 
 export interface AuthenticatedUser {
   keycloak_id: string;

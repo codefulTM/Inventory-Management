@@ -330,7 +330,6 @@ export const router = createBrowserRouter([
         path: "operator/production-batches/:id/edit",
         element: requireOperatorAuth(<OperatorProductionBatchForm />),
       },
-
       // Catch-all placeholder
       {
         path: "*",
