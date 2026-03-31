@@ -8,6 +8,22 @@ import {
   UpdateInventoryLotDto,
 } from './inventory-lot.dto';
 
+jest.mock('uuid', () => ({
+  v4: () => '00000000-0000-4000-8000-000000000004',
+}));
+
+jest.mock('../auth/guards/jwt-auth.guard', () => ({
+  JwtAuthGuard: class JwtAuthGuardMock {},
+}));
+
+jest.mock('../auth/guards/roles.guard', () => ({
+  RolesGuard: class RolesGuardMock {},
+}));
+
+jest.mock('../auth/decorators/roles.decorator', () => ({
+  Roles: () => () => undefined,
+}));
+
 jest.mock(
   'src/inventory-lot/inventory-lot.dto',
   () => ({
@@ -330,8 +346,8 @@ describe('InventoryLotController', () => {
       service.findByStatus.mockResolvedValue({
         data: [sampleResponse],
         total: 1,
-        page: 1,
-        limit: 10,
+        page: 2,
+        limit: 3,
       });
 
       await controller.findAll('2', '3', InventoryLotStatus.ACCEPTED);

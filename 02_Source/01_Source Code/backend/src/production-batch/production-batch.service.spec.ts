@@ -7,7 +7,11 @@ import {
 } from '@nestjs/common';
 import { ProductionBatchService } from './production-batch.service';
 import { ProductionBatchRepository } from './production-batch.repository';
+import { BatchComponentRepository } from './batch-component.repository';
+import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repository';
 import { Material } from '../schemas/material.schema';
+import { InventoryLot } from '../schemas/inventory-lot.schema';
+import { InventoryTransaction } from '../schemas/inventory-transaction.schema';
 import {
   CreateProductionBatchDto,
   BatchStatus,
@@ -121,6 +125,7 @@ describe('ProductionBatchService', () => {
 
     it('should throw BadRequestException when shelf_life_value is non-positive', async () => {
       repository.findByBatchNumber.mockResolvedValue(null);
+      materialModel.exec.mockResolvedValue(null);
 
       const invalidDto: CreateProductionBatchDto = {
         ...mockCreateDto,
@@ -186,8 +191,8 @@ describe('ProductionBatchService', () => {
       expect(repository.findOne).toHaveBeenCalledWith('batch-uuid-1');
     });
 
-    it('should throw NotFoundException when batch does not exist', async () => {
-      repository.findOne.mockResolvedValue(null);
+    it('throws NotFoundException when batch does not exist', async () => {
+      repository.findByIdOrNumber.mockResolvedValue(null);
 
       await expect(service.findOne('non-existent')).rejects.toThrow(
         NotFoundException,
@@ -268,11 +273,11 @@ describe('ProductionBatchService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw NotFoundException when updating a non-existent batch', async () => {
-      repository.findOne.mockResolvedValue(null);
+    it('throws NotFoundException when updating missing batch', async () => {
+      repository.findByIdOrNumber.mockResolvedValue(null);
 
       await expect(
-        service.update('non-existent', { status: BatchStatus.Complete }),
+        service.update('non-existent', { status: BatchStatus.OnHold }),
       ).rejects.toThrow(NotFoundException);
     });
 

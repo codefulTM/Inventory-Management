@@ -267,7 +267,12 @@ describe('ProductionBatchRepository', () => {
       );
 
       expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+        {
+          $or: [
+            { batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+            { batch_number: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+          ],
+        },
         updateDto,
         {
           new: true,
@@ -285,7 +290,10 @@ describe('ProductionBatchRepository', () => {
       );
 
       expect(mockModel.findOneAndDelete).toHaveBeenCalledWith({
-        batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb',
+        $or: [
+          { batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+          { batch_number: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+        ],
       });
       expect(result?.batch_id).toBe('3d594650-3436-453f-901f-f7f66f18f8eb');
     });
