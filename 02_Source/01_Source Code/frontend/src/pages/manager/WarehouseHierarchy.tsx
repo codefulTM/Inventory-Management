@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -36,16 +36,11 @@ const WarehouseHierarchy: React.FC = () => {
   const [editingLocation, setEditingLocation] = useState<{ code: string; notes: string } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+
+
   const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
-  useEffect(() => {
-    fetchHierarchy();
-    // Poll for real-time updates every 30 seconds
-    const interval = setInterval(fetchHierarchy, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchHierarchy = async () => {
+  const fetchHierarchy = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -58,12 +53,20 @@ const WarehouseHierarchy: React.FC = () => {
       });
 
       setHierarchy(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch warehouse hierarchy');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Failed to fetch warehouse hierarchy');
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    fetchHierarchy();
+    // Poll for real-time updates every 30 seconds
+    const interval = setInterval(fetchHierarchy, 30000);
+    return () => clearInterval(interval);
+  }, [fetchHierarchy]);
 
   const handleEditNotes = (location: LocationNode) => {
     setEditingLocation({ code: location.location_code, notes: location.notes || '' });
@@ -86,8 +89,9 @@ const WarehouseHierarchy: React.FC = () => {
       setDialogOpen(false);
       setEditingLocation(null);
       await fetchHierarchy();
-    } catch (err: any) {
-      alert('Failed to save notes: ' + (err.response?.data?.message || 'Unknown error'));
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      alert('Failed to save notes: ' + (axiosError.response?.data?.message || 'Unknown error'));
     }
   };
 

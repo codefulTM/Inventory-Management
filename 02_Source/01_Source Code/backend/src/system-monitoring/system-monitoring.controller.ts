@@ -9,7 +9,10 @@ import {
   Query,
   ParseIntPipe,
 } from '@nestjs/common';
-import { SystemMonitoringService } from './system-monitoring.service';
+import {
+  SystemMonitoringService,
+  SystemMetrics,
+} from './system-monitoring.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -23,7 +26,9 @@ import { UserRole } from '../schemas/user.schema';
 @Controller('system-monitoring')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SystemMonitoringController {
-  constructor(private readonly systemMonitoringService: SystemMonitoringService) {}
+  constructor(
+    private readonly systemMonitoringService: SystemMonitoringService,
+  ) {}
 
   /**
    * GET /system-monitoring/metrics
@@ -45,7 +50,7 @@ export class SystemMonitoringController {
   @Get('metrics/last')
   @Roles(UserRole.IT_ADMINISTRATOR)
   @HttpCode(HttpStatus.OK)
-  async getLastMetrics() {
+  getLastMetrics(): SystemMetrics | { message: string } {
     const metrics = this.systemMonitoringService.getLastMetrics();
     if (!metrics) {
       return { message: 'No metrics available, please fetch metrics first' };
@@ -62,10 +67,10 @@ export class SystemMonitoringController {
   @Get('alerts')
   @Roles(UserRole.IT_ADMINISTRATOR)
   @HttpCode(HttpStatus.OK)
-  async getAlerts(
+  getAlerts(
     @Query('limit', new ParseIntPipe({ optional: true }))
     limit?: number,
-  ) {
+  ): Record<string, unknown> {
     return {
       alerts: this.systemMonitoringService.getRecentAlerts(limit || 20),
     };
@@ -79,7 +84,7 @@ export class SystemMonitoringController {
   @Get('thresholds')
   @Roles(UserRole.IT_ADMINISTRATOR)
   @HttpCode(HttpStatus.OK)
-  async getThresholds() {
+  getThresholds(): Record<string, unknown> {
     return {
       thresholds: this.systemMonitoringService.getAlertThresholds(),
     };
@@ -94,14 +99,14 @@ export class SystemMonitoringController {
   @Post('thresholds')
   @Roles(UserRole.IT_ADMINISTRATOR)
   @HttpCode(HttpStatus.OK)
-  async setThresholds(
+  setThresholds(
     @Body()
     thresholds: {
       cpu_percent?: number;
       memory_percent?: number;
       disk_percent?: number;
     },
-  ) {
+  ): Record<string, unknown> {
     return {
       thresholds: this.systemMonitoringService.setAlertThresholds(thresholds),
       message: 'Thresholds updated successfully',

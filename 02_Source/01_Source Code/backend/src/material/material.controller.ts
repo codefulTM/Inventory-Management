@@ -44,9 +44,9 @@ export class MaterialController {
   @HttpCode(HttpStatus.OK)
   async findAll(
     @Query('page', new ParseIntPipe({ optional: true }))
-    page?: number,
+    page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true }))
-    limit?: number,
+    limit: number = 20,
   ) {
     return this.materialService.findAll(page, limit);
   }
@@ -156,10 +156,7 @@ export class MaterialController {
   @Get('export/excel')
   @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)
-  async exportToExcel(
-    @Query('search') search?: string,
-    @Res() res?: Response,
-  ) {
+  async exportToExcel(@Query('search') search?: string, @Res() res?: Response) {
     let materials: any[] = [];
 
     if (search && search.trim().length > 0) {
@@ -173,8 +170,14 @@ export class MaterialController {
     const buffer = await this.materialService.exportToExcel(materials);
 
     if (res) {
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="materials_${new Date().getTime()}.xlsx"`);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="materials_${new Date().getTime()}.xlsx"`,
+      );
       res.send(buffer);
     }
   }
@@ -188,10 +191,7 @@ export class MaterialController {
   @Get('export/pdf')
   @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)
-  async exportToPDF(
-    @Query('search') search?: string,
-    @Res() res?: Response,
-  ) {
+  async exportToPDF(@Query('search') search?: string, @Res() res?: Response) {
     let materials: any[] = [];
 
     if (search && search.trim().length > 0) {
@@ -206,7 +206,10 @@ export class MaterialController {
 
     if (res) {
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="materials_${new Date().getTime()}.pdf"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="materials_${new Date().getTime()}.pdf"`,
+      );
       res.send(buffer);
     }
   }

@@ -19,11 +19,11 @@ export interface AppLog {
 export class LogService {
   private readonly logger = new Logger(LogService.name);
 
-  constructor(@InjectModel('AppLog') private logModel: Model<any>) {}
+  constructor(@InjectModel('AppLog') private logModel: Model<AppLog>) {}
 
   async createLog(log: AppLog): Promise<AppLog> {
     const newLog = new this.logModel({ ...log, created_at: new Date() });
-    return newLog.save();
+    return await newLog.save();
   }
 
   async getLogs(
@@ -38,7 +38,7 @@ export class LogService {
     page: number = 1,
     limit: number = 50,
   ): Promise<{ data: AppLog[]; total: number; pages: number }> {
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (filters.level) query.level = filters.level;
     if (filters.error_code) query.error_code = filters.error_code;
@@ -47,8 +47,10 @@ export class LogService {
 
     if (filters.startDate || filters.endDate) {
       query.created_at = {};
-      if (filters.startDate) query.created_at.$gte = filters.startDate;
-      if (filters.endDate) query.created_at.$lte = filters.endDate;
+      if (filters.startDate)
+        (query.created_at as Record<string, unknown>).$gte = filters.startDate;
+      if (filters.endDate)
+        (query.created_at as Record<string, unknown>).$lte = filters.endDate;
     }
 
     const total = await this.logModel.countDocuments(query);
@@ -62,7 +64,11 @@ export class LogService {
     return { data: data as AppLog[], total, pages: Math.ceil(total / limit) };
   }
 
-  async searchLogs(query: string, page: number = 1, limit: number = 50): Promise<any> {
+  async searchLogs(
+    query: string,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{ data: AppLog[]; total: number; pages: number }> {
     const mongoQuery = {
       $or: [
         { message: { $regex: query, $options: 'i' } },
@@ -82,12 +88,14 @@ export class LogService {
     return { data: data as AppLog[], total, pages: Math.ceil(total / limit) };
   }
 
-  async deleteLogs(before: Date): Promise<any> {
-    const result = await this.logModel.deleteMany({ created_at: { $lt: before } });
-    return result;
+  async deleteLogs(before: Date): Promise<Record<string, unknown>> {
+    const result = await this.logModel.deleteMany({
+      created_at: { $lt: before },
+    });
+    return result as unknown as Record<string, unknown>;
   }
 
-  async getDashboardStats(): Promise<any> {
+  async getDashboardStats(): Promise<Array<{ _id: string; count: number }>> {
     const stats = await this.logModel.aggregate([
       {
         $group: {
@@ -97,6 +105,6 @@ export class LogService {
       },
     ]);
 
-    return stats;
+    return stats as Array<{ _id: string; count: number }>;
   }
 }

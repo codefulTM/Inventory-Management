@@ -23,6 +23,17 @@ import DownloadIcon from '@mui/icons-material/Download';
 import SearchIcon from '@mui/icons-material/Search';
 import axios from 'axios';
 
+interface QueryResult {
+  lot_id: string;
+  material_id: string;
+  quantity: number;
+  unit: string;
+  status: string;
+  location?: string;
+  received_date: string | Date;
+  expiration_date: string | Date;
+}
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -38,7 +49,7 @@ const BarcodeOperations: React.FC = () => {
   const [tabIndex, setTabIndex] = useState(0);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [lotIdDownload, setLotIdDownload] = useState('');
-  const [queryResult, setQueryResult] = useState<any>(null);
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -68,8 +79,9 @@ const BarcodeOperations: React.FC = () => {
         setError('Barcode not found');
         setQueryResult(null);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to query barcode');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Failed to query barcode');
       setQueryResult(null);
     } finally {
       setLoading(false);
@@ -102,8 +114,9 @@ const BarcodeOperations: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to download barcode');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Failed to download barcode');
     } finally {
       setLoading(false);
     }
@@ -116,7 +129,7 @@ const BarcodeOperations: React.FC = () => {
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-      <Tabs value={tabIndex} onChange={(e, val) => setTabIndex(val)} sx={{ mb: 3 }}>
+      <Tabs value={tabIndex} onChange={(_e, val) => setTabIndex(val)} sx={{ mb: 3 }}>
         <Tab label="Scan/Query Barcode (US41)" />
         <Tab label="Download Barcode (US40)" />
       </Tabs>

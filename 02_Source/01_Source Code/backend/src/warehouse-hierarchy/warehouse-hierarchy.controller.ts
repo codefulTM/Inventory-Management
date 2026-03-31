@@ -23,7 +23,9 @@ import { UserRole } from '../schemas/user.schema';
 @Controller('warehouse')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WarehouseHierarchyController {
-  constructor(private readonly warehouseHierarchyService: WarehouseHierarchyService) {}
+  constructor(
+    private readonly warehouseHierarchyService: WarehouseHierarchyService,
+  ) {}
 
   /**
    * GET /warehouse/hierarchy
@@ -47,7 +49,9 @@ export class WarehouseHierarchyController {
   @Get('location/:code')
   @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)
-  async getLocationDetails(@Param('code') code: string) {
+  async getLocationDetails(
+    @Param('code') code: string,
+  ): Promise<Record<string, unknown>> {
     return this.warehouseHierarchyService.getLocationDetails(code);
   }
 
@@ -61,7 +65,8 @@ export class WarehouseHierarchyController {
   @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)
   async getLocationInventoryCount(@Param('code') code: string) {
-    const count = await this.warehouseHierarchyService.getLocationInventoryCount(code);
+    const count =
+      await this.warehouseHierarchyService.getLocationInventoryCount(code);
     return { location_code: code, total_quantity: count };
   }
 

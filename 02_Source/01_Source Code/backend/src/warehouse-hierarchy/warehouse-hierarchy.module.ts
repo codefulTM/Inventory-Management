@@ -6,7 +6,10 @@ import {
   WarehouseLocation,
   WarehouseLocationSchema,
 } from '../schemas/warehouse-location.schema';
-import { InventoryLot, InventoryLotSchema } from '../schemas/inventory-lot.schema';
+import {
+  InventoryLot,
+  InventoryLotSchema,
+} from '../schemas/inventory-lot.schema';
 
 @Module({
   imports: [

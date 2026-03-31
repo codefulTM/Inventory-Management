@@ -98,6 +98,9 @@
     "transformIgnorePatterns": [
       "/node_modules/(?!uuid)"
     ],
+    "setupFilesAfterEnv": [
+      "../jest.setup.js"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

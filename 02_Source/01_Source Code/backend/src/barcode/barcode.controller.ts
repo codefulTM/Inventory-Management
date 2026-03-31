@@ -31,7 +31,9 @@ export class BarcodeController {
   @Post('query')
   @Roles(UserRole.MANAGER, UserRole.OPERATOR, UserRole.QC_TECHNICIAN)
   @HttpCode(HttpStatus.OK)
-  async queryByBarcode(@Body('barcode') barcode: string) {
+  async queryByBarcode(
+    @Body('barcode') barcode: string,
+  ): Promise<Record<string, unknown>> {
     const result = await this.barcodeService.queryByBarcode(barcode);
     if (!result) {
       return { found: false, message: 'Barcode not found' };
@@ -53,12 +55,19 @@ export class BarcodeController {
     @Query('format') format: 'png' | 'svg' = 'png',
     @Query('type') type: 'code128' | 'ean13' | 'qrcode' = 'code128',
     @Res() res?: Response,
-  ) {
-    const buffer = await this.barcodeService.generateBarcodeImage(lot_id, format, type);
+  ): Promise<void> {
+    const buffer = await this.barcodeService.generateBarcodeImage(
+      lot_id,
+      format,
+      type,
+    );
 
     if (res) {
       res.setHeader('Content-Type', `image/${format}`);
-      res.setHeader('Content-Disposition', `attachment; filename="barcode_${lot_id}.${format}"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="barcode_${lot_id}.${format}"`,
+      );
       res.send(buffer);
     }
   }

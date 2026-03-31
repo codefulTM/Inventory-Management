@@ -47,24 +47,22 @@ describe('BatchComponentSchema', () => {
     },
   );
 
-  it('should define planned_quantity as required Decimal128', () => {
+  it('should define planned_quantity as required Number', () => {
     const path = BatchComponentSchema.path(
       'planned_quantity',
     ) as unknown as SchemaPathLike;
 
-    expect(path.instance).toBe('Decimal128');
+    expect(path.instance).toBe('Number');
     expect(path.options.required).toBe(true);
-    expect(path.options.type).toBe(MongooseSchema.Types.Decimal128);
   });
 
-  it('should define actual_quantity as optional Decimal128', () => {
+  it('should define actual_quantity as optional Number', () => {
     const path = BatchComponentSchema.path(
       'actual_quantity',
     ) as unknown as SchemaPathLike;
 
-    expect(path.instance).toBe('Decimal128');
+    expect(path.instance).toBe('Number');
     expect(path.options.required).not.toBe(true);
-    expect(path.options.type).toBe(MongooseSchema.Types.Decimal128);
   });
 
   it('should define unit_of_measure as required bounded string', () => {

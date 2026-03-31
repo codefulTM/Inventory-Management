@@ -27,8 +27,12 @@ export class LogController {
     @Query('module') module?: string,
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 50,
-  ) {
-    return this.logService.getLogs({ level, error_code: errorCode, module }, page, limit);
+  ): Promise<Record<string, unknown>> {
+    return this.logService.getLogs(
+      { level, error_code: errorCode, module },
+      page,
+      limit,
+    );
   }
 
   @Get('search')
@@ -37,21 +41,23 @@ export class LogController {
     @Query('q') query: string,
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 50,
-  ) {
+  ): Promise<Record<string, unknown>> {
     return this.logService.searchLogs(query, page, limit);
   }
 
   @Get('stats')
   @Roles(UserRole.IT_ADMINISTRATOR)
-  async getStats() {
-    return this.logService.getDashboardStats();
+  async getStats(): Promise<unknown[]> {
+    return (await this.logService.getDashboardStats()) as unknown[];
   }
 
   @Delete()
   @Roles(UserRole.IT_ADMINISTRATOR)
   @HttpCode(HttpStatus.OK)
-  async deleteLogs(@Query('before') before: string) {
+  async deleteLogs(
+    @Query('before') before: string,
+  ): Promise<Record<string, unknown>> {
     const date = new Date(before);
-    return this.logService.deleteLogs(date);
+    return await this.logService.deleteLogs(date);
   }
 }

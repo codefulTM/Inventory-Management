@@ -12,7 +12,9 @@ export class TransactionFiltersDto {
   @IsOptional()
   material_id?: string;
 
-  @IsEnum(['Receipt', 'Usage'], { message: 'transaction_type must be either Receipt or Usage' })
+  @IsEnum(['Receipt', 'Usage'], {
+    message: 'transaction_type must be either Receipt or Usage',
+  })
   @IsOptional()
   transaction_type?: string;
 

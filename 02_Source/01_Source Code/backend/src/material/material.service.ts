@@ -398,11 +398,17 @@ export class MaterialService {
       doc.on('error', reject);
 
       // Add title
-      doc.fontSize(16).font('Helvetica-Bold').text('Material List', { align: 'center' });
+      doc
+        .fontSize(16)
+        .font('Helvetica-Bold')
+        .text('Material List', { align: 'center' });
       doc.moveDown();
 
       // Add metadata
-      doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toLocaleString()}`);
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .text(`Generated: ${new Date().toLocaleString()}`);
       doc.text(`Total Records: ${materials.length}`);
       doc.moveDown();
 
@@ -421,7 +427,11 @@ export class MaterialService {
       doc.text('Material ID', 40, headerY);
       doc.text('Part Number', 40 + colWidths.id, headerY);
       doc.text('Material Name', 40 + colWidths.id + colWidths.partNum, headerY);
-      doc.text('Type', 40 + colWidths.id + colWidths.partNum + colWidths.name, headerY);
+      doc.text(
+        'Type',
+        40 + colWidths.id + colWidths.partNum + colWidths.name,
+        headerY,
+      );
       doc.moveDown();
 
       // Add rows
@@ -430,19 +440,32 @@ export class MaterialService {
         const y = doc.y;
 
         // Draw row content
-        doc.text(material.material_id || '-', 40, y, { width: colWidths.id, ellipsis: true });
+        doc.text(material.material_id || '-', 40, y, {
+          width: colWidths.id,
+          ellipsis: true,
+        });
         doc.text(material.part_number || '-', 40 + colWidths.id, y, {
           width: colWidths.partNum,
           ellipsis: true,
         });
-        doc.text(material.material_name || '-', 40 + colWidths.id + colWidths.partNum, y, {
-          width: colWidths.name,
-          ellipsis: true,
-        });
-        doc.text(material.material_type || '-', 40 + colWidths.id + colWidths.partNum + colWidths.name, y, {
-          width: colWidths.type,
-          ellipsis: true,
-        });
+        doc.text(
+          material.material_name || '-',
+          40 + colWidths.id + colWidths.partNum,
+          y,
+          {
+            width: colWidths.name,
+            ellipsis: true,
+          },
+        );
+        doc.text(
+          material.material_type || '-',
+          40 + colWidths.id + colWidths.partNum + colWidths.name,
+          y,
+          {
+            width: colWidths.type,
+            ellipsis: true,
+          },
+        );
 
         doc.moveDown(1.5);
 
@@ -453,10 +476,13 @@ export class MaterialService {
       });
 
       // Add footer
-      doc.fontSize(8).font('Helvetica-Oblique').text('Inventory Management System', {
-        align: 'center',
-        y: 750,
-      });
+      doc
+        .fontSize(8)
+        .font('Helvetica-Oblique')
+        .text('Inventory Management System', {
+          align: 'center',
+          y: 750,
+        });
 
       doc.end();
     });

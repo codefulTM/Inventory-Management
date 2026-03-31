@@ -52,7 +52,8 @@ export class WarehouseLocation {
   notes?: string;
 }
 
-export const WarehouseLocationSchema = SchemaFactory.createForClass(WarehouseLocation);
+export const WarehouseLocationSchema =
+  SchemaFactory.createForClass(WarehouseLocation);
 
 // Create indexes
 WarehouseLocationSchema.index({ location_code: 1 }, { unique: true });

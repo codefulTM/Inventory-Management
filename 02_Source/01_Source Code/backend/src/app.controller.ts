@@ -13,7 +13,12 @@ export class AppController {
       name: 'Inventory Management API',
       version: '1.0.0',
       status: 'running',
-      endpoints: ['/materials', '/inventory-lots', '/production-batches', '/label-templates'],
+      endpoints: [
+        '/materials',
+        '/inventory-lots',
+        '/production-batches',
+        '/label-templates',
+      ],
     };
   }
 

@@ -61,10 +61,7 @@ export class QCTestController {
   @Roles(UserRole.QC_TECHNICIAN, UserRole.MANAGER)
   @Post('lot/:lot_id/decision')
   @HttpCode(HttpStatus.OK)
-  submitDecision(
-    @Param('lot_id') lot_id: string,
-    @Body() dto: QCDecisionDto,
-  ) {
+  submitDecision(@Param('lot_id') lot_id: string, @Body() dto: QCDecisionDto) {
     return this.qcTestService.submitDecision(lot_id, dto);
   }
 
@@ -102,10 +99,7 @@ export class QCTestController {
 
   @Roles(UserRole.QC_TECHNICIAN, UserRole.MANAGER)
   @Patch(':test_id')
-  updateTest(
-    @Param('test_id') test_id: string,
-    @Body() dto: UpdateQCTestDto,
-  ) {
+  updateTest(@Param('test_id') test_id: string, @Body() dto: UpdateQCTestDto) {
     return this.qcTestService.updateTest(test_id, dto);
   }
 

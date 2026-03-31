@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LogService } from './log.service';
 import { LogController } from './log.controller';
+import { Schema } from 'mongoose';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       {
         name: 'AppLog',
-        schema: new (require('mongoose')).Schema(
+        schema: new Schema(
           {
             level: String,
             message: String,

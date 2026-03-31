@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BarcodeService } from './barcode.service';
 import { BarcodeController } from './barcode.controller';
-import { InventoryLot, InventoryLotSchema } from '../schemas/inventory-lot.schema';
+import {
+  InventoryLot,
+  InventoryLotSchema,
+} from '../schemas/inventory-lot.schema';
 
 @Module({
   imports: [

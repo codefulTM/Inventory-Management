@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { InventoryLot, InventoryLotDocument } from '../schemas/inventory-lot.schema';
+import {
+  InventoryLot,
+  InventoryLotDocument,
+} from '../schemas/inventory-lot.schema';
 import bwipjs from 'bwip-js';
 
 export interface BarcodeData {
@@ -16,12 +19,18 @@ export interface BarcodeData {
 export class BarcodeService {
   private readonly logger = new Logger(BarcodeService.name);
 
-  constructor(@InjectModel(InventoryLot.name) private inventoryLotModel: Model<InventoryLotDocument>) {}
+  constructor(
+    @InjectModel(InventoryLot.name)
+    private inventoryLotModel: Model<InventoryLotDocument>,
+  ) {}
 
   /**
    * Generate barcode for a lot and save barcode data
    */
-  async generateBarcodeForLot(lot_id: string, format: 'code128' | 'ean13' | 'qrcode' = 'code128'): Promise<BarcodeData> {
+  async generateBarcodeForLot(
+    lot_id: string,
+    format: 'code128' | 'ean13' | 'qrcode' = 'code128',
+  ): Promise<BarcodeData> {
     const lot = await this.inventoryLotModel.findOne({ lot_id }).lean();
     if (!lot) throw new Error(`Lot ${lot_id} not found`);
 
@@ -43,7 +52,8 @@ export class BarcodeService {
    */
   async generateBarcodeImage(
     lot_id: string,
-    format: 'png' | 'svg' = 'png',
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _format: 'png' | 'svg' = 'png',
     barcodeFormat: 'code128' | 'ean13' | 'qrcode' = 'code128',
   ): Promise<Buffer> {
     const barcodeValue = this._generateBarcodeValue(lot_id);
@@ -75,10 +85,17 @@ export class BarcodeService {
 
     for (const lot_id of lot_ids) {
       try {
-        const barcode = await this.generateBarcodeImage(lot_id, 'png', 'code128');
+        const barcode = await this.generateBarcodeImage(
+          lot_id,
+          'png',
+          'code128',
+        );
         barcodes.push(barcode);
       } catch (error) {
-        this.logger.warn(`Failed to generate barcode for lot ${lot_id}:`, error);
+        this.logger.warn(
+          `Failed to generate barcode for lot ${lot_id}:`,
+          error,
+        );
       }
     }
 
@@ -89,14 +106,13 @@ export class BarcodeService {
    * Query lot information by barcode input
    * US41: Scan/input barcode to query
    */
-  async queryByBarcode(barcodeInput: string): Promise<any> {
+  async queryByBarcode(
+    barcodeInput: string,
+  ): Promise<Record<string, unknown> | null> {
     // Extract lot_id from barcode value (assuming format: LOT-XXXXX or similar)
     const lot_id = this._extractLotIdFromBarcode(barcodeInput);
 
-    const lot = await this.inventoryLotModel
-      .findOne({ lot_id })
-      .lean()
-      .exec();
+    const lot = await this.inventoryLotModel.findOne({ lot_id }).lean().exec();
 
     if (!lot) {
       this.logger.warn(`Barcode lookup failed for: ${barcodeInput}`);

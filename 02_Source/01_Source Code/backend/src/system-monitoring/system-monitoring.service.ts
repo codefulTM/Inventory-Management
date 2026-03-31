@@ -40,7 +40,8 @@ export interface AlertThresholds {
 export class SystemMonitoringService {
   private readonly logger = new Logger(SystemMonitoringService.name);
   private lastMetrics: SystemMetrics | null = null;
-  private alerts: Array<{ timestamp: Date; type: string; message: string }> = [];
+  private alerts: Array<{ timestamp: Date; type: string; message: string }> =
+    [];
   private readonly maxAlerts = 100;
 
   private defaultThresholds: AlertThresholds = {
@@ -79,16 +80,17 @@ export class SystemMonitoringService {
           model: cpuData.brand,
         },
         memory: {
-          total_gb: Math.round((memData.total / (1024 ** 3)) * 100) / 100,
-          used_gb: Math.round((memData.used / (1024 ** 3)) * 100) / 100,
-          available_gb: Math.round((memData.available / (1024 ** 3)) * 100) / 100,
+          total_gb: Math.round((memData.total / 1024 ** 3) * 100) / 100,
+          used_gb: Math.round((memData.used / 1024 ** 3) * 100) / 100,
+          available_gb: Math.round((memData.available / 1024 ** 3) * 100) / 100,
           usage_percent: Math.round((memData.used / memData.total) * 100),
         },
         disk: {
-          total_gb: Math.round((mainDisk.size / (1024 ** 3)) * 100) / 100,
-          used_gb: Math.round((mainDisk.used / (1024 ** 3)) * 100) / 100,
-          available_gb: Math.round((mainDisk.available / (1024 ** 3)) * 100) / 100,
-          usage_percent: Math.round((mainDisk.use) * 100) / 100,
+          total_gb: Math.round((mainDisk.size / 1024 ** 3) * 100) / 100,
+          used_gb: Math.round((mainDisk.used / 1024 ** 3) * 100) / 100,
+          available_gb:
+            Math.round((mainDisk.available / 1024 ** 3) * 100) / 100,
+          usage_percent: Math.round(mainDisk.use * 100) / 100,
         },
         services: [
           { name: 'MongoDB', status: 'running' },
@@ -121,7 +123,9 @@ export class SystemMonitoringService {
    * @param limit - Maximum number of alerts to return
    * @returns - Array of recent alerts
    */
-  getRecentAlerts(limit: number = 20): Array<{ timestamp: Date; type: string; message: string }> {
+  getRecentAlerts(
+    limit: number = 20,
+  ): Array<{ timestamp: Date; type: string; message: string }> {
     return this.alerts.slice(-limit);
   }
 
