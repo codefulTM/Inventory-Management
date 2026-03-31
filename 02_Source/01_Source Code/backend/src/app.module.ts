@@ -17,6 +17,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
 import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
+import { LogModule } from './log-management/log.module';
 import { AppService } from './app.service';
 
 @Module({
@@ -35,6 +36,7 @@ import { AppService } from './app.service';
     LabelTemplateModule,
     WarehouseHierarchyModule,
     SystemMonitoringModule,
+    LogModule,
     InventoryTransactionModule,
   ],
   controllers: [AppController],
