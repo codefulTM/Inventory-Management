@@ -5009,6 +5009,11 @@ synckit@^0.11.12, synckit@^0.11.8:
   dependencies:
     "@pkgr/core" "^0.2.9"
 
+systeminformation@^5.31.5:
+  version "5.31.5"
+  resolved "https://registry.npmjs.org/systeminformation/-/systeminformation-5.31.5.tgz"
+  integrity sha512-5SyLdip4/3alxD4Kh+63bUQTJmu7YMfYQTC+koZy7X73HgNqZSD2P4wOZQWtUncvPvcEmnfIjCoygN4MRoEejQ==
+
 tapable@^2.2.0, tapable@^2.2.1, tapable@^2.3.0:
   version "2.3.0"
   resolved "https://registry.npmjs.org/tapable/-/tapable-2.3.0.tgz"

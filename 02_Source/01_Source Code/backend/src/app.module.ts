@@ -16,6 +16,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
+import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
 import { AppService } from './app.service';
 
 @Module({
@@ -33,6 +34,7 @@ import { AppService } from './app.service';
     // AiModule,
     LabelTemplateModule,
     WarehouseHierarchyModule,
+    SystemMonitoringModule,
     InventoryTransactionModule,
   ],
   controllers: [AppController],
