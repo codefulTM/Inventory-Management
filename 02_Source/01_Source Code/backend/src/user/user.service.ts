@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { KeycloakService } from '../keycloak/keycloak.service';
+import { MailService } from '../mail/mail.service';
 import { User, UserDocument, UserRole } from '../schemas/user.schema';
 import {
   CreateUserDto,
@@ -23,6 +24,7 @@ export class UserService {
   constructor(
     private readonly repository: UserRepository,
     private readonly keycloakService: KeycloakService,
+    private readonly mailService: MailService,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -57,14 +59,20 @@ export class UserService {
     if (byEmail) throw new ConflictException(`Email '${dto.email}' đã tồn tại`);
 
     const role = dto.role ?? UserRole.OPERATOR;
+    const tempPassword = this.mailService.generateTempPassword();
 
-    // Tạo user trong Keycloak
-    const keycloakId = await this.keycloakService.createUser({
-      username: dto.username,
-      email: dto.email,
-      password: "1", // Mật khẩu mặc định (bắt buộc phải đổi khi đăng nhập lần đầu)
-      role,
-    });
+    // Tạo user trong Keycloak (bỏ qua nếu Keycloak không khả dụng)
+    let keycloakId: string | undefined;
+    try {
+      keycloakId = await this.keycloakService.createUser({
+        username: dto.username,
+        email: dto.email,
+        password: tempPassword,
+        role,
+      });
+    } catch (err) {
+      this.logger.warn(`Keycloak unavailable, creating user in MongoDB only: ${err.message}`);
+    }
 
     // Lưu vào MongoDB (không lưu plain password)
     const user = await this.repository.create({
@@ -76,6 +84,10 @@ export class UserService {
     });
 
     this.logger.log(`User created: ${dto.username} | role: ${role} | kc: ${keycloakId}`);
+
+    // Gửi email thông báo tài khoản tạm thời
+    await this.mailService.sendNewAccountEmail(dto.email, dto.username, role, tempPassword);
+
     return this.toResponse(user);
   }
 

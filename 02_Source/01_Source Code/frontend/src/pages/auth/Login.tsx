@@ -2,6 +2,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthService } from "../../services/auth.service";
 
+// Mock users for local development (bypass Keycloak)
+const MOCK_USERS: Record<string, { username: string; email: string; role: string; user_id: string }> = {
+  "admin-it": { username: "admin-it", email: "admin-it@test.com", role: "it_admin", user_id: "mock-it-001" },
+  "admin-qc": { username: "admin-qc", email: "admin-qc@test.com", role: "quality-control", user_id: "mock-qc-001" },
+  "admin-manager": { username: "admin-manager", email: "admin-manager@test.com", role: "manager", user_id: "mock-manager-001" },
+  "admin-operator": { username: "admin-operator", email: "admin-operator@test.com", role: "operator", user_id: "mock-operator-001" },
+};
+const MOCK_PASSWORD = "Admin@123456";
+// Fake JWT with exp year 2286 (won't expire)
+const MOCK_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtb2NrIiwiZXhwIjo5OTk5OTk5OTk5fQ.mock-signature";
+
 const Login = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -13,6 +24,23 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    // Mock login for local development
+    if (password === MOCK_PASSWORD && MOCK_USERS[username]) {
+      const mockUser = MOCK_USERS[username];
+      localStorage.setItem("auth_token", MOCK_TOKEN);
+      localStorage.setItem("refresh_token", MOCK_TOKEN);
+      localStorage.setItem("user", JSON.stringify(mockUser));
+      const dashboardMap: Record<string, string> = {
+        it_admin: "/admin/dashboard",
+        manager: "/manager/dashboard",
+        operator: "/operator/dashboard",
+        "quality-control": "/qc/dashboard",
+      };
+      navigate(dashboardMap[mockUser.role] || "/", { replace: true });
+      return;
+    }
+
     try {
       const { data, error } = await AuthService.login(username, password);
       setLoading(false);

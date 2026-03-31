@@ -248,27 +248,32 @@ export default function Layout() {
       case "it_admin":
         return [
           {
-            to: "/it-admin",
+            to: "/admin/dashboard",
             icon: <LayoutDashboard size={20} />,
             label: "Dashboard IT",
           },
           {
-            to: "/it-admin/monitoring",
+            to: "/admin/users",
+            icon: <UserIcon size={20} />,
+            label: "Quản lý tài khoản",
+          },
+          {
+            to: "/admin/monitoring",
             icon: <Activity size={20} />,
             label: "Giám sát hệ thống",
           },
           {
-            to: "/it-admin/logs",
+            to: "/admin/error-logs",
             icon: <Terminal size={20} />,
             label: "Nhật ký lỗi",
           },
           {
-            to: "/it-admin/backup",
+            to: "/admin/backup",
             icon: <Database size={20} />,
             label: "Sao lưu & Phục hồi",
           },
           {
-            to: "/it-admin/reports",
+            to: "/admin/reports",
             icon: <FileBarChart size={20} />,
             label: "Báo cáo hệ thống",
           },

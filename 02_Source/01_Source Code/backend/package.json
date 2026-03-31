@@ -32,18 +32,21 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@types/bcrypt": "^6.0.0",
+    "@types/nodemailer": "^7.0.11",
     "@types/passport-jwt": "^4.0.1",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
-    "jwks-rsa": "^4.0.1",
+    "jose": "^4.15.9",
+    "jwks-rsa": "^2.1.5",
     "mongodb": "^7.1.0",
     "mongoose": "^9.1.6",
+    "nodemailer": "^8.0.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "uuid": "^13.0.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
