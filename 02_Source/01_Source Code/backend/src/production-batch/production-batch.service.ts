@@ -446,6 +446,7 @@ export class ProductionBatchService {
   async update(
     batchId: string,
     updateDto: UpdateProductionBatchDto,
+    performedBy: string = 'system',
   ): Promise<ProductionBatchResponseDto> {
     this.logger.log(`Updating production batch: ${batchId}`);
 

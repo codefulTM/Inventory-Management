@@ -36,10 +36,43 @@ export interface PaginatedTransactionResponse {
   };
 }
 
+export interface CreateTransactionPayload {
+  lot_id: string;
+  material_id: string;
+  transaction_type: 'Receipt' | 'Usage';
+  quantity: number;
+  unit_of_measure: string;
+  transaction_date: string;
+  reference_number?: string;
+  performed_by: string;
+  notes?: string;
+}
+
 /**
  * Service for managing inventory transactions API calls
  */
 export const transactionService = {
+  async createTransaction(
+    payload: CreateTransactionPayload,
+  ): Promise<InventoryTransaction> {
+    const { data, error } = await apiClient.post<InventoryTransaction>(
+      '/inventory-transactions',
+      payload,
+    );
+
+    if (error) {
+      if (error.statusCode === 401) {
+        throw new Error('Unauthorized - Please login');
+      }
+      if (error.statusCode === 403) {
+        throw new Error('Forbidden - You do not have permission to create transactions');
+      }
+      throw new Error(error.message || 'Failed to create transaction');
+    }
+
+    return data;
+  },
+
   /**
    * Get all transactions with optional filters and pagination
    */

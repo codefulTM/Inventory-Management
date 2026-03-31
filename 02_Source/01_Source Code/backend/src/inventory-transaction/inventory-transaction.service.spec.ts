@@ -33,6 +33,10 @@ function makeDto(
   } as any;
 }
 
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mock-transaction-id'),
+}));
+
 describe('InventoryTransactionService', () => {
   let svc: InventoryTransactionService;
   let repo: Partial<InventoryTransactionRepository>;
