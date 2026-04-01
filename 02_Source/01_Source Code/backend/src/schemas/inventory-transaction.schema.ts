@@ -53,3 +53,8 @@ export class InventoryTransaction {
 
 export const InventoryTransactionSchema =
   SchemaFactory.createForClass(InventoryTransaction);
+
+// thêm chỉ mục một cách rõ ràng vì SchemaOptions không có trường này
+InventoryTransactionSchema.index({ lot_id: 1, transaction_date: -1 });
+InventoryTransactionSchema.index({ transaction_date: -1 });
+InventoryTransactionSchema.index({ transaction_type: 1 });

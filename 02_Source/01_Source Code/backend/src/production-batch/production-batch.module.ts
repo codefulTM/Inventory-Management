@@ -22,6 +22,7 @@ import { ProductionBatchService } from './production-batch.service';
 import { ProductionBatchRepository } from './production-batch.repository';
 import { BatchComponentService } from './batch-component.service';
 import { BatchComponentRepository } from './batch-component.repository';
+import { InventoryLotModule } from '../inventory-lot/inventory-lot.module';
 import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repository';
 
 @Module({
@@ -34,6 +35,7 @@ import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repositor
       { name: InventoryLot.name, schema: InventoryLotSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
     ]),
+    InventoryLotModule,
   ],
   controllers: [ProductionBatchController],
   providers: [

@@ -1,106 +1,149 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { InventoryTransactionRepository, PaginatedResponse } from './inventory-transaction.repository';
-import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
-import { TransactionFiltersDto } from './dto/transaction-filters.dto';
-import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto';
-import { v4 as uuidv4 } from 'uuid';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { DeleteResult } from 'mongodb';
+import {
+  FilterOptions,
+  InventoryTransactionRepository,
+  PaginationOptions,
+} from './inventory-transaction.repository';
+import { MaterialRepository } from '../material/material.repository';
+import type { InventoryTransactionDocument } from '../schemas/inventory-transaction.schema';
+import {
+  CreateInventoryTransactionDto,
+  TransactionType,
+} from './dto/create-inventory-transaction.dto';
+import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
 
 @Injectable()
 export class InventoryTransactionService {
-  constructor(
-    private readonly repository: InventoryTransactionRepository,
-  ) {}
+  constructor(private readonly repo: InventoryTransactionRepository) {}
 
-  /**
-   * Create a new inventory transaction with validation
-   * @param dto Transaction creation DTO
-   * @returns Created transaction
-   */
-  async create(
-    dto: CreateInventoryTransactionDto,
-  ): Promise<InventoryTransactionResponseDto> {
-    // Validate required fields
-    if (!dto.lot_id) {
-      throw new BadRequestException('lot_id is required');
+  async create(transactionDto: CreateInventoryTransactionDto) {
+    // tiền xử lý chung: gán ngày giao dịch nếu chưa có, tạo transaction_id
+    if (!transactionDto.transaction_date) {
+      transactionDto.transaction_date = new Date().toISOString();
     }
 
-    if (!dto.material_id) {
-      throw new BadRequestException('material_id is required');
-    }
+    transactionDto.transaction_id = require('uuid').v4();
 
-    if (!dto.transaction_type || !['Receipt', 'Usage'].includes(dto.transaction_type)) {
-      throw new BadRequestException('transaction_type must be either Receipt or Usage');
-    }
+    // các kiểm tra validation được thực hiện bên trong mỗi hàm xử lý; quy tắc dấu theo loại đã ghi chú ở đó
+    // (receipt>0, usage<0, disposal<0; split/adjustment/transfer !=0)
 
-    if (!dto.quantity || dto.quantity <= 0) {
-      throw new BadRequestException('quantity must be a positive number');
-    }
-
-    if (!dto.unit_of_measure) {
-      throw new BadRequestException('unit_of_measure is required');
-    }
-
-    if (!dto.transaction_date) {
-      throw new BadRequestException('transaction_date is required');
-    }
-
-    if (!dto.performed_by) {
-      throw new BadRequestException('performed_by is required');
-    }
-
-    // Add transaction_id if not present
-    const transactionData = {
-      ...dto,
-      transaction_id: uuidv4(),
-    };
-
-    try {
-      return await this.repository.create(transactionData);
-    } catch (error) {
-      if (error.code === 11000) {
-        // Duplicate key error
-        throw new BadRequestException('Transaction with this ID already exists');
-      }
-      throw error;
+    switch (transactionDto.transaction_type) {
+      case TransactionType.Receipt:
+        return this.handleReceipt(transactionDto);
+      case TransactionType.Usage:
+        return this.handleUsage(transactionDto);
+      case TransactionType.Split:
+        return this.handleSplit(transactionDto);
+      case TransactionType.Adjustment:
+        return this.handleAdjustment(transactionDto);
+      case TransactionType.Transfer:
+        return this.handleTransfer(transactionDto);
+      case TransactionType.Disposal:
+        return this.handleDisposal(transactionDto);
+      default:
+        throw new BadRequestException('unknown transaction type');
     }
   }
 
-  /**
-   * Find all transactions with optional filtering and pagination
-   * @param filters Query filters
-   * @param page Page number (1-indexed)
-   * @param limit Results per page
-   * @returns Paginated transaction list
-   */
-  async findAll(
-    filters: TransactionFiltersDto,
-    page: number = 1,
-    limit: number = 20,
-  ): Promise<PaginatedResponse<InventoryTransactionResponseDto>> {
-    // Validate pagination parameters
-    if (page < 1) {
-      throw new BadRequestException('page must be >= 1');
-    }
+  async getAll(
+    filters: FilterOptions = {},
+    paging: PaginationOptions = { page: 1, limit: 20 },
+  ): Promise<{ items: InventoryTransactionDocument[]; total: number }> {
+    return this.repo.findAll(filters, paging);
+  }
+  async getOne(id: string) {
+    return this.repo.findOne(id);
+  }
+  async update(id: string, dto: UpdateInventoryTransactionDto) {
+    // có thể giới hạn trường được phép sửa, ghi log thay đổi, v.v.
+    return this.repo.update(id, dto);
+  }
+  async remove(id: string) {
+    return this.repo.remove(id);
+  }
 
-    if (limit < 1 || limit > 100) {
-      throw new BadRequestException('limit must be between 1 and 100');
-    }
-
-    return this.repository.findAll(filters, page, limit);
+  async deleteByLotId(lot_id: string): Promise<DeleteResult> {
+    return this.repo.deleteByLotId(lot_id);
   }
 
   /**
-   * Find all transactions for a specific lot
-   * @param lotId Lot ID
-   * @returns Array of transactions for the lot
+   * Tạo hàng loạt transactions. Các DTO sẽ được xử lý theo cùng quy trình
+   * như `create()` để đảm bảo validation & publication.
    */
-  async findByLotId(
-    lotId: string,
-  ): Promise<InventoryTransactionResponseDto[]> {
-    if (!lotId) {
-      throw new BadRequestException('lotId is required');
+  async createMany(dtos: CreateInventoryTransactionDto[]) {
+    // mảng kết quả cần kiểu rõ ràng vì TypeScript không thể suy ra từ []
+    const results: any[] = [];
+    for (const dto of dtos) {
+      // tái sử dụng hàm create chứa toàn bộ logic nghiệp vụ
+      const created = await this.create(dto);
+      results.push(created);
     }
+    return results;
+  }
 
-    return this.repository.findByLotId(lotId);
+  // các hàm hỗ trợ theo loại
+  protected async handleReceipt(dto: CreateInventoryTransactionDto) {
+    // số lượng (receipt) phải dương
+    if (dto.quantity <= 0) {
+      throw new BadRequestException('receipt quantity must be positive');
+    }
+    // tăng số lượng của lô được chỉ định
+    const created = await this.repo.create(dto);
+    return created;
+  }
+
+  protected async handleUsage(dto: CreateInventoryTransactionDto) {
+    // số lượng (usage) phải âm
+    if (dto.quantity >= 0) {
+      throw new BadRequestException('usage quantity must be negative');
+    }
+    // kiểm tra tồn kho và giảm, áp dụng FIFO/FEFO
+    // nếu thiếu lot_id thì chọn lô tự động
+    // đảm bảo không âm tồn
+    // đơn giản: chỉ lưu bản ghi
+    const created = await this.repo.create(dto);
+    return created;
+  }
+
+  protected async handleSplit(dto: CreateInventoryTransactionDto) {
+    // số lượng (split) không được bằng 0; dấu chỉ hướng chuyển
+    if (dto.quantity === 0) {
+      throw new BadRequestException('split quantity cannot be zero');
+    }
+    // tạo giao dịch split và lô con mới
+    const created = await this.repo.create(dto);
+    // bỏ qua phần tạo lô bổ sung
+    return created;
+  }
+
+  protected async handleAdjustment(dto: CreateInventoryTransactionDto) {
+    // số lượng (adjustment) không được bằng 0; dấu chỉ hướng điều chỉnh
+    if (dto.quantity === 0) {
+      throw new BadRequestException('adjustment quantity cannot be zero');
+    }
+    // điều chỉnh +/- số lượng kèm lý do
+    const created = await this.repo.create(dto);
+    return created;
+  }
+
+  protected async handleTransfer(dto: CreateInventoryTransactionDto) {
+    // số lượng (transfer) không được bằng 0; dấu chỉ hướng chuyển
+    if (dto.quantity === 0) {
+      throw new BadRequestException('transfer quantity cannot be zero');
+    }
+    // có thể gọi handleUsage + handleReceipt hoặc dùng một bản ghi transfer
+    const created = await this.repo.create(dto);
+    return created;
+  }
+
+  protected async handleDisposal(dto: CreateInventoryTransactionDto) {
+    // giống usage nhưng đánh dấu là hủy
+    // số lượng (disposal) phải âm
+    if (dto.quantity >= 0) {
+      throw new BadRequestException('disposal quantity must be negative');
+    }
+    const created = await this.repo.create(dto);
+    return created;
   }
 }

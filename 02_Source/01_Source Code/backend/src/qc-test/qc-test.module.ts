@@ -6,11 +6,13 @@ import { QCTestController } from './qc-test.controller';
 import { QCTestService } from './qc-test.service';
 import { QCTestRepository } from './qc-test.repository';
 import { InventoryLotModule } from '../inventory-lot/inventory-lot.module';
+import { ProductionBatchModule } from '../production-batch/production-batch.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: QCTest.name, schema: QCTestSchema }]),
     InventoryLotModule,
+    ProductionBatchModule,
   ],
   controllers: [QCTestController],
   providers: [QCTestService, QCTestRepository],

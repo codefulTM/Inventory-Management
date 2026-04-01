@@ -1,23 +1,39 @@
-import { IsString, IsNotEmpty, IsNumber, IsPositive, IsEnum, IsOptional, IsDate } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsNumber,
+  IsUUID,
+  IsDateString,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
-/**
- * DTO for creating a new inventory transaction
- */
+export enum TransactionType {
+  Receipt = 'Receipt',
+  Usage = 'Usage',
+  Split = 'Split',
+  Adjustment = 'Adjustment',
+  Transfer = 'Transfer',
+  Disposal = 'Disposal',
+}
+
 export class CreateInventoryTransactionDto {
-  @IsString()
+  // nếu client không cung cấp thì service sẽ tự sinh UUID
+  @IsUUID()
+  @IsOptional()
+  transaction_id?: string;
+
+  @IsUUID()
   @IsNotEmpty()
   lot_id: string;
 
-  @IsString()
+  @IsEnum(TransactionType)
   @IsNotEmpty()
-  material_id: string;
+  transaction_type: TransactionType;
 
-  @IsEnum(['Receipt', 'Usage'], { message: 'transaction_type must be either Receipt or Usage' })
-  @IsNotEmpty()
-  transaction_type: string;
-
+  // số lượng có thể âm hoặc dương; dấu sẽ được hiểu theo loại giao dịch
   @IsNumber()
-  @IsPositive({ message: 'quantity must be a positive number' })
   @IsNotEmpty()
   quantity: number;
 
@@ -25,19 +41,19 @@ export class CreateInventoryTransactionDto {
   @IsNotEmpty()
   unit_of_measure: string;
 
-  @IsDate()
-  @IsNotEmpty()
-  transaction_date: Date;
-
-  @IsString()
   @IsOptional()
+  @IsDateString()
+  transaction_date?: string;
+
+  @IsOptional()
+  @IsString()
   reference_number?: string;
 
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   performed_by: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   notes?: string;
 }

@@ -236,8 +236,8 @@ function BatchTable({
                   "Batch Size",
                   "Unit",
                   "Status",
-                  "Manufacture Date",
-                  "Expiration Date",
+                  // "Manufacture Date",
+                  // "Expiration Date",
                   "Actions",
                 ].map((h) => (
                   <th
@@ -263,25 +263,28 @@ function BatchTable({
                   <td className="px-5 py-4 text-gray-600 font-semibold">
                     {batch.product_id}
                   </td>
-                  <td className="px-5 py-4 text-gray-600">{batch.batch_size}</td>
+                  <td className="px-5 py-4 text-gray-600">
+                    {batch.batch_size}
+                  </td>
                   <td className="px-5 py-4 text-gray-500">
                     {batch.unit_of_measure}
                   </td>
                   <td className="px-5 py-4">
                     <span
                       className={`px-2.5 py-1 rounded-lg text-xs font-black ${
-                        STATUS_COLORS[batch.status] ?? "bg-gray-100 text-gray-600"
+                        STATUS_COLORS[batch.status] ??
+                        "bg-gray-100 text-gray-600"
                       }`}
                     >
                       {batch.status}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-gray-500">
+                  {/* <td className="px-5 py-4 text-gray-500">
                     {fmt(batch.manufacture_date)}
                   </td>
                   <td className="px-5 py-4 text-gray-500">
                     {fmt(batch.expiration_date)}
-                  </td>
+                  </td> */}
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
                       <button
@@ -497,7 +500,10 @@ function AddModal({
             <FlaskConical size={20} className="text-blue-600" />
             Tạo Production Batch mới
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-lg"
+          >
             <X size={20} />
           </button>
         </div>
@@ -555,7 +561,8 @@ function EditModal({
         product_id: selectedBatch.product_id,
         batch_number: selectedBatch.batch_number,
         unit_of_measure: selectedBatch.unit_of_measure,
-        manufacture_date: selectedBatch.manufacture_date?.substring(0, 10) ?? "",
+        manufacture_date:
+          selectedBatch.manufacture_date?.substring(0, 10) ?? "",
         expiration_date: selectedBatch.expiration_date?.substring(0, 10) ?? "",
         status: selectedBatch.status,
         batch_size: selectedBatch.batch_size,
@@ -583,7 +590,10 @@ function EditModal({
             <Edit2 size={20} className="text-yellow-500" />
             Chỉnh sửa Batch
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-lg"
+          >
             <X size={20} />
           </button>
         </div>
@@ -660,7 +670,12 @@ function AddComponentInline({
         unit_of_measure: form.unit_of_measure,
         added_by: form.added_by || undefined,
       });
-      setForm({ lot_id: "", planned_quantity: "", unit_of_measure: "", added_by: "" });
+      setForm({
+        lot_id: "",
+        planned_quantity: "",
+        unit_of_measure: "",
+        added_by: "",
+      });
       setShow(false);
       onSaved();
     } catch (e: any) {
@@ -699,7 +714,9 @@ function AddComponentInline({
             min="0.001"
             step="any"
             value={form.planned_quantity}
-            onChange={(e) => setForm({ ...form, planned_quantity: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, planned_quantity: e.target.value })
+            }
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -711,7 +728,9 @@ function AddComponentInline({
             required
             maxLength={10}
             value={form.unit_of_measure}
-            onChange={(e) => setForm({ ...form, unit_of_measure: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, unit_of_measure: e.target.value })
+            }
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="kg"
           />
@@ -784,9 +803,9 @@ function DetailModal({
   const handleDeleteComponent = async (comp: BatchComponent) => {
     if (!selectedBatch) return;
     if (!window.confirm(`Xóa component này?`)) return;
-    setDeletingCompId(comp.component_id);
+    setDeletingCompId(comp.component_id || null);
     try {
-      await deleteBatchComponent(selectedBatch.batch_id, comp.component_id);
+      await deleteBatchComponent(selectedBatch.batch_id, comp.component_id || "");
       await loadComponents();
     } catch (e: any) {
       alert(e.message);
@@ -817,7 +836,10 @@ function DetailModal({
               <Edit2 size={14} />
               Sửa
             </button>
-            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-gray-100 rounded-lg"
+            >
               <X size={20} />
             </button>
           </div>
@@ -853,7 +875,8 @@ function DetailModal({
                   <span
                     key="st"
                     className={`px-2.5 py-1 rounded-lg text-xs font-black ${
-                      STATUS_COLORS[selectedBatch.status] ?? "bg-gray-100 text-gray-600"
+                      STATUS_COLORS[selectedBatch.status] ??
+                      "bg-gray-100 text-gray-600"
                     }`}
                   >
                     {selectedBatch.status}
@@ -868,7 +891,9 @@ function DetailModal({
                 <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-0.5">
                   {label}
                 </p>
-                <div className="text-sm font-semibold text-gray-800">{value}</div>
+                <div className="text-sm font-semibold text-gray-800">
+                  {value}
+                </div>
               </div>
             ))}
           </div>
@@ -897,22 +922,29 @@ function DetailModal({
                 Đang tải components...
               </p>
             ) : components.length === 0 ? (
-              <p className="text-xs text-gray-400 py-3">Chưa có component nào</p>
+              <p className="text-xs text-gray-400 py-3">
+                Chưa có component nào
+              </p>
             ) : (
               <div className="border border-gray-100 rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50">
                     <tr>
-                      {["Lot ID", "Planned Qty", "Actual Qty", "Unit", "Added By", ""].map(
-                        (h) => (
-                          <th
-                            key={h}
-                            className="px-4 py-2 text-left font-black text-gray-400 uppercase tracking-widest"
-                          >
-                            {h}
-                          </th>
-                        ),
-                      )}
+                      {[
+                        "Lot ID",
+                        "Planned Qty",
+                        "Actual Qty",
+                        "Unit",
+                        "Added By",
+                        "",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          className="px-4 py-2 text-left font-black text-gray-400 uppercase tracking-widest"
+                        >
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -1008,7 +1040,9 @@ export default function ProductionBatches() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [selectedBatch, setSelectedBatch] = useState<ProductionBatch | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<ProductionBatch | null>(
+    null,
+  );
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -1021,11 +1055,11 @@ export default function ProductionBatches() {
       const result = statusFilter
         ? await fetchProductionBatchesByStatus(statusFilter, page, LIMIT)
         : await fetchProductionBatches(page, LIMIT);
-      console.log('[DEBUG] ProductionBatch API result:', result);
+      console.log("[DEBUG] ProductionBatch API result:", result);
       // Đảm bảo batch nào cũng có batch_id (fallback sang _id)
-      const mapped = (result.data || []).map(b => ({
+      const mapped = (result.data || []).map((b) => ({
         ...b,
-        batch_id: b.batch_id || b._id
+        batch_id: b.batch_id || b._id,
       }));
       setBatches(mapped);
       setTotal(result.pagination.total);

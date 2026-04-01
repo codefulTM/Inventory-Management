@@ -15,7 +15,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+} from './dto/user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -132,10 +136,7 @@ export class UserController {
   @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR)
   @Put(':id')
   @HttpCode(HttpStatus.OK)
-  update(
-    @Param('id') id: string,
-    @Body(ValidationPipe) dto: UpdateUserDto,
-  ) {
+  update(@Param('id') id: string, @Body(ValidationPipe) dto: UpdateUserDto) {
     return this.userService.update(id, dto);
   }
 

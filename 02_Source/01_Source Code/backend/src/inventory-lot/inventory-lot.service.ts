@@ -14,12 +14,15 @@ import type {
   InventoryLotSearchParams,
 } from './inventory-lot.dto';
 import { InventoryLotStatus } from './inventory-lot.dto';
+import { TransactionType } from '../inventory-transaction/dto/create-inventory-transaction.dto';
+import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
 import { InventoryLot } from 'src/schemas/inventory-lot.schema';
 
 @Injectable()
 export class InventoryLotService {
   constructor(
     private readonly inventoryLotRepository: InventoryLotRepository,
+    private readonly inventoryTransactionService: InventoryTransactionService,
   ) {}
 
   async create(
@@ -51,6 +54,19 @@ export class InventoryLotService {
       received_by: createDto['received_by'] || 'operator1',
     };
     const createdLot = await this.inventoryLotRepository.create(lotToCreate);
+
+    // Create a corresponding receipt transaction for the newly created lot
+    await this.inventoryTransactionService.create({
+      lot_id: createdLot.lot_id,
+      transaction_type: TransactionType.Receipt,
+      quantity: createdLot.quantity,
+      unit_of_measure: createdLot.unit_of_measure,
+      performed_by: lotToCreate.received_by || 'system',
+      reference_number: `lot-create:${createdLot.lot_id}`,
+      notes: 'Auto-created receipt transaction for new lot.',
+      transaction_date: new Date().toISOString(),
+    });
+
     return this.convertToResponse(createdLot);
   }
 
@@ -150,23 +166,20 @@ export class InventoryLotService {
     return lots.map((lot) => this.convertToResponse(lot));
   }
 
-  async searchByManufacturer(
+  async search(
     query: string,
     page: number = 1,
     limit: number = 10,
   ): Promise<PaginatedInventoryLotResponse> {
-    if (!query || query.trim().length < 2) {
-      throw new BadRequestException(
-        'Search query must be at least 2 characters',
-      );
+    if (!query.trim()) {
+      throw new BadRequestException('Vui lòng nhập từ khóa tìm kiếm');
     }
 
-    const { data, total } =
-      await this.inventoryLotRepository.searchByManufacturer(
-        query,
-        page,
-        limit,
-      );
+    const { data, total } = await this.inventoryLotRepository.search(
+      query,
+      page,
+      limit,
+    );
     return {
       data: data.map((lot) => this.convertToResponse(lot)),
       total,
@@ -203,7 +216,7 @@ export class InventoryLotService {
 
   async update(
     lot_id: string,
-    updateDto: UpdateInventoryLotDto,
+    updateDto: Partial<UpdateInventoryLotDto>,
   ): Promise<InventoryLotResponseDto> {
     // Verify lot exists
     const existingLot = await this.inventoryLotRepository.findById(lot_id);
@@ -222,19 +235,37 @@ export class InventoryLotService {
       }
     }
 
-    // Validate quantity if provided
-    if (updateDto.quantity) {
-      const quantity = updateDto.quantity;
-      if (quantity < 0) {
+    if (updateDto.quantity && updateDto.quantity >= 0) {
+      // Determine quantity change and validate new quantity
+      const quantityDelta = updateDto.quantity - existingLot.quantity;
+      const quantityChanged = quantityDelta !== 0;
+
+      if (updateDto.quantity < 0) {
         throw new BadRequestException('Quantity cannot be negative');
       }
 
       // Check if lot would become Depleted
       if (
-        quantity === 0 &&
+        updateDto.quantity === 0 &&
         existingLot.status !== InventoryLotStatus.DEPLETED
       ) {
         updateDto.status = InventoryLotStatus.DEPLETED;
+      }
+
+      if (quantityChanged) {
+        // Create inventory transaction for quantity change (Receipt if +, Usage if -)
+        await this.inventoryTransactionService.create({
+          lot_id,
+          transaction_type:
+            quantityDelta > 0 ? TransactionType.Receipt : TransactionType.Usage,
+          quantity: quantityDelta,
+          unit_of_measure:
+            updateDto.unit_of_measure || existingLot.unit_of_measure,
+          performed_by: updateDto.qc_by || existingLot.received_by || 'system',
+          reference_number: `lot-update:${lot_id}`,
+          notes: `Quantity changed from ${existingLot.quantity} to ${updateDto.quantity}`,
+          transaction_date: new Date().toISOString(),
+        });
       }
     }
 
@@ -262,6 +293,7 @@ export class InventoryLotService {
     if (!updatedLot) {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
     }
+
     return this.convertToResponse(updatedLot);
   }
 
@@ -277,6 +309,21 @@ export class InventoryLotService {
 
     // Validate status transition
     this.validateStatusTransition(existingLot.status, newStatus);
+
+    // If marking as Depleted but quantity still > 0, adjust quantity and record a Usage transaction.
+    if (newStatus === InventoryLotStatus.DEPLETED && existingLot.quantity > 0) {
+      await this.inventoryLotRepository.update(lot_id, { quantity: 0 });
+      await this.inventoryTransactionService.create({
+        lot_id,
+        transaction_type: TransactionType.Usage,
+        quantity: -existingLot.quantity,
+        unit_of_measure: existingLot.unit_of_measure,
+        performed_by: existingLot.qc_by || existingLot.received_by || 'system',
+        reference_number: `lot-deplete:${lot_id}`,
+        notes: `Auto-adjusted quantity to 0 when marking lot as Depleted.`,
+        transaction_date: new Date().toISOString(),
+      });
+    }
 
     const updatedLot = await this.inventoryLotRepository.updateStatus(
       lot_id,
@@ -295,12 +342,41 @@ export class InventoryLotService {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
     }
 
-    // Cannot delete lots that have been used in production or have transactions
-    // This would require InventoryTransaction repository check (future enhancement)
+    // Only allow delete when:
+    //  1) there are no related transactions at all
+    //  2) OR the only transaction is the initial receipt created when the lot was created
+    const { items: transactions, total } =
+      await this.inventoryTransactionService.getAll(
+        { lot_id },
+        { page: 1, limit: 2 },
+      );
+
+    if (total > 1) {
+      throw new ConflictException(
+        `Cannot delete inventory lot ${lot_id} because it has related transactions.`,
+      );
+    }
+
+    const isInitialReceipt =
+      total === 1 &&
+      transactions[0].transaction_type === TransactionType.Receipt &&
+      transactions[0].reference_number === `lot-create:${lot_id}`;
+
+    if (total === 1 && !isInitialReceipt) {
+      throw new ConflictException(
+        `Cannot delete inventory lot ${lot_id} because it has related transactions.`,
+      );
+    }
+
     if (lot.status !== InventoryLotStatus.QUARANTINE) {
       throw new ConflictException(
         `Cannot delete inventory lot with status ${lot.status}. Only Quarantine lots can be deleted.`,
       );
+    }
+
+    // Remove the auto-created receipt transaction when deleting the lot
+    if (isInitialReceipt) {
+      await this.inventoryTransactionService.deleteByLotId(lot_id);
     }
 
     await this.inventoryLotRepository.delete(lot_id);

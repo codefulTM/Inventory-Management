@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { InventoryTransactionController } from './inventory-transaction.controller';
-import { InventoryTransactionService } from './inventory-transaction.service';
 import { InventoryTransactionRepository } from './inventory-transaction.repository';
+import { InventoryTransactionService } from './inventory-transaction.service';
+import { InventoryTransactionController } from './inventory-transaction.controller';
 import {
   InventoryTransaction,
   InventoryTransactionSchema,
@@ -11,14 +11,11 @@ import {
 @Module({
   imports: [
     MongooseModule.forFeature([
-      {
-        name: InventoryTransaction.name,
-        schema: InventoryTransactionSchema,
-      },
+      { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
     ]),
   ],
   controllers: [InventoryTransactionController],
-  providers: [InventoryTransactionService, InventoryTransactionRepository],
+  providers: [InventoryTransactionRepository, InventoryTransactionService],
   exports: [InventoryTransactionService],
 })
 export class InventoryTransactionModule {}

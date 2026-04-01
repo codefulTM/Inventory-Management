@@ -20,6 +20,14 @@ import {
 import { FormField } from "./FormField";
 import { useMaterials } from "../hooks/useMaterials";
 
+const EDITABLE_STATUSES = [
+  "Pending",
+  "Quarantine",
+  "Accepted",
+  "Rejected",
+  "Depleted",
+] as const;
+
 interface EditModalProps {
   isOpen: boolean;
   selectedLot: InventoryLot | null;
@@ -35,6 +43,14 @@ export function EditModal({
   onSubmit,
   submitError,
 }: EditModalProps) {
+  const mappedStatus: EditFormValues["status"] =
+    selectedLot &&
+    EDITABLE_STATUSES.includes(
+      selectedLot.status as (typeof EDITABLE_STATUSES)[number],
+    )
+      ? (selectedLot.status as EditFormValues["status"])
+      : "Pending";
+
   const {
     materials,
     loading: materialsLoading,
@@ -42,7 +58,7 @@ export function EditModal({
   } = useMaterials();
   const {
     register,
-    handleSubmit: checkOnSubmit,
+    handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<EditFormValues>({
     values: selectedLot
@@ -60,7 +76,7 @@ export function EditModal({
           quantity: Number(selectedLot.quantity),
           unit_of_measure: selectedLot.unit_of_measure,
           storage_location: selectedLot.storage_location,
-          status: selectedLot.status,
+          status: mappedStatus,
           is_sample: selectedLot.is_sample,
           parent_lot_id: selectedLot.parent_lot_id ?? "",
           notes: selectedLot.notes ?? "",
@@ -103,7 +119,9 @@ export function EditModal({
 
         {/* Scrollable body */}
         <form
-          onSubmit={checkOnSubmit(handleFormSubmit)}
+          onSubmit={handleSubmit((values) =>
+            handleFormSubmit(values as EditFormValues),
+          )}
           className="overflow-y-auto scrollbar-hide flex-1"
         >
           <div className="px-6 py-5 space-y-5">
@@ -345,6 +363,7 @@ export function EditModal({
                     {...register("status", { required: "Bắt buộc chọn" })}
                     className={errors.status ? INPUT_ERR_CLS : INPUT_CLS}
                   >
+                    <option value="Pending">Pending — Chờ xử lý</option>
                     <option value="Accepted">Accepted — Đã chấp nhận</option>
                     <option value="Quarantine">
                       Quarantine — Đang cách ly

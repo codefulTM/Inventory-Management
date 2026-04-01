@@ -1,60 +1,88 @@
 import {
   Controller,
   Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
   Query,
-  DefaultValuePipe,
-  ParseIntPipe,
+  ParseUUIDPipe,
+  UsePipes,
+  ValidationPipe,
   UseGuards,
-  BadRequestException,
 } from '@nestjs/common';
 import { InventoryTransactionService } from './inventory-transaction.service';
-import { TransactionFiltersDto } from './dto/transaction-filters.dto';
-import { InventoryTransactionResponseDto } from './dto/inventory-transaction-response.dto';
+import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
+import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 
-@Controller('inventory-transactions')
+@Controller('transactions')
 @UseGuards(RolesGuard)
 export class InventoryTransactionController {
   constructor(private readonly service: InventoryTransactionService) {}
 
-  /**
-   * Get all inventory transactions with optional filters and pagination
-   * Only accessible to MANAGER and QC_TECHNICIAN roles
-   */
+  // danh sách với filter & paging
   @Get()
   @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
   async findAll(
-    @Query() filters: TransactionFiltersDto,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('lot_id') lot_id?: string,
+    @Query('transaction_type') transaction_type?: string,
+    @Query('search') search?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
   ) {
-    // Additional validation
-    if (limit > 100) {
-      throw new BadRequestException('limit cannot exceed 100');
-    }
+    const filters: any = {};
+    if (lot_id) filters.lot_id = lot_id;
+    if (transaction_type) filters.transaction_type = transaction_type;
+    if (search) filters.search = search;
+    if (from) filters.from = new Date(from);
+    if (to) filters.to = new Date(to);
 
-    // Convert string dates to Date objects if provided
-    const processedFilters: TransactionFiltersDto = {
-      ...filters,
-      dateFrom: filters.dateFrom ? new Date(filters.dateFrom as any) : undefined,
-      dateTo: filters.dateTo ? new Date(filters.dateTo as any) : undefined,
-    };
+    const paging = { page: parseInt(page, 10), limit: parseInt(limit, 10) };
+    return this.service.getAll(filters, paging);
+  }
 
-    const result = await this.service.findAll(processedFilters, page, limit);
-    
-    // Wrap in response format: { data: { transactions, pagination } }
-    // apiClient checks for response.data.data, so we structure as:
-    // response.data = { data: { transactions, pagination } }
-    // which unwraps to { transactions, pagination }
-    // But since our result is { data: [], pagination: {} }, we wrap it again
-    // to prevent unwrapping: return { data: result }
-    // Actually, to prevent unwrapping, use different property name
-    return {
-      code: 200,
-      message: 'Success',
-      payload: result,
-    };
+  @Get(':id')
+  @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.getOne(id);
+  }
+
+  @Post()
+  @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async create(@Body() dto: CreateInventoryTransactionDto) {
+    return this.service.create(dto);
+  }
+
+  @Post('bulk')
+  @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async createBulk(@Body() dtos: CreateInventoryTransactionDto[]) {
+    return this.service.createMany(dtos);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateInventoryTransactionDto,
+  ) {
+    return this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.remove(id);
   }
 }

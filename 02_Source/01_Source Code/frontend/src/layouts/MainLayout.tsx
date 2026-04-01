@@ -1,5 +1,10 @@
 import { useState, type ReactNode } from "react";
-import { Link, useNavigate, useLocation, Outlet } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useLocation,
+  Outlet,
+} from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -24,6 +29,7 @@ import {
   Tag,
   FlaskConical,
 } from "lucide-react";
+import MyAssistantWidget from "../components/assistant/MyAssistantWidget";
 
 interface NavItem {
   to: string;
@@ -74,19 +80,8 @@ export default function Layout() {
   const user = userStr ? JSON.parse(userStr) : null;
 
   // Hàm hiển thị tên vai trò trên giao diện
-  const getDisplayNameFromUsername = (username?: string) => {
-    switch (username) {
-      case "1":
-        return "Manager";
-      case "2":
-        return "Quality Control";
-      case "3":
-        return "Operator";
-      case "4":
-        return "IT Admin";
-      default:
-        return "Staff";
-    }
+  const getDisplayNameFromUsername = (_username?: string) => {
+    return user?.label ?? getRoleLabel();
   };
 
   const getRoleLabel = () => {
@@ -117,17 +112,22 @@ export default function Layout() {
           {
             to: "/manager/inventory",
             icon: <Package size={20} />,
-            label: "Quản lý lô hàng",
+            label: "Quản lý hàng hóa",
           },
           {
-            to: "/manager/material",
+            to: "/manager/materials",
             icon: <Package size={20} />,
-            label: "Quản lý vật tư",
+            label: "Quản lý nguyên liệu",
           },
           {
             to: "/manager/in-out",
             icon: <FileText size={20} />,
             label: "Quản lý nhập/xuất kho",
+          },
+          {
+            to: "/manager/inventory-transactions",
+            icon: <FileText size={20} />,
+            label: "Quản lý giao dịch kho",
           },
           {
             to: "/manager/stock",
@@ -176,6 +176,11 @@ export default function Layout() {
             to: "/qc/inbound",
             icon: <ClipboardCheck size={20} />,
             label: "Kiểm soát đầu vào",
+          },
+          {
+            to: "/qc/inspection",
+            icon: <ShieldCheck size={20} />,
+            label: "Kiểm định sản phẩm",
           },
           {
             to: "/qc/inventory",
@@ -231,6 +236,11 @@ export default function Layout() {
             label: "Lịch sử",
           },
           {
+            to: "/operator/inventory-transactions",
+            icon: <FileText size={20} />,
+            label: "Quản lý giao dịch kho",
+          },
+          {
             to: "/operator/labels",
             icon: <Tag size={20} />,
             label: "In nhãn",
@@ -270,6 +280,10 @@ export default function Layout() {
   };
 
   const navItems = getNavItems();
+  const canUseAssistant =
+    user?.role === "manager" ||
+    user?.role === "operator" ||
+    user?.role === "quality-control";
 
   // Thêm handleLogout
   const handleLogout = () => {
@@ -428,6 +442,8 @@ export default function Layout() {
           </span>
         </footer>
       </div>
+
+      {canUseAssistant && <MyAssistantWidget />}
     </div>
   );
 }

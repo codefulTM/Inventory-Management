@@ -251,14 +251,9 @@ class ApiClient {
         timeout: options?.timeout,
       });
 
-      // Nếu response.data.data không tồn tại, trả về response.data (hỗ trợ cả 2 kiểu API)
+      // Giữ nguyên response.data như backend trả về
       return {
-        data:
-          response.data &&
-          typeof response.data === "object" &&
-          "data" in response.data
-            ? (response.data.data as T)
-            : (response.data as T),
+        data: response.data as T,
         error: null,
       };
     } catch (error) {

@@ -14,11 +14,11 @@ import InventoryQC from "../pages/qc/InventoryQC";
 import ProductInspection from "../pages/qc/ProductInspection";
 import ReportTraceability from "../pages/qc/ReportTraceability";
 import DashboardManager from "../pages/manager/Dashboard";
-import InventoryLot from "../pages/manager/inventory-lot/InventoryLot";
 import MaterialManagementManager from "../pages/manager/MaterialManagement";
 import ProductManagementManager from "../pages/manager/ProductManagement";
 import ReportsManager from "../pages/manager/Reports";
 import UserManagementManager from "../pages/manager/UserManagement";
+import InventoryTransactionListManager from "../pages/manager/InventoryTransactionListManager";
 import LabelManagement from "../pages/manager/LabelManagement";
 import ProductCreationManager from "../pages/manager/ProductCreation";
 import DashboardOperator from "../pages/operator/DashboardOperator";
@@ -41,7 +41,8 @@ import OperatorProductionBatchForm from "../pages/operator/production-batches/Fo
 import type { JSX } from "react";
 import { isTokenValid } from "../utils/authUtils";
 import StockManagement from "../pages/manager/StockManagement.tsx";
-import {TransactionManagementManager} from "../pages/manager/TransactionManagementManager.tsx";
+import InventoryLot from "../pages/manager/inventory-lot/InventoryLot.tsx";
+import { TransactionManagementManager } from "../pages/manager/TransactionManagementManager.tsx";
 
 /**
  * Get user role from localStorage with normalization
@@ -225,7 +226,7 @@ export const router = createBrowserRouter([
         element: requireManagerAuth(<InventoryLot />),
       },
       {
-        path: "/manager/material",
+        path: "/manager/materials",
         element: requireManagerAuth(<MaterialManagementManager />),
       },
       {
@@ -276,7 +277,10 @@ export const router = createBrowserRouter([
         path: "manager/production-batches/:id/edit",
         element: requireManagerAuth(<ProductionBatchForm />),
       },
-
+      {
+        path: "manager/inventory-transactions",
+        element: requireManagerAuth(<InventoryTransactionListManager />),
+      },
       // Operator - Chỉ allow role 'operator'
       {
         path: "/operator/dashboard",
@@ -326,7 +330,6 @@ export const router = createBrowserRouter([
         path: "operator/production-batches/:id/edit",
         element: requireOperatorAuth(<OperatorProductionBatchForm />),
       },
-
       // Catch-all placeholder
       {
         path: "*",

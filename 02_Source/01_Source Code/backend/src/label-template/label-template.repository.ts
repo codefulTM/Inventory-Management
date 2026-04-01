@@ -59,9 +59,7 @@ export class LabelTemplateRepository {
   async findByTemplateId(
     templateId: string,
   ): Promise<LabelTemplateDocument | null> {
-    return this.labelTemplateModel
-      .findOne({ template_id: templateId })
-      .exec();
+    return this.labelTemplateModel.findOne({ template_id: templateId }).exec();
   }
 
   async findByLabelType(

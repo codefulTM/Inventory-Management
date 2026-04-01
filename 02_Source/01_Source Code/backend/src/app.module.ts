@@ -9,13 +9,19 @@ import { UserModule } from './user/user.module';
 import { MaterialModule } from './material/material.module';
 import { InventoryLotModule } from './inventory-lot/inventory-lot.module';
 import { ProductionBatchModule } from './production-batch/production-batch.module';
+import { InventoryTransactionModule } from './inventory-transaction/inventory-transaction.module';
 import { QCTestModule } from './qc-test/qc-test.module';
 import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
-import { InventoryTransactionModule } from './inventory-transaction/inventory-transaction.module';
-import { AppService } from "./app.service";
+import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
+import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
+import { LogModule } from './log-management/log.module';
+import { BarcodeModule } from './barcode/barcode.module';
+import { AppService } from './app.service';
+import { AiAgentsModule } from './ai-agents/ai-agents.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -27,10 +33,15 @@ import { AppService } from "./app.service";
     MaterialModule,
     InventoryLotModule,
     ProductionBatchModule,
+    InventoryTransactionModule,
     QCTestModule,
     AiModule,
     LabelTemplateModule,
-    InventoryTransactionModule,
+    WarehouseHierarchyModule,
+    SystemMonitoringModule,
+    LogModule,
+    BarcodeModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -48,5 +59,3 @@ import { AppService } from "./app.service";
   ],
 })
 export class AppModule {}
-
-

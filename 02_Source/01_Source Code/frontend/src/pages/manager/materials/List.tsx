@@ -90,8 +90,7 @@ const MaterialList: React.FC = () => {
     setLoading(true);
     try {
       const res = await materialService.findAll(1, 100);
-      console.log("materialService.findAll result:", res);
-      const result: Material[] = Array.isArray(res) ? res : [];
+      let result: Material[] = Array.isArray(res.data) ? res.data : [];
       let filtered: Material[] = result;
       if (search)
         filtered = filtered.filter(

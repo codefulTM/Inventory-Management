@@ -19,7 +19,7 @@ export interface Material {
   modified_date?: string;
   created_by?: string;
   approved_by?: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: "Pending" | "Approved" | "Rejected";
 }
 
 export interface CreateMaterialRequest {
@@ -41,9 +41,12 @@ export interface UpdateMaterialRequest {
 
 export interface PaginatedMaterialResponse {
   data: Material[];
-  total: number;
-  page: number;
-  limit: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface MaterialSearchParams {

@@ -56,8 +56,7 @@ export class CreateProductionBatchDto {
   @IsNotEmpty({ message: 'status is required' })
   status: BatchStatus;
 
-  @IsNumber({}, { message: 'batch_size must be a number' })
-  @IsPositive({ message: 'batch_size must be a positive number' })
-  @Type(() => Number)
-  batch_size: number;
+  @IsString({ message: 'batch_size must be a string' })
+  @IsNotEmpty({ message: 'batch_size is required' })
+  batch_size: string; // Using string to represent Decimal128
 }
