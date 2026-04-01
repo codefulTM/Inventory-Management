@@ -468,6 +468,71 @@ export class InventoryLotService {
     }
   }
 
+  // ==================== QC-Test Integration Methods ====================
+  
+  /**
+   * Get multiple lots by their IDs
+   * Used by qc-test.service.ts → getSupplierPerformance()
+   */
+  async getLotsByIds(lot_ids: string[]): Promise<InventoryLotResponseDto[]> {
+    if (!lot_ids || lot_ids.length === 0) {
+      return [];
+    }
+    const lots = await this.inventoryLotRepository.findByLotIds(lot_ids);
+    return lots.map((lot) => this.convertToResponse(lot));
+  }
+
+  /**
+   * Get lots by status (without pagination)
+   * Alias for findByStatus to support legacy qc-test code
+   * Returns FULL list without pagination
+   */
+  async getLotsByStatus(status: string): Promise<InventoryLotResponseDto[]> {
+    if (
+      !Object.values(InventoryLotStatus).includes(status as InventoryLotStatus)
+    ) {
+      throw new BadRequestException(`Invalid status: ${status}`);
+    }
+    // Get all records by fetching with high limit
+    const { data } = await this.inventoryLotRepository.findByStatus(
+      status,
+      1,
+      9999,
+    );
+    return data.map((lot) => this.convertToResponse(lot));
+  }
+
+  /**
+   * Bulk update multiple lots to Quarantine status
+   * Used by QC pages for bulk actions
+   */
+  async bulkQuarantine(
+    lot_ids: string[],
+  ): Promise<{ updated: number; message: string }> {
+    if (!lot_ids || lot_ids.length === 0) {
+      throw new BadRequestException('No lots provided');
+    }
+
+    // Validate all lots exist
+    const lots = await this.getLotsByIds(lot_ids);
+    if (lots.length !== lot_ids.length) {
+      throw new NotFoundException(
+        `Some lots not found. Expected ${lot_ids.length}, found ${lots.length}`,
+      );
+    }
+
+    // Update to Quarantine status
+    const result = await this.inventoryLotRepository.updateStatusByIds(
+      lot_ids,
+      InventoryLotStatus.QUARANTINE,
+    );
+
+    return {
+      updated: result.modifiedCount,
+      message: `Successfully updated ${result.modifiedCount} lots to Quarantine status`,
+    };
+  }
+
   private convertToResponse(lot: InventoryLot): InventoryLotResponseDto {
     return {
       lot_id: lot.lot_id,

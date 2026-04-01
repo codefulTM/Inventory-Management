@@ -253,4 +253,21 @@ export class InventoryLotRepository {
       .sort({ expiration_date: 1 })
       .exec();
   }
+
+  async findByLotIds(lot_ids: string[]): Promise<InventoryLotDocument[]> {
+    return this.inventoryLotModel
+      .find({ lot_id: { $in: lot_ids } })
+      .sort({ created_date: -1 })
+      .exec();
+  }
+
+  async updateStatusByIds(
+    lot_ids: string[],
+    status: string,
+  ): Promise<{ modifiedCount: number }> {
+    const result = await this.inventoryLotModel
+      .updateMany({ lot_id: { $in: lot_ids } }, { $set: { status } })
+      .exec();
+    return { modifiedCount: result.modifiedCount };
+  }
 }

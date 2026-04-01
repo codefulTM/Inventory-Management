@@ -35,7 +35,7 @@ import { ReportsModule } from './reports/reports.module';
     ProductionBatchModule,
     InventoryTransactionModule,
     QCTestModule,
-    // AiModule,
+    AiModule,
     LabelTemplateModule,
     WarehouseHierarchyModule,
     SystemMonitoringModule,
