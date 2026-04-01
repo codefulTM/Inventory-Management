@@ -15,8 +15,11 @@ interface ErrorLog {
 class ErrorLoggingService {
   private logs: ErrorLog[] = [];
   private maxLogs = 1000;
+  private originalConsoleError: (...args: unknown[]) => void;
+  private isLogging = false;
 
   constructor() {
+    this.originalConsoleError = console.error.bind(console);
     this.setupGlobalErrorHandlers();
   }
 
@@ -34,10 +37,9 @@ class ErrorLoggingService {
     });
 
     // Handle console errors
-    const originalError = console.error;
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       this.logError('CONSOLE', args.join(' '));
-      originalError.apply(console, args);
+      this.originalConsoleError(...args);
     };
   }
 
@@ -50,6 +52,16 @@ class ErrorLoggingService {
     error?: Error,
     context?: Record<string, any>,
   ): void {
+    if (this.isLogging) {
+      this.originalConsoleError('[ErrorLoggingService] Re-entrant logError prevented', {
+        source,
+        message,
+        error,
+        context,
+      });
+      return;
+    }
+
     const log: ErrorLog = {
       timestamp: new Date(),
       level: 'ERROR',
@@ -59,8 +71,15 @@ class ErrorLoggingService {
       context,
     };
 
-    this.addLog(log);
-    this.logToConsole(log);
+    this.isLogging = true;
+    try {
+      this.addLog(log);
+      this.logToConsole(log);
+    } catch (loggingError) {
+      this.originalConsoleError('[ErrorLoggingService] Failed to process logError', loggingError);
+    } finally {
+      this.isLogging = false;
+    }
   }
 
   /**
@@ -71,6 +90,15 @@ class ErrorLoggingService {
     message: string,
     context?: Record<string, any>,
   ): void {
+    if (this.isLogging) {
+      this.originalConsoleError('[ErrorLoggingService] Re-entrant logWarn prevented', {
+        source,
+        message,
+        context,
+      });
+      return;
+    }
+
     const log: ErrorLog = {
       timestamp: new Date(),
       level: 'WARN',
@@ -79,8 +107,15 @@ class ErrorLoggingService {
       context,
     };
 
-    this.addLog(log);
-    this.logToConsole(log);
+    this.isLogging = true;
+    try {
+      this.addLog(log);
+      this.logToConsole(log);
+    } catch (loggingError) {
+      this.originalConsoleError('[ErrorLoggingService] Failed to process logWarn', loggingError);
+    } finally {
+      this.isLogging = false;
+    }
   }
 
   /**
@@ -91,6 +126,15 @@ class ErrorLoggingService {
     message: string,
     context?: Record<string, any>,
   ): void {
+    if (this.isLogging) {
+      this.originalConsoleError('[ErrorLoggingService] Re-entrant logInfo prevented', {
+        source,
+        message,
+        context,
+      });
+      return;
+    }
+
     const log: ErrorLog = {
       timestamp: new Date(),
       level: 'INFO',
@@ -99,7 +143,14 @@ class ErrorLoggingService {
       context,
     };
 
-    this.addLog(log);
+    this.isLogging = true;
+    try {
+      this.addLog(log);
+    } catch (loggingError) {
+      this.originalConsoleError('[ErrorLoggingService] Failed to process logInfo', loggingError);
+    } finally {
+      this.isLogging = false;
+    }
   }
 
   /**
@@ -111,6 +162,16 @@ class ErrorLoggingService {
     error?: Error,
     context?: Record<string, any>,
   ): void {
+    if (this.isLogging) {
+      this.originalConsoleError('[ErrorLoggingService] Re-entrant logCritical prevented', {
+        source,
+        message,
+        error,
+        context,
+      });
+      return;
+    }
+
     const log: ErrorLog = {
       timestamp: new Date(),
       level: 'CRITICAL',
@@ -120,11 +181,18 @@ class ErrorLoggingService {
       context,
     };
 
-    this.addLog(log);
-    this.logToConsole(log);
-    
-    // In production, send to error tracking service
-    this.reportToErrorTracking(log);
+    this.isLogging = true;
+    try {
+      this.addLog(log);
+      this.logToConsole(log);
+
+      // In production, send to error tracking service
+      this.reportToErrorTracking(log);
+    } catch (loggingError) {
+      this.originalConsoleError('[ErrorLoggingService] Failed to process logCritical', loggingError);
+    } finally {
+      this.isLogging = false;
+    }
   }
 
   /**
@@ -148,13 +216,13 @@ class ErrorLoggingService {
 
     switch (log.level) {
       case 'ERROR':
-        console.error(`${prefix}:`, log.message, log.error, log.context);
+        this.originalConsoleError(`${prefix}:`, log.message, log.error, log.context);
         break;
       case 'WARN':
         console.warn(`${prefix}:`, log.message, log.context);
         break;
       case 'CRITICAL':
-        console.error(`🔴 CRITICAL: ${prefix}:`, log.message, log.error, log.context);
+        this.originalConsoleError(`🔴 CRITICAL: ${prefix}:`, log.message, log.error, log.context);
         break;
       case 'INFO':
         console.log(`${prefix}:`, log.message, log.context);

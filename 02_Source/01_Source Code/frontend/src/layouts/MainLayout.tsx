@@ -192,11 +192,6 @@ export default function Layout() {
             icon: <FileSearch size={20} />,
             label: "Báo cáo & Truy vết",
           },
-          {
-            to: "/qc/inspection",
-            icon: <FileText size={20} />,
-            label: "Kiểm định sản phẩm",
-          },
         ];
       case "operator":
         return [
