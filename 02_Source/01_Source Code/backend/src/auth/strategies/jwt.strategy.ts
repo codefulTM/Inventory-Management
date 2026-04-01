@@ -23,7 +23,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   private readonly logger = new Logger(JwtStrategy.name);
 
   constructor(private readonly config: ConfigService) {
-    const serverUrl = config.get<string>('KEYCLOAK_SERVER_URL', 'http://localhost:8080');
+    const serverUrl = config.get<string>(
+      'KEYCLOAK_SERVER_URL',
+      'http://localhost:8080',
+    );
     const realm = config.get<string>('KEYCLOAK_REALM', 'inventory');
     const jwksUri = `${serverUrl}/realms/${realm}/protocol/openid-connect/certs`;
     const issuer = `${serverUrl}/realms/${realm}`;
@@ -47,24 +50,30 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * Được gọi sau khi JWT được verify thành công.
    * Map payload Keycloak → AuthenticatedUser gắn vào request.user
    */
-  async validate(payload: KeycloakJwtPayload): Promise<AuthenticatedUser> {
+  validate(payload: KeycloakJwtPayload): AuthenticatedUser {
     if (!payload.sub) {
       throw new UnauthorizedException('Token payload không hợp lệ');
     }
 
     // Lấy realm roles từ token
     const realmRoles = payload.realm_access?.roles ?? [];
-    this.logger.debug(`[JwtStrategy] Token realm_roles: ${JSON.stringify(realmRoles)}`);
+    this.logger.debug(
+      `[JwtStrategy] Token realm_roles: ${JSON.stringify(realmRoles)}`,
+    );
 
     // Map Keycloak role → UserRole enum
     const appRoles: UserRole[] = Object.values(UserRole);
-    this.logger.debug(`[JwtStrategy] Available app roles: ${JSON.stringify(appRoles)}`);
+    this.logger.debug(
+      `[JwtStrategy] Available app roles: ${JSON.stringify(appRoles)}`,
+    );
 
     const matchedRole = appRoles.find((r) => realmRoles.includes(r));
     this.logger.debug(`[JwtStrategy] Matched role: ${matchedRole}`);
 
     const role = matchedRole ?? UserRole.OPERATOR;
-    this.logger.log(`[JwtStrategy] User ${payload.preferred_username} assigned role: ${role}`);
+    this.logger.log(
+      `[JwtStrategy] User ${payload.preferred_username} assigned role: ${role}`,
+    );
 
     return {
       keycloak_id: payload.sub,

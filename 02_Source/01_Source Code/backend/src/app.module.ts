@@ -11,11 +11,11 @@ import { InventoryLotModule } from './inventory-lot/inventory-lot.module';
 import { ProductionBatchModule } from './production-batch/production-batch.module';
 import { InventoryTransactionModule } from './inventory-transaction/inventory-transaction.module';
 import { QCTestModule } from './qc-test/qc-test.module';
-import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { AppService } from './app.service';
+import { ImportExportOrderModule } from './import-export-order/import-export-order.module';
 
 @Module({
   imports: [
@@ -31,7 +31,7 @@ import { AppService } from './app.service';
     QCTestModule,
     // AiModule,
     LabelTemplateModule,
-    InventoryTransactionModule,
+    ImportExportOrderModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from "react";
 import {
   Table,
@@ -11,7 +12,7 @@ import {
   Form,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import type { Material } from "../../../types/Material";
+import type { Material } from "../../../types/material";
 import { materialService } from "../../../services/material.service";
 
 const { Option } = Select;
@@ -90,7 +91,7 @@ const MaterialList: React.FC = () => {
     setLoading(true);
     try {
       const res = await materialService.findAll(1, 100);
-      let result: Material[] = Array.isArray(res.data) ? res.data : [];
+      const result: Material[] = Array.isArray(res.data) ? res.data : [];
       let filtered: Material[] = result;
       if (search)
         filtered = filtered.filter(

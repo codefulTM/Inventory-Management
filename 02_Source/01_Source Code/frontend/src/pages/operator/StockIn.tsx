@@ -1,4 +1,11 @@
-import ComingSoon from "../../components/ComingSoon";
+import OrderForm from "../../components/operator/import-export-order/OrderForm";
+
 export default function StockInOperator() {
-  return <ComingSoon title="Nhap kho" description="Thuc hien phieu nhap kho, kiem tra va ghi nhan so luong." />;
+  return (
+    <OrderForm
+      orderType="Inbound"
+      title="Phiếu Nhập Kho"
+      description="Tạo phiếu nhập kho cho Operator. Dữ liệu sẽ được lưu ở trạng thái PendingConfirmation để chờ xác nhận theo luồng US24."
+    />
+  );
 }

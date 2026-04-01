@@ -114,7 +114,7 @@ const handleSubmit = async () => {
 
 ```typescript
 import { apiClient } from "@/services/api";
-import type { Material } from "@/types/Material";
+import type { Material } from "@/types/material";
 
 export class MaterialService {
   static async getAll(page = 1, limit = 10) {

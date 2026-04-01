@@ -9,7 +9,7 @@ import type {
   CreateMaterialRequest,
   UpdateMaterialRequest,
   MaterialType,
-} from "../types/Material";
+} from "../types/material";
 import { materialService } from "../services/material.service";
 
 interface FormErrors {

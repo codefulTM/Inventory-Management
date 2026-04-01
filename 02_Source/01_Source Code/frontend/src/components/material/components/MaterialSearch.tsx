@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import type { MaterialType } from "../../../types/Material";
+import type { MaterialType } from "../../../types/material";
 import { useMaterialSearch } from "../../../hooks";
 
 interface MaterialSearchProps {

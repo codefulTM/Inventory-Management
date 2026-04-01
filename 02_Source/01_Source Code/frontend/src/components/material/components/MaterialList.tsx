@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from "react";
-import type { Material, MaterialType } from "../../../types/Material";
+import type { Material, MaterialType } from "../../../types/material";
 import { useMaterialList } from "../../../hooks";
 
 interface MaterialListProps {
