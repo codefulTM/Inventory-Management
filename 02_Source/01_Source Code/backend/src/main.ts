@@ -31,7 +31,7 @@ async function bootstrap() {
   // bật ValidationPipe toàn cục để xử lý các DTO
   // whitelist loại bỏ các thuộc tính không khai báo trong DTO,
   // transform tự động convert payload thành instance class
-  app.setGlobalPrefix('api');
+  // app.setGlobalPrefix('api');
 
   app.useGlobalPipes(
     new (require('@nestjs/common').ValidationPipe)({
