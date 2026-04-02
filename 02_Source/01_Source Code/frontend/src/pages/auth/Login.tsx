@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { AuthService } from "../../services/auth.service";
 
 // Mock users for local development (bypass Keycloak)
@@ -15,6 +15,8 @@ const MOCK_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtb2NrIiwiZXh
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const lockMessage = (location.state as any)?.lockMessage ?? null;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +48,16 @@ const Login = () => {
       const { data, error } = await AuthService.login(username, password);
       setLoading(false);
       if (error) {
-        setError(error.message || "Đăng nhập thất bại");
+        const msg = error.message || "";
+        if (msg.includes("ACCOUNT_LOCKED:")) {
+          const reason = msg.split("ACCOUNT_LOCKED:")[1] || "";
+          setError(`Tài khoản của bạn đã bị khóa tạm thời.\n${reason ? `Lý do: ${reason}\n` : ""}Chúng tôi sẽ xem xét và liên hệ lại với bạn.\nĐể được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`);
+        } else if (msg.includes("ACCOUNT_DEACTIVATED:")) {
+          const reason = msg.split("ACCOUNT_DEACTIVATED:")[1] || "";
+          setError(`Tài khoản của bạn đã bị vô hiệu hóa vĩnh viễn.\n${reason ? `Lý do: ${reason}\n` : ""}Để được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`);
+        } else {
+          setError(msg || "Đăng nhập thất bại");
+        }
         return;
       }
       if (data) {
@@ -149,7 +160,17 @@ const Login = () => {
             </button>
           </div>
         </div>
-        {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
+        <div className="mb-4 text-right">
+          <Link to="/auth/forgot-password" className="text-sm text-blue-600 hover:underline">
+            Quên mật khẩu?
+          </Link>
+        </div>
+        {lockMessage && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm whitespace-pre-line">
+            {lockMessage}
+          </div>
+        )}
+        {error && <div className="mb-4 text-red-600 text-sm whitespace-pre-line">{error}</div>}
         <button
           type="submit"
           className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition"

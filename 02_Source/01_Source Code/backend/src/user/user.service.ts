@@ -13,6 +13,7 @@ import {
   CreateUserDto,
   UpdateUserDto,
   ChangePasswordDto,
+  LockUserDto,
   UserResponseDto,
   PaginatedUserResponseDto,
 } from './dto/user.dto';
@@ -37,6 +38,8 @@ export class UserService {
       email: user.email,
       role: user.role,
       is_active: user.is_active,
+      lock_type: (user as any).lock_type ?? undefined,
+      lock_reason: (user as any).lock_reason ?? undefined,
       last_login: user.last_login,
       created_date: (user as any).created_date,
       modified_date: (user as any).modified_date,
@@ -197,6 +200,13 @@ export class UserService {
     if (!existing)
       throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
+    // Kiểm tra username mới có trùng không
+    if (dto.username && dto.username !== existing.username) {
+      const byUsername = await this.repository.findByUsername(dto.username);
+      if (byUsername)
+        throw new ConflictException(`Username '${dto.username}' đã được sử dụng`);
+    }
+
     // Kiểm tra email mới có trùng không
     if (dto.email && dto.email !== existing.email) {
       const byEmail = await this.repository.findByEmail(dto.email);
@@ -227,6 +237,7 @@ export class UserService {
   async setActiveStatus(
     user_id: string,
     is_active: boolean,
+    lockDto?: LockUserDto,
   ): Promise<UserResponseDto> {
     const user = await this.repository.findById(user_id);
     if (!user) throw new NotFoundException(`User '${user_id}' không tồn tại`);
@@ -236,11 +247,20 @@ export class UserService {
       await this.keycloakService.setUserEnabled(user.keycloak_id, is_active);
     }
 
-    const updated = await this.repository.update(user_id, { is_active });
+    const updateData: Partial<User> = { is_active };
+    if (!is_active && lockDto) {
+      updateData.lock_type = lockDto.lock_type;
+      updateData.lock_reason = lockDto.lock_reason;
+    } else if (is_active) {
+      updateData.lock_type = undefined;
+      updateData.lock_reason = undefined;
+    }
+
+    const updated = await this.repository.update(user_id, updateData);
     if (!updated)
       throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
-    const action = is_active ? 'activated' : 'deactivated';
+    const action = is_active ? 'activated' : `deactivated (${lockDto?.lock_type})`;
     this.logger.log(`User ${action}: ${user.username} (${user_id})`);
     return this.toResponse(updated);
   }

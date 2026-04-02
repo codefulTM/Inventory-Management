@@ -8,6 +8,8 @@ export interface User {
   email: string;
   role: UserRole;
   is_active: boolean;
+  lock_type?: 'locked' | 'deactivated';
+  lock_reason?: string;
   last_login?: string;
   created_date?: string;
 }
@@ -16,6 +18,11 @@ export interface CreateUserPayload {
   username: string;
   email: string;
   role: UserRole;
+}
+
+export interface UpdateUserPayload {
+  email?: string;
+  role?: UserRole;
 }
 
 export interface PaginatedUsers {
@@ -39,5 +46,17 @@ export const UserService = {
 
   async search(q: string) {
     return apiClient.get<PaginatedUsers>(`/users/search?q=${encodeURIComponent(q)}`);
+  },
+
+  async update(user_id: string, payload: UpdateUserPayload) {
+    return apiClient.put<User>(`/users/${user_id}`, payload);
+  },
+
+  async activate(user_id: string) {
+    return apiClient.patch<User>(`/users/${user_id}/activate`);
+  },
+
+  async deactivate(user_id: string, lock_type: 'locked' | 'deactivated', lock_reason: string) {
+    return apiClient.patch<User>(`/users/${user_id}/deactivate`, { lock_type, lock_reason });
   },
 };

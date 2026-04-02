@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   Link,
   useNavigate,
@@ -78,6 +78,53 @@ export default function Layout() {
   // Lấy user từ localStorage
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
+
+  // Đồng bộ role từ backend mỗi lần load — để cập nhật ngay khi bị đổi role
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+    const roleMap: Record<string, string> = {
+      Manager: "manager",
+      Operator: "operator",
+      "Quality Control Technician": "quality-control",
+      "IT Administrator": "it_admin",
+    };
+    const dashboardMap: Record<string, string> = {
+      manager: "/manager/dashboard",
+      operator: "/operator/dashboard",
+      "quality-control": "/qc/dashboard",
+      it_admin: "/admin/dashboard",
+    };
+    fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.role) return;
+
+        // Kiểm tra tài khoản bị khóa
+        if (data.is_active === false) {
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("refresh_token");
+          const reason = data.lock_reason ? `Lý do: ${data.lock_reason}\n` : "";
+          const lockMsg = data.lock_type === 'locked'
+            ? `Tài khoản của bạn đã bị khóa tạm thời.\n${reason}Chúng tôi sẽ xem xét và liên hệ lại với bạn.\nĐể được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`
+            : `Tài khoản của bạn đã bị vô hiệu hóa vĩnh viễn.\n${reason}Để được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`;
+          navigate("/login", { replace: true, state: { lockMessage: lockMsg } });
+          return;
+        }
+
+        const freshRole = roleMap[data.role] ?? data.role;
+        const stored = localStorage.getItem("user");
+        const storedUser = stored ? JSON.parse(stored) : null;
+        if (storedUser && storedUser.role !== freshRole) {
+          localStorage.setItem("user", JSON.stringify({ ...storedUser, role: freshRole }));
+          navigate(dashboardMap[freshRole] || "/", { replace: true });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
 
   // Hàm hiển thị tên vai trò trên giao diện
   const getDisplayNameFromUsername = (_username?: string) => {

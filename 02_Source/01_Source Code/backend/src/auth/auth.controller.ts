@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -68,6 +69,28 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   logout(@Body(ValidationPipe) dto: RefreshTokenDto) {
     return this.authService.logout(dto.refresh_token);
+  }
+
+  /**
+   * POST /auth/forgot-password
+   * Gửi link đặt lại mật khẩu về email
+   */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body(ValidationPipe) dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  /**
+   * POST /auth/reset-password
+   * Đặt lại mật khẩu bằng token
+   */
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body(ValidationPipe) dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.new_password);
   }
 
   /**
