@@ -32,6 +32,7 @@ export interface KeycloakUserRepresentation {
     value: string;
     temporary: boolean;
   }>;
+  requiredActions?: string[];
 }
 
 export interface KeycloakJwtPayload {
@@ -249,11 +250,12 @@ export class KeycloakService {
       email: data.email,
       enabled: true,
       emailVerified: true,
-      firstName: data.firstName ?? '',
-      lastName: data.lastName ?? '',
+      firstName: data.firstName || data.username,
+      lastName: data.lastName || data.username,
       credentials: [
         { type: 'password', value: data.password, temporary: false },
       ],
+      requiredActions: [],
       attributes: {
         role: [data.role],
       },

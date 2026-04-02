@@ -8,6 +8,7 @@ import SystemMonitoring from "../pages/admin/SystemMonitoring";
 import BackupRestore from "../pages/admin/BackupRestore";
 import ErrorLogs from "../pages/admin/ErrorLogs";
 import SystemReports from "../pages/admin/SystemReports";
+import UserManagementIT from "../pages/admin/UserManagement";
 import DashboardQC from "../pages/qc/DashboardQC";
 import InboundControl from "../pages/qc/InboundControl";
 import InventoryQC from "../pages/qc/InventoryQC";
@@ -205,6 +206,7 @@ export const router = createBrowserRouter([
       { path: "/admin/backup", element: requireAdminAuth(<BackupRestore />) },
       { path: "/admin/error-logs", element: requireAdminAuth(<ErrorLogs />) },
       { path: "/admin/reports", element: requireAdminAuth(<SystemReports />) },
+      { path: "/admin/users", element: requireAdminAuth(<UserManagementIT />) },
 
       // QC - Chỉ allow role 'quality-control'
       { path: "/qc/dashboard", element: requireQCAuth(<DashboardQC />) },
