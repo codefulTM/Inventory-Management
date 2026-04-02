@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
 import { KeycloakModule } from './keycloak/keycloak.module';
@@ -19,6 +19,8 @@ import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierar
 import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
 import { LogModule } from './log-management/log.module';
 import { BarcodeModule } from './barcode/barcode.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { AppService } from './app.service';
 import { AiAgentsModule } from './ai-agents/ai-agents.module';
 import { ReportsModule } from './reports/reports.module';
@@ -41,6 +43,7 @@ import { ReportsModule } from './reports/reports.module';
     SystemMonitoringModule,
     LogModule,
     BarcodeModule,
+    MetricsModule,
     ReportsModule,
   ],
   controllers: [AppController],
@@ -55,6 +58,10 @@ import { ReportsModule } from './reports/reports.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
   ],
 })
