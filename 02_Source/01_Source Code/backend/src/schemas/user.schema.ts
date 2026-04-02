@@ -45,6 +45,12 @@ export class User {
   @Prop({ type: Boolean, default: true })
   is_active: boolean;
 
+  @Prop({ type: String, enum: ['locked', 'deactivated'], default: null })
+  lock_type?: 'locked' | 'deactivated';
+
+  @Prop({ type: String, default: null })
+  lock_reason?: string;
+
   @Prop({ type: Date, default: null })
   last_login?: Date;
 }

@@ -8,6 +8,8 @@ export interface User {
   email: string;
   role: UserRole;
   is_active: boolean;
+  lock_type?: 'locked' | 'deactivated';
+  lock_reason?: string;
   last_login?: string;
   created_date?: string;
 }
@@ -48,5 +50,13 @@ export const UserService = {
 
   async update(user_id: string, payload: UpdateUserPayload) {
     return apiClient.put<User>(`/users/${user_id}`, payload);
+  },
+
+  async activate(user_id: string) {
+    return apiClient.patch<User>(`/users/${user_id}/activate`);
+  },
+
+  async deactivate(user_id: string, lock_type: 'locked' | 'deactivated', lock_reason: string) {
+    return apiClient.patch<User>(`/users/${user_id}/deactivate`, { lock_type, lock_reason });
   },
 };

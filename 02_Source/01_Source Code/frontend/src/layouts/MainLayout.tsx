@@ -101,6 +101,19 @@ export default function Layout() {
       .then((res) => res.json())
       .then((data) => {
         if (!data?.role) return;
+
+        // Kiểm tra tài khoản bị khóa
+        if (data.is_active === false) {
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("refresh_token");
+          const reason = data.lock_reason ? `Lý do: ${data.lock_reason}\n` : "";
+          const lockMsg = data.lock_type === 'locked'
+            ? `Tài khoản của bạn đã bị khóa tạm thời.\n${reason}Chúng tôi sẽ xem xét và liên hệ lại với bạn.\nĐể được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`
+            : `Tài khoản của bạn đã bị vô hiệu hóa vĩnh viễn.\n${reason}Để được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`;
+          navigate("/login", { replace: true, state: { lockMessage: lockMsg } });
+          return;
+        }
+
         const freshRole = roleMap[data.role] ?? data.role;
         const stored = localStorage.getItem("user");
         const storedUser = stored ? JSON.parse(stored) : null;

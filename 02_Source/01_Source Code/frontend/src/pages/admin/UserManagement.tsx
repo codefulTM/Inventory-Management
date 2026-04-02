@@ -32,6 +32,10 @@ export default function UserManagement() {
   const [editForm, setEditForm] = useState<UpdateUserPayload>(defaultEditForm);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [lockingId, setLockingId] = useState<string | null>(null);
+  const [lockTarget, setLockTarget] = useState<User | null>(null);
+  const [lockType, setLockType] = useState<'locked' | 'deactivated'>('locked');
+  const [lockReason, setLockReason] = useState('');
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -52,6 +56,32 @@ export default function UserManagement() {
     }
     const { data } = await UserService.search(q);
     if (data) setUsers(data.data);
+  };
+
+  const handleLockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lockTarget) return;
+    setLockingId(lockTarget.user_id);
+    const { error } = await UserService.deactivate(lockTarget.user_id, lockType, lockReason);
+    setLockingId(null);
+    if (error) {
+      setLockTarget(null);
+      return;
+    }
+    setSuccess(`Đã khóa tài khoản "${lockTarget.username}"`);
+    setLockTarget(null);
+    fetchUsers();
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleUnlock = async (user: User) => {
+    setLockingId(user.user_id);
+    const { error } = await UserService.activate(user.user_id);
+    setLockingId(null);
+    if (error) return;
+    setSuccess(`Đã mở khóa tài khoản "${user.username}"`);
+    fetchUsers();
+    setTimeout(() => setSuccess(null), 3000);
   };
 
   const handleOpenEdit = (user: User) => {
@@ -167,12 +197,40 @@ export default function UserManagement() {
                     {user.created_date ? new Date(user.created_date).toLocaleDateString("vi-VN") : "-"}
                   </td>
                   <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleOpenEdit(user)}
-                      className="px-3 py-1.5 text-xs font-bold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-all"
-                    >
-                      Chỉnh sửa
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleOpenEdit(user)}
+                        className="px-3 py-1.5 text-xs font-bold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-all"
+                      >
+                        Chỉnh sửa
+                      </button>
+                      {user.is_active ? (
+                        <>
+                          <button
+                            onClick={() => { setLockTarget(user); setLockType('locked'); setLockReason(''); }}
+                            disabled={lockingId === user.user_id}
+                            className="px-3 py-1.5 text-xs font-bold text-yellow-700 border border-yellow-300 rounded-lg hover:bg-yellow-50 transition-all disabled:opacity-50"
+                          >
+                            Khoá tạm thời
+                          </button>
+                          <button
+                            onClick={() => { setLockTarget(user); setLockType('deactivated'); setLockReason(''); }}
+                            disabled={lockingId === user.user_id}
+                            className="px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-all disabled:opacity-50"
+                          >
+                            Khoá vĩnh viễn
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleUnlock(user)}
+                          disabled={lockingId === user.user_id}
+                          className="px-3 py-1.5 text-xs font-bold text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-all disabled:opacity-50"
+                        >
+                          {lockingId === user.user_id ? "..." : "Mở khóa"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -229,6 +287,47 @@ export default function UserManagement() {
                   className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all disabled:opacity-50"
                 >
                   {editSubmitting ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lock Modal */}
+      {lockTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <h3 className="text-xl font-black text-gray-900 mb-1">
+              {lockType === 'locked' ? 'Khóa tạm thời' : 'Khóa vĩnh viễn'}
+            </h3>
+            <p className="text-sm text-gray-400 mb-6">@{lockTarget.username}</p>
+            <form onSubmit={handleLockSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">Lý do khóa <span className="text-red-500">*</span></label>
+                <textarea
+                  required
+                  value={lockReason}
+                  onChange={(e) => setLockReason(e.target.value)}
+                  rows={3}
+                  placeholder="Nhập lý do khóa tài khoản..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-400 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLockTarget(null)}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={lockingId === lockTarget.user_id}
+                  className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-all disabled:opacity-50"
+                >
+                  {lockingId === lockTarget.user_id ? "Đang khóa..." : "Xác nhận khóa"}
                 </button>
               </div>
             </form>

@@ -19,6 +19,7 @@ import {
   CreateUserDto,
   UpdateUserDto,
   ChangePasswordDto,
+  LockUserDto,
 } from './dto/user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -158,8 +159,11 @@ export class UserController {
   @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR)
   @Patch(':id/deactivate')
   @HttpCode(HttpStatus.OK)
-  deactivate(@Param('id') id: string) {
-    return this.userService.setActiveStatus(id, false);
+  deactivate(
+    @Param('id') id: string,
+    @Body(ValidationPipe) dto: LockUserDto,
+  ) {
+    return this.userService.setActiveStatus(id, false, dto);
   }
 
   /**

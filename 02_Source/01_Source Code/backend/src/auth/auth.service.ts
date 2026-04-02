@@ -41,13 +41,24 @@ export class AuthService {
    */
   async login(dto: LoginDto) {
     try {
-      // 1. Xác thực qua Keycloak
+      // 1. Kiểm tra trạng thái tài khoản trong MongoDB trước
+      const existingUser = await this.userService.findByUsername(dto.username);
+      if (existingUser && !existingUser.is_active) {
+        const lockType = (existingUser as any).lock_type ?? 'deactivated';
+        const lockReason = (existingUser as any).lock_reason ?? '';
+        const msg = lockType === 'locked'
+          ? `ACCOUNT_LOCKED:${lockReason}`
+          : `ACCOUNT_DEACTIVATED:${lockReason}`;
+        throw new UnauthorizedException(msg);
+      }
+
+      // 2. Xác thực qua Keycloak
       const tokenSet = await this.keycloakService.loginUser(
         dto.username,
         dto.password,
       );
 
-      // 2. Tìm user trong MongoDB theo username
+      // 3. Tìm user trong MongoDB theo username
       let user = await this.userService.findByUsername(dto.username);
       if (!user) {
         // Nếu không có user trong MongoDB, lấy info từ Keycloak
@@ -89,7 +100,12 @@ export class AuthService {
       }
 
       if (!user.is_active) {
-        throw new UnauthorizedException('Tài khoản đã bị vô hiệu hóa');
+        const lockType = (user as any).lock_type ?? 'deactivated';
+        const lockReason = (user as any).lock_reason ?? '';
+        const msg = lockType === 'locked'
+          ? `ACCOUNT_LOCKED:${lockReason}`
+          : `ACCOUNT_DEACTIVATED:${lockReason}`;
+        throw new UnauthorizedException(msg);
       }
 
       // 3. Cập nhật last_login
@@ -114,7 +130,11 @@ export class AuthService {
       this.logger.warn(
         `Login failed for username: ${dto.username} - ${error.message}`,
       );
-      throw new UnauthorizedException('Đăng nhập thất bại: ' + error.message);
+      const msg: string = error.message || '';
+      if (msg.startsWith('ACCOUNT_LOCKED:') || msg.startsWith('ACCOUNT_DEACTIVATED:')) {
+        throw new UnauthorizedException(msg);
+      }
+      throw new UnauthorizedException('Đăng nhập thất bại: Tên đăng nhập hoặc mật khẩu không đúng');
     }
   }
 
