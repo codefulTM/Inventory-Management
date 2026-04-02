@@ -1,16 +1,24 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Toast from "../../components/Toast";
+import ConfirmOrderDrawer from "../../components/operator/import-export-order/ConfirmOrderDrawer";
 import OrderDetailDrawer from "../../components/operator/import-export-order/OrderDetailDrawer";
 import OrderHistoryTable from "../../components/operator/import-export-order/OrderHistoryTable";
+import OrderWorklistTable from "../../components/operator/import-export-order/OrderWorklistTable";
+import RejectOrderModal from "../../components/operator/import-export-order/RejectOrderModal";
 import {
+  confirmImportExportOrder,
   fetchImportExportOrderDetail,
   fetchImportExportOrders,
+  fetchImportExportOrderWorklist,
   ImportExportOrderApiError,
+  rejectImportExportOrder,
   updateImportExportOrder,
 } from "../../services/importExportOrderService";
 import type {
+  ConfirmImportExportOrderPayload,
   ImportExportOrder,
   ImportExportOrderQueryParams,
+  RejectImportExportOrderPayload,
   ImportExportOrderStatus,
   ImportExportOrderType,
   UpdateImportExportOrderPayload,
@@ -27,6 +35,8 @@ type ToastState = {
   message: string;
   type: "success" | "error";
 };
+
+type ViewMode = "history" | "worklist";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -65,6 +75,21 @@ function toEndDate(value: string): Date | undefined {
   return date;
 }
 
+function hasInvalidDateRange(from: string, to: string): boolean {
+  if (!from || !to) {
+    return false;
+  }
+
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+
+  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+    return false;
+  }
+
+  return fromDate.getTime() > toDate.getTime();
+}
+
 function mapBackendErrorMessage(error: unknown, fallback: string): string {
   const statusCode =
     error instanceof ImportExportOrderApiError ? error.statusCode : undefined;
@@ -81,6 +106,10 @@ function mapBackendErrorMessage(error: unknown, fallback: string): string {
     return "Phiếu không tồn tại hoặc đã bị xóa.";
   }
 
+  if (statusCode === 409) {
+    return "Phiếu đã được xử lý hoặc tồn kho không đủ để xác nhận.";
+  }
+
   if (typeof statusCode === "number" && statusCode >= 500) {
     return "Hệ thống đang bận, vui lòng thử lại.";
   }
@@ -93,6 +122,7 @@ function mapBackendErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function TransactionHistoryOperator() {
+  const [viewMode, setViewMode] = useState<ViewMode>("history");
   const [draftFilters, setDraftFilters] =
     useState<HistoryFilters>(EMPTY_FILTERS);
   const [filters, setFilters] = useState<HistoryFilters>(EMPTY_FILTERS);
@@ -110,50 +140,87 @@ export default function TransactionHistoryOperator() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [actionOrder, setActionOrder] = useState<ImportExportOrder | null>(
+    null,
+  );
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
+  const [isRejectSubmitting, setIsRejectSubmitting] = useState(false);
+
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  const notify = (message: string, type: "success" | "error") => {
+  const notify = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
-  };
+  }, []);
 
-  const loadOrders = async (
-    nextPage: number,
-    nextFilters: HistoryFilters,
-  ): Promise<void> => {
-    setLoading(true);
-    setListError(null);
+  const isWorklistMode = viewMode === "worklist";
 
-    const params: ImportExportOrderQueryParams = {
-      page: nextPage,
-      limit: DEFAULT_LIMIT,
-      status: nextFilters.status || undefined,
-      order_type: nextFilters.order_type || undefined,
-      from: toStartDate(nextFilters.from),
-      to: toEndDate(nextFilters.to),
-    };
+  const loadOrders = useCallback(
+    async (
+      mode: ViewMode,
+      nextPage: number,
+      nextFilters: HistoryFilters,
+    ): Promise<void> => {
+      setLoading(true);
+      setListError(null);
 
-    try {
-      const response = await fetchImportExportOrders(params);
-      setOrders(response.items);
-      setTotal(response.total);
-      setPage(response.page || nextPage);
-    } catch (error) {
-      const message = mapBackendErrorMessage(
-        error,
-        "Không thể tải lịch sử phiếu. Vui lòng thử lại.",
-      );
-      setListError(message);
-      notify(message, "error");
-      setOrders([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+      const params: ImportExportOrderQueryParams = {
+        page: nextPage,
+        limit: DEFAULT_LIMIT,
+        status:
+          mode === "history" ? nextFilters.status || undefined : undefined,
+        order_type: nextFilters.order_type || undefined,
+        from: toStartDate(nextFilters.from),
+        to: toEndDate(nextFilters.to),
+      };
+
+      try {
+        const response =
+          mode === "worklist"
+            ? await fetchImportExportOrderWorklist(params)
+            : await fetchImportExportOrders(params);
+
+        setOrders(response.items);
+        setTotal(response.total);
+        setPage(response.page || nextPage);
+      } catch (error) {
+        const message = mapBackendErrorMessage(
+          error,
+          mode === "worklist"
+            ? "Không thể tải worklist pending. Vui lòng thử lại."
+            : "Không thể tải lịch sử phiếu. Vui lòng thử lại.",
+        );
+        setListError(message);
+        notify(message, "error");
+        setOrders([]);
+        setTotal(0);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [notify],
+  );
 
   useEffect(() => {
-    void loadOrders(DEFAULT_PAGE, EMPTY_FILTERS);
-  }, []);
+    void loadOrders("history", DEFAULT_PAGE, EMPTY_FILTERS);
+  }, [loadOrders]);
+
+  const handleSwitchMode = (nextMode: ViewMode) => {
+    if (nextMode === viewMode) {
+      return;
+    }
+
+    setViewMode(nextMode);
+    setDraftFilters(EMPTY_FILTERS);
+    setFilters(EMPTY_FILTERS);
+    setPage(DEFAULT_PAGE);
+    setToast(null);
+    void loadOrders(nextMode, DEFAULT_PAGE, EMPTY_FILTERS);
+  };
 
   const openDetail = async (orderId: string, editMode = false) => {
     setDrawerOpen(true);
@@ -191,10 +258,19 @@ export default function TransactionHistoryOperator() {
       ...draftFilters,
     };
 
+    if (hasInvalidDateRange(nextFilters.from, nextFilters.to)) {
+      const message =
+        "Khoảng ngày không hợp lệ: 'Từ ngày' phải nhỏ hơn hoặc bằng 'Đến ngày'.";
+      setListError(message);
+      notify(message, "error");
+      return;
+    }
+
     setFilters(nextFilters);
     setPage(DEFAULT_PAGE);
+    setListError(null);
     setToast(null);
-    void loadOrders(DEFAULT_PAGE, nextFilters);
+    void loadOrders(viewMode, DEFAULT_PAGE, nextFilters);
   };
 
   const handleResetFilters = () => {
@@ -202,7 +278,7 @@ export default function TransactionHistoryOperator() {
     setFilters(EMPTY_FILTERS);
     setPage(DEFAULT_PAGE);
     setToast(null);
-    void loadOrders(DEFAULT_PAGE, EMPTY_FILTERS);
+    void loadOrders(viewMode, DEFAULT_PAGE, EMPTY_FILTERS);
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -210,7 +286,7 @@ export default function TransactionHistoryOperator() {
       return;
     }
 
-    void loadOrders(nextPage, filters);
+    void loadOrders(viewMode, nextPage, filters);
   };
 
   const handleCloseDrawer = () => {
@@ -218,6 +294,78 @@ export default function TransactionHistoryOperator() {
     setSelectedOrder(null);
     setDetailError(null);
     setIsEditing(false);
+  };
+
+  const closeConfirmDrawer = () => {
+    if (isConfirmSubmitting) {
+      return;
+    }
+
+    setConfirmDrawerOpen(false);
+    setConfirmError(null);
+    setActionOrder(null);
+  };
+
+  const closeRejectModal = () => {
+    if (isRejectSubmitting) {
+      return;
+    }
+
+    setRejectModalOpen(false);
+    setRejectError(null);
+    setActionOrder(null);
+  };
+
+  const openConfirm = async (orderId: string) => {
+    setConfirmError(null);
+    setRejectError(null);
+    setIsEditing(false);
+    setDrawerOpen(false);
+
+    try {
+      const detail = await fetchImportExportOrderDetail(orderId);
+
+      if (detail.status !== "PendingConfirmation") {
+        notify("Phiếu đã được xử lý trước đó.", "error");
+        await loadOrders(viewMode, page, filters);
+        return;
+      }
+
+      setActionOrder(detail);
+      setConfirmDrawerOpen(true);
+    } catch (error) {
+      const message = mapBackendErrorMessage(
+        error,
+        "Không thể tải dữ liệu phiếu để xác nhận.",
+      );
+      notify(message, "error");
+    }
+  };
+
+  const openReject = async (orderId: string) => {
+    setConfirmError(null);
+    setRejectError(null);
+    setIsEditing(false);
+    setDrawerOpen(false);
+
+    try {
+      const detail = await fetchImportExportOrderDetail(orderId);
+
+      if (detail.status !== "PendingConfirmation") {
+        notify("Phiếu đã được xử lý trước đó.", "error");
+        await loadOrders(viewMode, page, filters);
+        return;
+      }
+
+      setActionOrder(detail);
+      setRejectModalOpen(true);
+    } catch (error) {
+      const message = mapBackendErrorMessage(
+        error,
+        "Không thể tải dữ liệu phiếu để từ chối.",
+      );
+      notify(message, "error");
+    }
   };
 
   const handleSaveOrder = async (payload: UpdateImportExportOrderPayload) => {
@@ -236,7 +384,7 @@ export default function TransactionHistoryOperator() {
       setSelectedOrder(updated);
       setIsEditing(false);
       notify(`Đã cập nhật phiếu ${updated.order_id} thành công.`, "success");
-      await loadOrders(page, filters);
+      await loadOrders(viewMode, page, filters);
     } catch (error) {
       const message = mapBackendErrorMessage(
         error,
@@ -249,40 +397,140 @@ export default function TransactionHistoryOperator() {
     }
   };
 
+  const handleConfirmOrder = async (
+    payload: ConfirmImportExportOrderPayload,
+  ) => {
+    if (!actionOrder) {
+      return;
+    }
+
+    setIsConfirmSubmitting(true);
+    setConfirmError(null);
+
+    try {
+      const updated = await confirmImportExportOrder(
+        actionOrder.order_id,
+        payload,
+      );
+      notify(`Đã xác nhận phiếu ${updated.order_id} thành công.`, "success");
+      closeConfirmDrawer();
+      await loadOrders(viewMode, page, filters);
+    } catch (error) {
+      const message = mapBackendErrorMessage(
+        error,
+        "Không thể xác nhận phiếu. Vui lòng thử lại.",
+      );
+      setConfirmError(message);
+      notify(message, "error");
+    } finally {
+      setIsConfirmSubmitting(false);
+    }
+  };
+
+  const handleRejectOrder = async (reason: string) => {
+    if (!actionOrder) {
+      return;
+    }
+
+    setIsRejectSubmitting(true);
+    setRejectError(null);
+
+    const payload: RejectImportExportOrderPayload = { reason };
+
+    try {
+      const updated = await rejectImportExportOrder(
+        actionOrder.order_id,
+        payload,
+      );
+      notify(`Đã từ chối phiếu ${updated.order_id}.`, "success");
+      closeRejectModal();
+      await loadOrders(viewMode, page, filters);
+    } catch (error) {
+      const message = mapBackendErrorMessage(
+        error,
+        "Không thể từ chối phiếu. Vui lòng thử lại.",
+      );
+      setRejectError(message);
+      notify(message, "error");
+    } finally {
+      setIsRejectSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-6">
       <div className="space-y-5">
         <header className="rounded-lg bg-linear-to-br from-blue-600 to-blue-700 px-5 py-6 text-white shadow-md">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-100">
-            Operator / US24
+            Operator / US24-US25
           </p>
-          <h1 className="mt-2 text-3xl font-black">Lịch sử nhập/xuất kho</h1>
+          <h1 className="mt-2 text-3xl font-black">
+            {isWorklistMode
+              ? "Công việc cần xác nhận nhập/xuất"
+              : "Lịch sử nhập/xuất kho"}
+          </h1>
           <p className="mt-2 max-w-3xl text-sm text-blue-100">
-            Tra cứu phiếu đã tạo, xem chi tiết và chỉnh sửa phiếu ở trạng thái
-            PendingConfirmation.
+            {isWorklistMode
+              ? "Theo dõi danh sách phiếu PendingConfirmation để chuẩn bị xử lý xác nhận thực tế."
+              : "Tra cứu phiếu đã tạo, xem chi tiết và chỉnh sửa phiếu ở trạng thái PendingConfirmation."}
           </p>
         </header>
 
+        <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-md">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("history")}
+              className={`rounded-md px-4 py-2 text-sm font-bold transition ${
+                viewMode === "history"
+                  ? "bg-blue-600 text-white shadow"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              Lịch sử
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("worklist")}
+              className={`rounded-md px-4 py-2 text-sm font-bold transition ${
+                viewMode === "worklist"
+                  ? "bg-indigo-600 text-white shadow"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              Worklist Pending
+            </button>
+          </div>
+        </section>
+
         <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-md">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              Trạng thái
-              <select
-                value={draftFilters.status}
-                onChange={(event) =>
-                  setDraftFilters((previous) => ({
-                    ...previous,
-                    status: event.target.value as HistoryFilters["status"],
-                  }))
-                }
-                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="">Tất cả trạng thái</option>
-                <option value="PendingConfirmation">PendingConfirmation</option>
-                <option value="Confirmed">Confirmed</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </label>
+          <div
+            className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${
+              isWorklistMode ? "xl:grid-cols-4" : "xl:grid-cols-5"
+            }`}
+          >
+            {!isWorklistMode ? (
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                Trạng thái
+                <select
+                  value={draftFilters.status}
+                  onChange={(event) =>
+                    setDraftFilters((previous) => ({
+                      ...previous,
+                      status: event.target.value as HistoryFilters["status"],
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="PendingConfirmation">
+                    PendingConfirmation
+                  </option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </label>
+            ) : null}
 
             <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
               Loại phiếu
@@ -360,20 +608,40 @@ export default function TransactionHistoryOperator() {
           </p>
         ) : null}
 
-        <OrderHistoryTable
-          orders={orders}
-          loading={loading}
-          page={page}
-          limit={DEFAULT_LIMIT}
-          total={total}
-          onPageChange={handlePageChange}
-          onViewDetail={(orderId) => {
-            void openDetail(orderId, false);
-          }}
-          onEditOrder={(orderId) => {
-            void openDetail(orderId, true);
-          }}
-        />
+        {isWorklistMode ? (
+          <OrderWorklistTable
+            orders={orders}
+            loading={loading}
+            page={page}
+            limit={DEFAULT_LIMIT}
+            total={total}
+            onPageChange={handlePageChange}
+            onViewDetail={(orderId) => {
+              void openDetail(orderId, false);
+            }}
+            onConfirmOrder={(orderId) => {
+              void openConfirm(orderId);
+            }}
+            onRejectOrder={(orderId) => {
+              void openReject(orderId);
+            }}
+          />
+        ) : (
+          <OrderHistoryTable
+            orders={orders}
+            loading={loading}
+            page={page}
+            limit={DEFAULT_LIMIT}
+            total={total}
+            onPageChange={handlePageChange}
+            onViewDetail={(orderId) => {
+              void openDetail(orderId, false);
+            }}
+            onEditOrder={(orderId) => {
+              void openDetail(orderId, true);
+            }}
+          />
+        )}
       </div>
 
       <OrderDetailDrawer
@@ -387,6 +655,26 @@ export default function TransactionHistoryOperator() {
         onToggleEdit={setIsEditing}
         onClose={handleCloseDrawer}
         onSave={handleSaveOrder}
+      />
+
+      <ConfirmOrderDrawer
+        key={`confirm-${actionOrder?.order_id ?? "none"}`}
+        open={confirmDrawerOpen}
+        order={actionOrder}
+        submitting={isConfirmSubmitting}
+        errorMessage={confirmError}
+        onClose={closeConfirmDrawer}
+        onSubmit={handleConfirmOrder}
+      />
+
+      <RejectOrderModal
+        key={`reject-${actionOrder?.order_id ?? "none"}`}
+        open={rejectModalOpen}
+        orderId={actionOrder?.order_id}
+        submitting={isRejectSubmitting}
+        errorMessage={rejectError}
+        onClose={closeRejectModal}
+        onSubmit={handleRejectOrder}
       />
 
       {toast ? (

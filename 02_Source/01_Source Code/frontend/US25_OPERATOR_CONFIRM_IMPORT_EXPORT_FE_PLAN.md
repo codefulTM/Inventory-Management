@@ -188,7 +188,7 @@ Cập nhật component cũ:
 
 ## 9) Kế hoạch triển khai theo phase (frontend)
 
-## Phase FE-6: Mở rộng contract US25
+## Phase FE-6: Mở rộng contract US25 (DONE)
 
 - Cập nhật type + endpoint + service cho worklist/confirm/reject.
 
@@ -198,7 +198,7 @@ Deliverable:
 - src/config/api.config.ts
 - src/services/importExportOrderService.ts
 
-## Phase FE-7: UI worklist cho Operator
+## Phase FE-7: UI worklist cho Operator (DONE)
 
 - Mở rộng TransactionHistory thành 2 mode:
   - Lịch sử
@@ -210,7 +210,7 @@ Deliverable:
 - src/pages/operator/TransactionHistory.tsx
 - src/components/operator/import-export-order/OrderWorklistTable.tsx
 
-## Phase FE-8: Confirm/Reject interaction
+## Phase FE-8: Confirm/Reject interaction (DONE)
 
 - Tạo drawer xác nhận blind count.
 - Tạo modal từ chối.
@@ -222,7 +222,7 @@ Deliverable:
 - src/components/operator/import-export-order/RejectOrderModal.tsx
 - src/components/operator/import-export-order/VarianceBadge.tsx
 
-## Phase FE-9: Manager screen
+## Phase FE-9: Manager screen (DONE)
 
 - Triển khai UI tại /manager/in-out từ trang placeholder.
 - Cho Manager xem toàn bộ pending và xử lý giống Operator.
@@ -232,7 +232,7 @@ Deliverable:
 - src/pages/manager/StockManagement.tsx
 - Cập nhật điều hướng tại src/layouts/MainLayout.tsx (nếu cần đổi label/menu)
 
-## Phase FE-10: Hardening + test + handoff
+## Phase FE-10: Hardening + test + handoff (DONE)
 
 - Test tay theo checklist smoke US25.
 - Kiểm thử role Operator/Manager.

@@ -1,11 +1,14 @@
 import { API_ENDPOINTS } from "../config/api.config";
 import type {
+  ConfirmImportExportOrderItem,
+  ConfirmImportExportOrderPayload,
   CreateImportExportOrderPayload,
   ImportExportOrder,
   ImportExportOrderAttachment,
   ImportExportOrderItem,
   ImportExportOrderListResponse,
   ImportExportOrderQueryParams,
+  RejectImportExportOrderPayload,
   ResolveImportExportOrderScanResult,
   UpdateImportExportOrderPayload,
   UploadImportExportOrderAttachmentPayload,
@@ -61,6 +64,22 @@ function normalizeAttachment(
   };
 }
 
+function normalizeConfirmedItem(
+  raw: Partial<ConfirmImportExportOrderItem> | undefined,
+): ConfirmImportExportOrderItem {
+  return {
+    material_id: raw?.material_id ?? "",
+    lot_id: raw?.lot_id,
+    expected_quantity:
+      typeof raw?.expected_quantity === "number" ? raw.expected_quantity : 0,
+    actual_quantity:
+      typeof raw?.actual_quantity === "number" ? raw.actual_quantity : 0,
+    variance_quantity:
+      typeof raw?.variance_quantity === "number" ? raw.variance_quantity : 0,
+    unit_of_measure: raw?.unit_of_measure ?? "",
+  };
+}
+
 function normalizeOrder(raw: Partial<ImportExportOrder>): ImportExportOrder {
   const normalizedItems: ImportExportOrderItem[] = Array.isArray(raw.items)
     ? raw.items
@@ -78,6 +97,18 @@ function normalizeOrder(raw: Partial<ImportExportOrder>): ImportExportOrder {
     items: normalizedItems,
     attachments: Array.isArray(raw.attachments)
       ? raw.attachments.map((attachment) => normalizeAttachment(attachment))
+      : [],
+    confirmed_by: raw.confirmed_by,
+    confirmed_at: raw.confirmed_at
+      ? new Date(raw.confirmed_at).toISOString()
+      : undefined,
+    confirm_note: raw.confirm_note,
+    blind_count_required:
+      typeof raw.blind_count_required === "boolean"
+        ? raw.blind_count_required
+        : undefined,
+    confirmed_items: Array.isArray(raw.confirmed_items)
+      ? raw.confirmed_items.map((item) => normalizeConfirmedItem(item))
       : [],
     created_date: raw.created_date
       ? new Date(raw.created_date).toISOString()
@@ -148,6 +179,41 @@ export async function fetchImportExportOrders(
   };
 }
 
+export async function fetchImportExportOrderWorklist(
+  params: ImportExportOrderQueryParams = {},
+): Promise<ImportExportOrderListResponse> {
+  const { data, error } = await apiClient.get<ImportExportOrderListResponse>(
+    API_ENDPOINTS.IMPORT_EXPORT_ORDER_WORKLIST,
+    {
+      params: buildQueryParams(params),
+    },
+  );
+
+  if (error) {
+    throw toApiError(error, "Failed to fetch import/export order worklist");
+  }
+
+  if (!data) {
+    return {
+      items: [],
+      total: 0,
+      page: params.page ?? 1,
+      limit: params.limit ?? 20,
+    };
+  }
+
+  const items = Array.isArray(data.items)
+    ? data.items.map((item) => normalizeOrder(item))
+    : [];
+
+  return {
+    items,
+    total: typeof data.total === "number" ? data.total : items.length,
+    page: typeof data.page === "number" ? data.page : (params.page ?? 1),
+    limit: typeof data.limit === "number" ? data.limit : (params.limit ?? 20),
+  };
+}
+
 export async function fetchImportExportOrderDetail(
   orderId: string,
 ): Promise<ImportExportOrder> {
@@ -173,6 +239,46 @@ export async function updateImportExportOrder(
 
   if (error) {
     throw toApiError(error, "Failed to update import/export order");
+  }
+
+  if (data) {
+    return normalizeOrder(data);
+  }
+
+  return fetchImportExportOrderDetail(orderId);
+}
+
+export async function confirmImportExportOrder(
+  orderId: string,
+  payload: ConfirmImportExportOrderPayload,
+): Promise<ImportExportOrder> {
+  const { data, error } = await apiClient.post<ImportExportOrder>(
+    API_ENDPOINTS.IMPORT_EXPORT_ORDER_CONFIRM(orderId),
+    payload,
+  );
+
+  if (error) {
+    throw toApiError(error, "Failed to confirm import/export order");
+  }
+
+  if (data) {
+    return normalizeOrder(data);
+  }
+
+  return fetchImportExportOrderDetail(orderId);
+}
+
+export async function rejectImportExportOrder(
+  orderId: string,
+  payload: RejectImportExportOrderPayload,
+): Promise<ImportExportOrder> {
+  const { data, error } = await apiClient.post<ImportExportOrder>(
+    API_ENDPOINTS.IMPORT_EXPORT_ORDER_REJECT(orderId),
+    payload,
+  );
+
+  if (error) {
+    throw toApiError(error, "Failed to reject import/export order");
   }
 
   if (data) {
@@ -244,8 +350,11 @@ export async function resolveImportExportOrderScan(
 export const importExportOrderService = {
   createImportExportOrder,
   fetchImportExportOrders,
+  fetchImportExportOrderWorklist,
   fetchImportExportOrderDetail,
   updateImportExportOrder,
+  confirmImportExportOrder,
+  rejectImportExportOrder,
   uploadImportExportOrderAttachment,
   resolveImportExportOrderScan,
 };

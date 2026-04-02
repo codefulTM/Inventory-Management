@@ -32,6 +32,15 @@ export interface ImportExportOrderAttachment {
   uploaded_at: string;
 }
 
+export interface ConfirmImportExportOrderItem {
+  material_id: string;
+  lot_id?: string;
+  expected_quantity: number;
+  actual_quantity: number;
+  variance_quantity: number;
+  unit_of_measure: string;
+}
+
 export interface ImportExportOrder {
   _id?: string;
   order_id: string;
@@ -43,6 +52,11 @@ export interface ImportExportOrder {
   created_by: string;
   items: ImportExportOrderItem[];
   attachments: ImportExportOrderAttachment[];
+  confirmed_by?: string;
+  confirmed_at?: string;
+  confirm_note?: string;
+  blind_count_required?: boolean;
+  confirmed_items?: ConfirmImportExportOrderItem[];
   created_date?: string;
   modified_date?: string;
 }
@@ -109,6 +123,23 @@ export interface ResolveImportExportOrderScanResult {
 export interface UploadImportExportOrderAttachmentPayload {
   file: File;
   source?: ImportExportAttachmentSource;
+}
+
+export interface ConfirmImportExportOrderItemPayload {
+  material_id: string;
+  lot_id?: string;
+  expected_quantity: number;
+  actual_quantity: number;
+  unit_of_measure: string;
+}
+
+export interface ConfirmImportExportOrderPayload {
+  confirmed_items: ConfirmImportExportOrderItemPayload[];
+  confirm_note?: string;
+}
+
+export interface RejectImportExportOrderPayload {
+  reason: string;
 }
 
 export interface ImportExportOrderFormItem {

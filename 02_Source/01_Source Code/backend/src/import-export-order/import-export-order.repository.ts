@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Model } from 'mongoose';
 import {
@@ -54,6 +54,8 @@ export interface InventoryTransactionCreatePayload {
 
 @Injectable()
 export class ImportExportOrderRepository {
+  private readonly logger = new Logger(ImportExportOrderRepository.name);
+
   constructor(
     @InjectModel(ImportExportOrder.name)
     private readonly model: Model<ImportExportOrderDocument>,
@@ -66,16 +68,28 @@ export class ImportExportOrderRepository {
   ) {}
 
   async runInTransaction<T>(
-    work: (session: ClientSession) => Promise<T>,
+    work: (session?: ClientSession) => Promise<T>,
   ): Promise<T> {
     const session = await this.model.db.startSession();
 
     try {
       let result: T | undefined;
 
-      await session.withTransaction(async () => {
-        result = await work(session);
-      });
+      try {
+        await session.withTransaction(async () => {
+          result = await work(session);
+        });
+      } catch (error) {
+        if (!this.isUnsupportedTransactionError(error)) {
+          throw error;
+        }
+
+        this.logger.warn(
+          'MongoDB deployment does not support transactions, retrying without transaction.',
+        );
+
+        result = await work();
+      }
 
       if (result === undefined) {
         throw new Error('Transaction completed without a result');
@@ -85,6 +99,17 @@ export class ImportExportOrderRepository {
     } finally {
       await session.endSession();
     }
+  }
+
+  private isUnsupportedTransactionError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const message = error.message.toLowerCase();
+    return message.includes(
+      'transaction numbers are only allowed on a replica set member or mongos',
+    );
   }
 
   async create(dto: Partial<ImportExportOrder>) {
@@ -158,7 +183,7 @@ export class ImportExportOrderRepository {
   async updatePendingByOrderId(
     orderId: string,
     dto: Partial<ImportExportOrder>,
-    session: ClientSession,
+    session?: ClientSession,
   ) {
     return this.model
       .findOneAndUpdate(
@@ -167,7 +192,7 @@ export class ImportExportOrderRepository {
           status: ImportExportOrderStatus.PENDING_CONFIRMATION,
         },
         dto,
-        { new: true, session },
+        { new: true, ...(session ? { session } : {}) },
       )
       .exec();
   }
@@ -211,13 +236,13 @@ export class ImportExportOrderRepository {
   async increaseLotQuantity(
     lotId: string,
     quantity: number,
-    session: ClientSession,
+    session?: ClientSession,
   ) {
     return this.inventoryLotModel
       .findOneAndUpdate(
         { lot_id: lotId },
         { $inc: { quantity } },
-        { new: true, session },
+        { new: true, ...(session ? { session } : {}) },
       )
       .exec();
   }
@@ -225,7 +250,7 @@ export class ImportExportOrderRepository {
   async decreaseLotQuantityIfEnough(
     lotId: string,
     quantity: number,
-    session: ClientSession,
+    session?: ClientSession,
   ) {
     return this.inventoryLotModel
       .findOneAndUpdate(
@@ -234,21 +259,31 @@ export class ImportExportOrderRepository {
           quantity: { $gte: quantity },
         },
         { $inc: { quantity: -quantity } },
-        { new: true, session },
+        { new: true, ...(session ? { session } : {}) },
       )
       .exec();
   }
 
-  async updateLotStatus(lotId: string, status: string, session: ClientSession) {
+  async updateLotStatus(
+    lotId: string,
+    status: string,
+    session?: ClientSession,
+  ) {
     return this.inventoryLotModel
-      .findOneAndUpdate({ lot_id: lotId }, { status }, { new: true, session })
+      .findOneAndUpdate(
+        { lot_id: lotId },
+        { status },
+        { new: true, ...(session ? { session } : {}) },
+      )
       .exec();
   }
 
   async createInventoryTransactions(
     payloads: InventoryTransactionCreatePayload[],
-    session: ClientSession,
+    session?: ClientSession,
   ) {
-    return this.inventoryTransactionModel.insertMany(payloads, { session });
+    return this.inventoryTransactionModel.insertMany(payloads, {
+      ...(session ? { session } : {}),
+    });
   }
 }

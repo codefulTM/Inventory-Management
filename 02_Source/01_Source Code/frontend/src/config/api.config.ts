@@ -34,10 +34,15 @@ export const API_ENDPOINTS = {
   LABEL_TEMPLATES_FILTER_TYPE: (type: string) =>
     `/label-templates/type/${encodeURIComponent(type)}`,
 
-  // Import/Export Order endpoints (US24)
+  // Import/Export Order endpoints (US24/US25)
   IMPORT_EXPORT_ORDERS: "/import-export-orders",
+  IMPORT_EXPORT_ORDER_WORKLIST: "/import-export-orders/worklist",
   IMPORT_EXPORT_ORDER_DETAIL: (orderId: string) =>
     `/import-export-orders/${orderId}`,
+  IMPORT_EXPORT_ORDER_CONFIRM: (orderId: string) =>
+    `/import-export-orders/${orderId}/confirm`,
+  IMPORT_EXPORT_ORDER_REJECT: (orderId: string) =>
+    `/import-export-orders/${orderId}/reject`,
   IMPORT_EXPORT_ORDER_ATTACHMENTS: (orderId: string) =>
     `/import-export-orders/${orderId}/attachments`,
   IMPORT_EXPORT_ORDER_SCAN_RESOLVE: "/import-export-orders/scan/resolve",

@@ -197,3 +197,50 @@ export type RejectOrderPayload = {
   reason: string;
 };
 ```
+
+## 8) FE Integration Map (US25)
+
+Operator:
+
+- Route: `/operator/history`
+- View mode:
+  - `Lich su`
+  - `Worklist Pending`
+- Kha nang:
+  - View detail
+  - Confirm blind count
+  - Reject voi reason
+
+Manager:
+
+- Route: `/manager/in-out`
+- Scope: xem toan bo pending list
+- Kha nang:
+  - View detail
+  - Confirm blind count
+  - Reject voi reason
+
+## 9) FE Error UX Convention
+
+- Banner list error: hien tren table area khi fetch list that bai.
+- Toast error: hien cho cac thao tac list/detail/confirm/reject.
+- 409 conflict: thong diep uu tien
+  - "Phieu da duoc xu ly hoac ton kho khong du de xac nhan."
+
+## 10) Handoff / Verification Commands
+
+Frontend:
+
+```bash
+npm run build
+```
+
+Backend (targeted US25 service):
+
+```bash
+npm test -- import-export-order.service.spec.ts
+```
+
+Optional DB validator sanity-check (local):
+
+- Dam bao collection `inventory_transactions` chap nhan `quantity` la so.

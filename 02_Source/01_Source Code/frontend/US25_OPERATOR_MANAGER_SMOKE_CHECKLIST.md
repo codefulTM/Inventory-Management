@@ -95,3 +95,34 @@ Vai tro test:
 - Cac ma loi 400/403/404/409 map dung toast tren FE.
 - Build backend pass.
 - Build frontend pass.
+
+## 8) FE-10 Hardening Checks
+
+1. Date range validation:
+
+- Thu set `Tu ngay` > `Den ngay` tren Operator (/operator/history) va Manager (/manager/in-out).
+- Ky vong: khong goi API, hien thong bao loi date range.
+
+2. Submit safety:
+
+- Khi dang confirm/reject (nut dang loading), bam dong drawer/modal.
+- Ky vong: drawer/modal khong dong cho den khi request hoan tat.
+
+3. Empty/loading/error state:
+
+- Empty: Worklist khong co item -> hien thong diep khong co pending.
+- Loading: table skeleton hien thi khi dang tai.
+- Error: loi API hien banner + toast.
+
+## 9) FE-10 Execution Record
+
+- Frontend build: `npm run build` -> PASS.
+- Backend unit (US25 service): `npm test -- import-export-order.service.spec.ts` -> PASS.
+- Note: warning chunk-size tu Vite la non-blocking.
+
+## 10) Handoff Notes
+
+- Operator UI: `/operator/history` (tab Worklist Pending).
+- Manager UI: `/manager/in-out`.
+- Cung su dung contract US25 cho worklist/confirm/reject.
+- Neu reset DB, dam bao validator `inventory_transactions.quantity` cho phep numeric value.

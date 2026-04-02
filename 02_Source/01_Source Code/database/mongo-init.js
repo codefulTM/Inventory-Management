@@ -160,7 +160,7 @@ db.createCollection("inventory_transactions", {
             "Disposal",
           ],
         },
-        quantity: { bsonType: "string" },
+        quantity: { bsonType: ["int", "long", "double", "decimal", "string"] },
         unit_of_measure: { bsonType: "string" },
         transaction_date: { bsonType: "date" },
         reference_number: { bsonType: ["string", "null"] },
