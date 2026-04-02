@@ -10,6 +10,16 @@ import type {
 } from '../types/qc';
 import { apiClient } from './apiClient';
 import { safeApiCall } from './errorLogger';
+import { fetchMaterials } from './materialService';
+
+type RawInventoryLot = Omit<InventoryLot, 'material_name'> & {
+  material_name?: string;
+  material_id?: string;
+  material?: {
+    material_id?: string;
+    material_name?: string;
+  };
+};
 
 function requireData<T>(
   data: T | null,
@@ -48,7 +58,7 @@ export async function getDashboardKPI(): Promise<DashboardKPI> {
 
 export async function getInventoryLots(status?: string): Promise<InventoryLot[]> {
   return safeApiCall('qcServices.getInventoryLots', async () => {
-    const { data, error } = await apiClient.get<InventoryLot[] | { data: InventoryLot[] }>(
+    const { data, error } = await apiClient.get<RawInventoryLot[] | { data: RawInventoryLot[] }>(
       '/inventory-lots',
       {
         params: status ? { status } : undefined,
@@ -56,7 +66,33 @@ export async function getInventoryLots(status?: string): Promise<InventoryLot[]>
     );
 
     const payload = requireData(data, error, 'Unable to fetch inventory lots');
-    return normalizeListPayload(payload);
+    const lots = normalizeListPayload(payload);
+
+    let materialNameById = new Map<string, string>();
+    try {
+      const materials = await fetchMaterials();
+      materialNameById = new Map(
+        materials
+          .filter((material) => Boolean(material.material_id && material.material_name))
+          .map((material) => [material.material_id, material.material_name]),
+      );
+    } catch {
+      // Do not block lot listing when material catalog cannot be loaded.
+    }
+
+    return lots.map((lot) => {
+      const materialId = lot.material_id ?? lot.material?.material_id;
+      const resolvedMaterialName =
+        lot.material_name ??
+        lot.material?.material_name ??
+        (materialId ? materialNameById.get(materialId) : undefined) ??
+        '';
+
+      return {
+        ...lot,
+        material_name: resolvedMaterialName,
+      };
+    });
   });
 }
 

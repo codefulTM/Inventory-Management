@@ -28,7 +28,9 @@ export default function DashboardQC() {
           getInventoryLots('Quarantine'),
         ]);
         setKpi(kpiData);
+        console.log('Fetched KPI:', kpiData);
         setPendingLots(lotsData.slice(0, 5));
+        console.log('Fetched pending lots:', lotsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Lỗi tải dữ liệu');
       } finally {
