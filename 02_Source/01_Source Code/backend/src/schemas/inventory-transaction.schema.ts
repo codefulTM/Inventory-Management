@@ -58,3 +58,6 @@ export const InventoryTransactionSchema =
 InventoryTransactionSchema.index({ lot_id: 1, transaction_date: -1 });
 InventoryTransactionSchema.index({ transaction_date: -1 });
 InventoryTransactionSchema.index({ transaction_type: 1 });
+InventoryTransactionSchema.index({ performed_by: 1, transaction_date: -1 });
+InventoryTransactionSchema.index({ performed_by: 1, reference_number: 1 });
+InventoryTransactionSchema.index({ performed_by: 1, lot_id: 1 });

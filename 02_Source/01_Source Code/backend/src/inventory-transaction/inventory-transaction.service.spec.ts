@@ -1,4 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InventoryTransactionService } from './inventory-transaction.service';
 import { InventoryTransactionRepository } from './inventory-transaction.repository';
 import {
@@ -32,6 +36,9 @@ describe('InventoryTransactionService', () => {
     repo = {
       findAll: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue(null),
+      findMyHistory: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+      findOneByTransactionIdAndActor: jest.fn().mockResolvedValue(null),
+      findOneByTransactionId: jest.fn().mockResolvedValue(null),
       create: jest
         .fn()
         .mockImplementation((dto) => Promise.resolve({ ...dto, _id: '123' })),
@@ -52,6 +59,21 @@ describe('InventoryTransactionService', () => {
     it('getOne delegates', async () => {
       await svc.getOne('id');
       expect(repo.findOne).toHaveBeenCalledWith('id');
+    });
+
+    it('getMyHistory delegates with actor scope', async () => {
+      const filters = {
+        transaction_type: TransactionType.Receipt,
+        keyword: 'MAT-001',
+      };
+      const paging = { page: 1, limit: 20 };
+      await svc.getMyHistory(filters, paging, 'operator1');
+
+      expect(repo.findMyHistory).toHaveBeenCalledWith(
+        'operator1',
+        filters,
+        paging,
+      );
     });
 
     it('update delegates', async () => {
@@ -131,6 +153,43 @@ describe('InventoryTransactionService', () => {
         quantity: 5,
       });
       await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('getMyHistoryDetail()', () => {
+    it('returns transaction when actor owns it', async () => {
+      const item = { transaction_id: '4f4c5f0b-1111-4222-8333-123456789abc' };
+      (repo.findOneByTransactionIdAndActor as jest.Mock).mockResolvedValueOnce(
+        item,
+      );
+
+      await expect(
+        svc.getMyHistoryDetail(item.transaction_id, 'operator1'),
+      ).resolves.toEqual(item);
+    });
+
+    it('throws NotFoundException when transaction is missing', async () => {
+      await expect(
+        svc.getMyHistoryDetail(
+          '4f4c5f0b-1111-4222-8333-123456789abc',
+          'operator1',
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws ForbiddenException when transaction belongs to another actor', async () => {
+      const transactionId = '4f4c5f0b-1111-4222-8333-123456789abc';
+      (repo.findOneByTransactionIdAndActor as jest.Mock).mockResolvedValueOnce(
+        null,
+      );
+      (repo.findOneByTransactionId as jest.Mock).mockResolvedValueOnce({
+        transaction_id: transactionId,
+        performed_by: 'another-user',
+      });
+
+      await expect(
+        svc.getMyHistoryDetail(transactionId, 'operator1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 
