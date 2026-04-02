@@ -1,14 +1,14 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { Public } from '../auth/decorators/public.decorator';
-import { MetricsService } from './metrics.service';
+import { register } from 'prom-client';
 
 @Controller('metrics')
 export class MetricsController {
-  constructor(private readonly metricsService: MetricsService) {}
-
   @Get()
   @Public()
-  getMetrics(): Promise<string> {
-    return this.metricsService.getMetrics();
+  async getMetrics(@Res() response: Response): Promise<void> {
+    response.set('Content-Type', register.contentType);
+    response.end(await register.metrics());
   }
 }

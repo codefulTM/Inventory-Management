@@ -47,10 +47,10 @@ services:
       - inventory_network
 
   mongodb-exporter:
-    image: percona/mongodb_exporter
+    image: percona/mongodb_exporter:0.40.0
     container_name: monitoring_mongodb_exporter
     environment:
-      - MONGODB_URI=mongodb://inventory_mongo:27017
+      - MONGODB_URI=mongodb://admin:password123@inventory_mongo:27017/inventory
     ports:
       - "9216:9216"
     restart: always
