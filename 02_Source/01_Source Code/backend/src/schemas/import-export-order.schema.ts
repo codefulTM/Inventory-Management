@@ -80,6 +80,31 @@ const ImportExportOrderAttachmentSchema = SchemaFactory.createForClass(
   ImportExportOrderAttachment,
 );
 
+@Schema({ _id: false })
+export class ConfirmedImportExportOrderItem {
+  @Prop({ type: String, required: true, maxlength: 36 })
+  material_id: string;
+
+  @Prop({ type: String, required: false, maxlength: 36 })
+  lot_id?: string;
+
+  @Prop({ type: Number, required: true, min: 0 })
+  expected_quantity: number;
+
+  @Prop({ type: Number, required: true, min: 1 })
+  actual_quantity: number;
+
+  @Prop({ type: Number, required: true })
+  variance_quantity: number;
+
+  @Prop({ type: String, required: true, maxlength: 20 })
+  unit_of_measure: string;
+}
+
+const ConfirmedImportExportOrderItemSchema = SchemaFactory.createForClass(
+  ConfirmedImportExportOrderItem,
+);
+
 @Schema(options)
 export class ImportExportOrder {
   @Prop({ type: String, required: true, unique: true, maxlength: 36 })
@@ -121,6 +146,25 @@ export class ImportExportOrder {
     default: [],
   })
   attachments: ImportExportOrderAttachment[];
+
+  @Prop({ type: String, required: false, maxlength: 100 })
+  confirmed_by?: string;
+
+  @Prop({ type: Date, required: false })
+  confirmed_at?: Date;
+
+  @Prop({ type: String, required: false, maxlength: 255 })
+  confirm_note?: string;
+
+  @Prop({ type: Boolean, required: true, default: true })
+  blind_count_required: boolean;
+
+  @Prop({
+    type: [ConfirmedImportExportOrderItemSchema],
+    required: true,
+    default: [],
+  })
+  confirmed_items: ConfirmedImportExportOrderItem[];
 }
 
 export const ImportExportOrderSchema =
@@ -130,3 +174,5 @@ ImportExportOrderSchema.index({ order_id: 1 }, { unique: true });
 ImportExportOrderSchema.index({ status: 1, created_date: -1 });
 ImportExportOrderSchema.index({ created_by: 1, created_date: -1 });
 ImportExportOrderSchema.index({ order_type: 1, status: 1 });
+ImportExportOrderSchema.index({ created_by: 1, status: 1, created_date: -1 });
+ImportExportOrderSchema.index({ status: 1, modified_date: -1 });

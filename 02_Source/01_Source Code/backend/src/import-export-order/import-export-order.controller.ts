@@ -27,10 +27,12 @@ import { UserRole } from '../schemas/user.schema';
 import { ImportExportAttachmentSource } from '../schemas/import-export-order.schema';
 import { ImportExportOrderService } from './import-export-order.service';
 import { CreateImportExportOrderDto } from './dto/create-import-export-order.dto';
+import { ConfirmImportExportOrderDto } from './dto/confirm-import-export-order.dto';
 import {
   QueryImportExportOrderDto,
   ResolveImportExportOrderScanDto,
 } from './dto/query-import-export-order.dto';
+import { RejectImportExportOrderDto } from './dto/reject-import-export-order.dto';
 import { UpdateImportExportOrderDto } from './dto/update-import-export-order.dto';
 import { UploadImportExportOrderAttachmentDto } from './dto/upload-import-export-order-attachment.dto';
 
@@ -103,6 +105,35 @@ export class ImportExportOrderController {
 
     const requester = this.toRequester(req);
     return this.service.getAll(filters, paging, requester);
+  }
+
+  @Get('worklist')
+  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  async worklist(
+    @Query() query: QueryImportExportOrderDto,
+    @Req() req: { user?: AuthenticatedUser },
+  ) {
+    const paging = {
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+    };
+
+    const filters = {
+      order_type: query.order_type,
+      created_by: query.created_by,
+      from: query.from,
+      to: query.to,
+    };
+
+    const requester = this.toRequester(req);
+    return this.service.getWorklist(filters, paging, requester);
   }
 
   @Get(':id')
@@ -193,5 +224,31 @@ export class ImportExportOrderController {
       requester,
       dto.source ?? ImportExportAttachmentSource.UPLOAD,
     );
+  }
+
+  @Post(':id/confirm')
+  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async confirm(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmImportExportOrderDto,
+    @Req() req: { user?: AuthenticatedUser },
+  ) {
+    const requester = this.toRequester(req);
+    return this.service.confirm(id, dto, requester);
+  }
+
+  @Post(':id/reject')
+  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectImportExportOrderDto,
+    @Req() req: { user?: AuthenticatedUser },
+  ) {
+    const requester = this.toRequester(req);
+    return this.service.reject(id, dto, requester);
   }
 }

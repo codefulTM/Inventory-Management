@@ -55,10 +55,13 @@ describe('US24 ImportExportOrder (e2e)', () => {
   let service: {
     create: jest.Mock;
     getAll: jest.Mock;
+    getWorklist: jest.Mock;
     getOne: jest.Mock;
     update: jest.Mock;
     addAttachment: jest.Mock;
     resolveScanCode: jest.Mock;
+    confirm: jest.Mock;
+    reject: jest.Mock;
   };
 
   let baselineUploadFiles = new Set<string>();
@@ -77,6 +80,12 @@ describe('US24 ImportExportOrder (e2e)', () => {
           created_by: requester.actor,
         })),
       getAll: jest.fn(),
+      getWorklist: jest.fn().mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+      }),
       getOne: jest.fn(),
       update: jest.fn(),
       addAttachment: jest.fn().mockResolvedValue({
@@ -89,6 +98,14 @@ describe('US24 ImportExportOrder (e2e)', () => {
         ],
       }),
       resolveScanCode: jest.fn(),
+      confirm: jest.fn().mockResolvedValue({
+        order_id: '11111111-1111-4111-8111-111111111111',
+        status: ImportExportOrderStatus.CONFIRMED,
+      }),
+      reject: jest.fn().mockResolvedValue({
+        order_id: '11111111-1111-4111-8111-111111111111',
+        status: ImportExportOrderStatus.REJECTED,
+      }),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -201,6 +218,77 @@ describe('US24 ImportExportOrder (e2e)', () => {
       .expect(200);
 
     expect(service.addAttachment).toHaveBeenCalled();
+  });
+
+  it('Operator can fetch pending worklist', async () => {
+    await request(app.getHttpServer())
+      .get('/import-export-orders/worklist?page=1&limit=20&order_type=Inbound')
+      .set('x-user', 'operator01')
+      .set('x-role', UserRole.OPERATOR)
+      .expect(200);
+
+    expect(service.getWorklist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_type: 'Inbound',
+      }),
+      expect.objectContaining({ page: 1, limit: 20 }),
+      expect.objectContaining({ actor: 'operator01' }),
+    );
+  });
+
+  it('Operator can confirm an order', async () => {
+    const orderId = '11111111-1111-4111-8111-111111111111';
+
+    const res = await request(app.getHttpServer())
+      .post(`/import-export-orders/${orderId}/confirm`)
+      .set('x-user', 'operator01')
+      .set('x-role', UserRole.OPERATOR)
+      .send({
+        confirmed_items: [
+          {
+            material_id: 'MAT-001',
+            lot_id: '22222222-2222-4222-8222-222222222222',
+            expected_quantity: 2,
+            actual_quantity: 2,
+            unit_of_measure: 'kg',
+          },
+        ],
+        confirm_note: 'checked',
+      })
+      .expect(200);
+
+    expect((res.body as { status?: string }).status).toBe(
+      ImportExportOrderStatus.CONFIRMED,
+    );
+    expect(service.confirm).toHaveBeenCalledWith(
+      orderId,
+      expect.objectContaining({
+        confirm_note: 'checked',
+      }),
+      expect.objectContaining({ actor: 'operator01' }),
+    );
+  });
+
+  it('Operator can reject an order', async () => {
+    const orderId = '11111111-1111-4111-8111-111111111111';
+
+    const res = await request(app.getHttpServer())
+      .post(`/import-export-orders/${orderId}/reject`)
+      .set('x-user', 'operator01')
+      .set('x-role', UserRole.OPERATOR)
+      .send({
+        reason: 'Quantity mismatch',
+      })
+      .expect(200);
+
+    expect((res.body as { status?: string }).status).toBe(
+      ImportExportOrderStatus.REJECTED,
+    );
+    expect(service.reject).toHaveBeenCalledWith(
+      orderId,
+      expect.objectContaining({ reason: 'Quantity mismatch' }),
+      expect.objectContaining({ actor: 'operator01' }),
+    );
   });
 
   it('Attachment larger than 5MB is rejected', async () => {

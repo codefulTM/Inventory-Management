@@ -1,16 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { ClientSession, Model } from 'mongoose';
 import {
   ImportExportOrderAttachment,
   ImportExportOrder,
   ImportExportOrderDocument,
+  ImportExportOrderStatus,
 } from '../schemas/import-export-order.schema';
 import {
   InventoryLot,
   InventoryLotDocument,
 } from '../schemas/inventory-lot.schema';
 import { Material, MaterialDocument } from '../schemas/material.schema';
+import {
+  InventoryTransaction,
+  InventoryTransactionDocument,
+} from '../schemas/inventory-transaction.schema';
 
 export interface ImportExportOrderFilterOptions {
   status?: string;
@@ -35,6 +40,18 @@ interface ImportExportOrderMongoQuery {
   };
 }
 
+export interface InventoryTransactionCreatePayload {
+  transaction_id: string;
+  lot_id: string;
+  transaction_type: string;
+  quantity: number;
+  unit_of_measure: string;
+  transaction_date: Date;
+  reference_number?: string;
+  performed_by: string;
+  notes?: string;
+}
+
 @Injectable()
 export class ImportExportOrderRepository {
   constructor(
@@ -44,7 +61,31 @@ export class ImportExportOrderRepository {
     private readonly inventoryLotModel: Model<InventoryLotDocument>,
     @InjectModel(Material.name)
     private readonly materialModel: Model<MaterialDocument>,
+    @InjectModel(InventoryTransaction.name)
+    private readonly inventoryTransactionModel: Model<InventoryTransactionDocument>,
   ) {}
+
+  async runInTransaction<T>(
+    work: (session: ClientSession) => Promise<T>,
+  ): Promise<T> {
+    const session = await this.model.db.startSession();
+
+    try {
+      let result: T | undefined;
+
+      await session.withTransaction(async () => {
+        result = await work(session);
+      });
+
+      if (result === undefined) {
+        throw new Error('Transaction completed without a result');
+      }
+
+      return result;
+    } finally {
+      await session.endSession();
+    }
+  }
 
   async create(dto: Partial<ImportExportOrder>) {
     const doc = new this.model(dto);
@@ -93,31 +134,64 @@ export class ImportExportOrderRepository {
     return { items, total, page, limit };
   }
 
-  async findOneByOrderId(orderId: string) {
-    return this.model.findOne({ order_id: orderId }).exec();
+  async findOneByOrderId(orderId: string, session?: ClientSession) {
+    const query = this.model.findOne({ order_id: orderId });
+    if (session) {
+      query.session(session);
+    }
+    return query.exec();
   }
 
-  async updateByOrderId(orderId: string, dto: Partial<ImportExportOrder>) {
+  async updateByOrderId(
+    orderId: string,
+    dto: Partial<ImportExportOrder>,
+    session?: ClientSession,
+  ) {
     return this.model
-      .findOneAndUpdate({ order_id: orderId }, dto, { new: true })
+      .findOneAndUpdate({ order_id: orderId }, dto, {
+        new: true,
+        ...(session ? { session } : {}),
+      })
+      .exec();
+  }
+
+  async updatePendingByOrderId(
+    orderId: string,
+    dto: Partial<ImportExportOrder>,
+    session: ClientSession,
+  ) {
+    return this.model
+      .findOneAndUpdate(
+        {
+          order_id: orderId,
+          status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+        },
+        dto,
+        { new: true, session },
+      )
       .exec();
   }
 
   async appendAttachment(
     orderId: string,
     attachment: ImportExportOrderAttachment,
+    session?: ClientSession,
   ) {
     return this.model
       .findOneAndUpdate(
         { order_id: orderId },
         { $push: { attachments: attachment } },
-        { new: true },
+        { new: true, ...(session ? { session } : {}) },
       )
       .exec();
   }
 
-  async findLotByLotId(scanCode: string) {
-    return this.inventoryLotModel.findOne({ lot_id: scanCode }).exec();
+  async findLotByLotId(scanCode: string, session?: ClientSession) {
+    const query = this.inventoryLotModel.findOne({ lot_id: scanCode });
+    if (session) {
+      query.session(session);
+    }
+    return query.exec();
   }
 
   async findLotByManufacturerLot(scanCode: string) {
@@ -132,5 +206,49 @@ export class ImportExportOrderRepository {
 
   async findMaterialByPartNumber(scanCode: string) {
     return this.materialModel.findOne({ part_number: scanCode }).exec();
+  }
+
+  async increaseLotQuantity(
+    lotId: string,
+    quantity: number,
+    session: ClientSession,
+  ) {
+    return this.inventoryLotModel
+      .findOneAndUpdate(
+        { lot_id: lotId },
+        { $inc: { quantity } },
+        { new: true, session },
+      )
+      .exec();
+  }
+
+  async decreaseLotQuantityIfEnough(
+    lotId: string,
+    quantity: number,
+    session: ClientSession,
+  ) {
+    return this.inventoryLotModel
+      .findOneAndUpdate(
+        {
+          lot_id: lotId,
+          quantity: { $gte: quantity },
+        },
+        { $inc: { quantity: -quantity } },
+        { new: true, session },
+      )
+      .exec();
+  }
+
+  async updateLotStatus(lotId: string, status: string, session: ClientSession) {
+    return this.inventoryLotModel
+      .findOneAndUpdate({ lot_id: lotId }, { status }, { new: true, session })
+      .exec();
+  }
+
+  async createInventoryTransactions(
+    payloads: InventoryTransactionCreatePayload[],
+    session: ClientSession,
+  ) {
+    return this.inventoryTransactionModel.insertMany(payloads, { session });
   }
 }

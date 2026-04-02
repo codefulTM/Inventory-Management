@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 
 jest.mock('uuid', () => ({
   v4: () => '11111111-1111-4111-8111-111111111111',
@@ -35,6 +39,12 @@ describe('ImportExportOrderService', () => {
       | 'findLotByManufacturerLot'
       | 'findMaterialByMaterialId'
       | 'findMaterialByPartNumber'
+      | 'runInTransaction'
+      | 'increaseLotQuantity'
+      | 'decreaseLotQuantityIfEnough'
+      | 'updateLotStatus'
+      | 'createInventoryTransactions'
+      | 'updatePendingByOrderId'
     >
   >;
 
@@ -54,6 +64,15 @@ describe('ImportExportOrderService', () => {
       findLotByManufacturerLot: jest.fn(),
       findMaterialByMaterialId: jest.fn(),
       findMaterialByPartNumber: jest.fn(),
+      runInTransaction: jest.fn(
+        async <T>(work: (session: any) => Promise<T>): Promise<T> =>
+          work({} as any),
+      ) as any,
+      increaseLotQuantity: jest.fn(),
+      decreaseLotQuantityIfEnough: jest.fn(),
+      updateLotStatus: jest.fn(),
+      createInventoryTransactions: jest.fn(),
+      updatePendingByOrderId: jest.fn(),
     };
 
     service = new ImportExportOrderService(repo as any);
@@ -172,5 +191,274 @@ describe('ImportExportOrderService', () => {
     expect(result.resolved).toBe(false);
     expect(result.item).toBeNull();
     expect(result.matched_by).toBeNull();
+  });
+
+  it('getWorklist forces PendingConfirmation and actor filter for operator', async () => {
+    repo.findAll.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
+
+    await service.getWorklist(
+      {
+        order_type: ImportExportOrderType.OUTBOUND,
+      },
+      { page: 1, limit: 20 },
+      requesterOperator,
+    );
+
+    expect(repo.findAll).toHaveBeenCalledWith(
+      {
+        order_type: ImportExportOrderType.OUTBOUND,
+        status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+        created_by: requesterOperator.actor,
+      },
+      { page: 1, limit: 20 },
+    );
+  });
+
+  it('confirm inbound updates stock and creates receipt transaction', async () => {
+    repo.findOneByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      order_type: ImportExportOrderType.INBOUND,
+      status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+      created_by: requesterOperator.actor,
+      blind_count_required: true,
+      items: [
+        {
+          material_id: 'MAT-001',
+          lot_id: '22222222-2222-4222-8222-222222222222',
+          quantity: 5,
+          unit_of_measure: 'kg',
+        },
+      ],
+    } as any);
+
+    repo.findLotByLotId.mockResolvedValue({
+      lot_id: '22222222-2222-4222-8222-222222222222',
+      material_id: 'MAT-001',
+      unit_of_measure: 'kg',
+      quantity: 10,
+      status: 'Accepted',
+    } as any);
+    repo.increaseLotQuantity.mockResolvedValue({
+      lot_id: '22222222-2222-4222-8222-222222222222',
+      quantity: 15,
+      status: 'Accepted',
+    } as any);
+    repo.createInventoryTransactions.mockResolvedValue([] as any);
+    repo.updatePendingByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      status: ImportExportOrderStatus.CONFIRMED,
+    } as any);
+
+    const result = await service.confirm(
+      '11111111-1111-4111-8111-111111111111',
+      {
+        confirmed_items: [
+          {
+            material_id: 'MAT-001',
+            lot_id: '22222222-2222-4222-8222-222222222222',
+            expected_quantity: 5,
+            actual_quantity: 5,
+            unit_of_measure: 'kg',
+          },
+        ],
+        confirm_note: 'ok',
+      },
+      requesterOperator,
+    );
+
+    expect(repo.runInTransaction).toHaveBeenCalled();
+    expect(repo.increaseLotQuantity).toHaveBeenCalledWith(
+      '22222222-2222-4222-8222-222222222222',
+      5,
+      expect.anything(),
+    );
+    expect(repo.createInventoryTransactions).toHaveBeenCalledTimes(1);
+    expect(repo.createInventoryTransactions).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          lot_id: '22222222-2222-4222-8222-222222222222',
+          transaction_type: 'Receipt',
+          quantity: 5,
+          reference_number: '11111111-1111-4111-8111-111111111111',
+          performed_by: requesterOperator.actor,
+        }),
+      ]),
+      expect.anything(),
+    );
+    expect(result.status).toBe(ImportExportOrderStatus.CONFIRMED);
+  });
+
+  it('confirm outbound throws Conflict when stock is insufficient', async () => {
+    repo.findOneByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      order_type: ImportExportOrderType.OUTBOUND,
+      status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+      created_by: requesterOperator.actor,
+      blind_count_required: true,
+      items: [
+        {
+          material_id: 'MAT-001',
+          lot_id: '22222222-2222-4222-8222-222222222222',
+          quantity: 10,
+          unit_of_measure: 'kg',
+        },
+      ],
+    } as any);
+
+    repo.findLotByLotId.mockResolvedValue({
+      lot_id: '22222222-2222-4222-8222-222222222222',
+      material_id: 'MAT-001',
+      unit_of_measure: 'kg',
+      quantity: 3,
+      status: 'Accepted',
+    } as any);
+    repo.decreaseLotQuantityIfEnough.mockResolvedValue(null);
+
+    await expect(
+      service.confirm(
+        '11111111-1111-4111-8111-111111111111',
+        {
+          confirmed_items: [
+            {
+              material_id: 'MAT-001',
+              lot_id: '22222222-2222-4222-8222-222222222222',
+              expected_quantity: 10,
+              actual_quantity: 10,
+              unit_of_measure: 'kg',
+            },
+          ],
+        },
+        requesterOperator,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(repo.updatePendingByOrderId).not.toHaveBeenCalled();
+  });
+
+  it('confirm throws BadRequest when confirmed_items do not fully match order', async () => {
+    repo.findOneByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      order_type: ImportExportOrderType.INBOUND,
+      status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+      created_by: requesterOperator.actor,
+      blind_count_required: true,
+      items: [
+        {
+          material_id: 'MAT-001',
+          lot_id: '22222222-2222-4222-8222-222222222222',
+          quantity: 5,
+          unit_of_measure: 'kg',
+        },
+      ],
+    } as any);
+
+    await expect(
+      service.confirm(
+        '11111111-1111-4111-8111-111111111111',
+        {
+          confirmed_items: [
+            {
+              material_id: 'MAT-001',
+              lot_id: '22222222-2222-4222-8222-222222222222',
+              expected_quantity: 4,
+              actual_quantity: 4,
+              unit_of_measure: 'kg',
+            },
+          ],
+        },
+        requesterOperator,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(repo.runInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('confirm blocks operator from confirming another user order', async () => {
+    repo.findOneByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      order_type: ImportExportOrderType.INBOUND,
+      status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+      created_by: 'other-user',
+      blind_count_required: true,
+      items: [
+        {
+          material_id: 'MAT-001',
+          lot_id: '22222222-2222-4222-8222-222222222222',
+          quantity: 5,
+          unit_of_measure: 'kg',
+        },
+      ],
+    } as any);
+
+    await expect(
+      service.confirm(
+        '11111111-1111-4111-8111-111111111111',
+        {
+          confirmed_items: [
+            {
+              material_id: 'MAT-001',
+              lot_id: '22222222-2222-4222-8222-222222222222',
+              expected_quantity: 5,
+              actual_quantity: 5,
+              unit_of_measure: 'kg',
+            },
+          ],
+        },
+        requesterOperator,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('reject updates order to Rejected with reason note', async () => {
+    repo.findOneByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      order_type: ImportExportOrderType.OUTBOUND,
+      status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+      created_by: requesterOperator.actor,
+      blind_count_required: true,
+      items: [],
+    } as any);
+    repo.updatePendingByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      status: ImportExportOrderStatus.REJECTED,
+      confirm_note: 'Mismatched lot',
+    } as any);
+
+    const rejected = await service.reject(
+      '11111111-1111-4111-8111-111111111111',
+      { reason: 'Mismatched lot' },
+      requesterOperator,
+    );
+
+    expect(repo.updatePendingByOrderId).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      expect.objectContaining({
+        status: ImportExportOrderStatus.REJECTED,
+        confirm_note: 'Mismatched lot',
+      }),
+      expect.anything(),
+    );
+    expect(rejected.status).toBe(ImportExportOrderStatus.REJECTED);
+  });
+
+  it('reject throws Conflict when order already processed', async () => {
+    repo.findOneByOrderId.mockResolvedValue({
+      order_id: '11111111-1111-4111-8111-111111111111',
+      order_type: ImportExportOrderType.OUTBOUND,
+      status: ImportExportOrderStatus.CONFIRMED,
+      created_by: requesterOperator.actor,
+      blind_count_required: true,
+      items: [],
+    } as any);
+
+    await expect(
+      service.reject(
+        '11111111-1111-4111-8111-111111111111',
+        { reason: 'duplicate action' },
+        requesterOperator,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(repo.runInTransaction).not.toHaveBeenCalled();
   });
 });

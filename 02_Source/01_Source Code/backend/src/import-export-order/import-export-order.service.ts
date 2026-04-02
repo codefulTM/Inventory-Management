@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -7,9 +8,12 @@ import {
 } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateImportExportOrderDto } from './dto/create-import-export-order.dto';
+import { ConfirmImportExportOrderDto } from './dto/confirm-import-export-order.dto';
+import { RejectImportExportOrderDto } from './dto/reject-import-export-order.dto';
 import { UpdateImportExportOrderDto } from './dto/update-import-export-order.dto';
 import {
   ImportExportOrderFilterOptions,
+  InventoryTransactionCreatePayload,
   ImportExportOrderPaginationOptions,
   ImportExportOrderRepository,
 } from './import-export-order.repository';
@@ -18,7 +22,10 @@ import {
   ImportExportOrderAttachment,
   ImportExportOrder,
   ImportExportOrderStatus,
+  ImportExportOrderType,
 } from '../schemas/import-export-order.schema';
+import { InventoryLotStatus } from '../inventory-lot/inventory-lot.dto';
+import { TransactionType } from '../inventory-transaction/dto/create-inventory-transaction.dto';
 import { UserRole } from '../schemas/user.schema';
 
 interface RequesterContext {
@@ -94,6 +101,23 @@ export class ImportExportOrderService {
     return this.repo.findAll(effectiveFilters, paging);
   }
 
+  async getWorklist(
+    filters: Omit<ImportExportOrderFilterOptions, 'status'>,
+    paging: ImportExportOrderPaginationOptions,
+    requester: RequesterContext,
+  ) {
+    const effectiveFilters: ImportExportOrderFilterOptions = {
+      ...filters,
+      status: ImportExportOrderStatus.PENDING_CONFIRMATION,
+    };
+
+    if (!this.isManager(requester.role)) {
+      effectiveFilters.created_by = requester.actor;
+    }
+
+    return this.repo.findAll(effectiveFilters, paging);
+  }
+
   async getOne(orderId: string, requester: RequesterContext) {
     const doc = await this.repo.findOneByOrderId(orderId);
     if (!doc) {
@@ -104,6 +128,212 @@ export class ImportExportOrderService {
 
     this.ensureCanAccessOrder(doc, requester);
     return doc;
+  }
+
+  async confirm(
+    orderId: string,
+    dto: ConfirmImportExportOrderDto,
+    requester: RequesterContext,
+  ) {
+    const existing = await this.repo.findOneByOrderId(orderId);
+    if (!existing) {
+      throw new NotFoundException(
+        `Import/export order ${orderId} was not found`,
+      );
+    }
+
+    this.ensureCanAccessOrder(existing, requester);
+    if (existing.status !== ImportExportOrderStatus.PENDING_CONFIRMATION) {
+      throw new ConflictException('Order has already been processed');
+    }
+
+    const confirmedItems = this.prepareConfirmedItems(existing, dto);
+
+    const updatedOrder = await this.repo.runInTransaction(async (session) => {
+      const pendingOrder = await this.repo.findOneByOrderId(orderId, session);
+      if (!pendingOrder) {
+        throw new NotFoundException(
+          `Import/export order ${orderId} was not found`,
+        );
+      }
+
+      this.ensureCanAccessOrder(pendingOrder, requester);
+      if (
+        pendingOrder.status !== ImportExportOrderStatus.PENDING_CONFIRMATION
+      ) {
+        throw new ConflictException('Order has already been processed');
+      }
+
+      const txPayloads: InventoryTransactionCreatePayload[] = [];
+      for (const item of confirmedItems) {
+        if (!item.lot_id) {
+          throw new BadRequestException(
+            `Item ${item.material_id} is missing lot_id`,
+          );
+        }
+
+        const lot = await this.repo.findLotByLotId(item.lot_id, session);
+        if (!lot) {
+          throw new BadRequestException(
+            `Inventory lot ${item.lot_id} not found`,
+          );
+        }
+
+        if (lot.material_id !== item.material_id) {
+          throw new BadRequestException(
+            `Lot ${item.lot_id} does not match material ${item.material_id}`,
+          );
+        }
+
+        if (lot.unit_of_measure !== item.unit_of_measure) {
+          throw new BadRequestException(
+            `Unit mismatch for lot ${item.lot_id}: expected ${lot.unit_of_measure}, got ${item.unit_of_measure}`,
+          );
+        }
+
+        if (pendingOrder.order_type === ImportExportOrderType.INBOUND) {
+          const updatedLot = await this.repo.increaseLotQuantity(
+            item.lot_id,
+            item.actual_quantity,
+            session,
+          );
+          if (!updatedLot) {
+            throw new BadRequestException(
+              `Unable to update lot ${item.lot_id} quantity`,
+            );
+          }
+        } else {
+          const updatedLot = await this.repo.decreaseLotQuantityIfEnough(
+            item.lot_id,
+            item.actual_quantity,
+            session,
+          );
+          if (!updatedLot) {
+            throw new ConflictException(
+              `Insufficient quantity for lot ${item.lot_id}`,
+            );
+          }
+
+          if (
+            updatedLot.quantity === 0 &&
+            updatedLot.status !== InventoryLotStatus.DEPLETED
+          ) {
+            await this.repo.updateLotStatus(
+              item.lot_id,
+              InventoryLotStatus.DEPLETED,
+              session,
+            );
+          }
+        }
+
+        txPayloads.push({
+          transaction_id: uuidv4(),
+          lot_id: item.lot_id,
+          transaction_type:
+            pendingOrder.order_type === ImportExportOrderType.INBOUND
+              ? TransactionType.Receipt
+              : TransactionType.Usage,
+          quantity:
+            pendingOrder.order_type === ImportExportOrderType.INBOUND
+              ? item.actual_quantity
+              : -item.actual_quantity,
+          unit_of_measure: item.unit_of_measure,
+          transaction_date: new Date(),
+          reference_number: orderId,
+          performed_by: requester.actor,
+          notes: dto.confirm_note,
+        });
+      }
+
+      await this.repo.createInventoryTransactions(txPayloads, session);
+
+      const updated = await this.repo.updatePendingByOrderId(
+        orderId,
+        {
+          status: ImportExportOrderStatus.CONFIRMED,
+          confirmed_by: requester.actor,
+          confirmed_at: new Date(),
+          confirm_note: dto.confirm_note,
+          confirmed_items: confirmedItems,
+        },
+        session,
+      );
+
+      if (!updated) {
+        throw new ConflictException('Order has already been processed');
+      }
+
+      return updated;
+    });
+
+    const totalVariance = confirmedItems.reduce(
+      (acc, item) => acc + item.variance_quantity,
+      0,
+    );
+
+    this.logger.log(
+      `[import-export-order] confirm order_id=${orderId} actor=${requester.actor} role=${requester.role ?? 'unknown'} status=${updatedOrder.status} item_count=${confirmedItems.length} total_variance=${totalVariance}`,
+    );
+
+    return updatedOrder;
+  }
+
+  async reject(
+    orderId: string,
+    dto: RejectImportExportOrderDto,
+    requester: RequesterContext,
+  ) {
+    const existing = await this.repo.findOneByOrderId(orderId);
+    if (!existing) {
+      throw new NotFoundException(
+        `Import/export order ${orderId} was not found`,
+      );
+    }
+
+    this.ensureCanAccessOrder(existing, requester);
+    if (existing.status !== ImportExportOrderStatus.PENDING_CONFIRMATION) {
+      throw new ConflictException('Order has already been processed');
+    }
+
+    const updated = await this.repo.runInTransaction(async (session) => {
+      const pendingOrder = await this.repo.findOneByOrderId(orderId, session);
+      if (!pendingOrder) {
+        throw new NotFoundException(
+          `Import/export order ${orderId} was not found`,
+        );
+      }
+
+      this.ensureCanAccessOrder(pendingOrder, requester);
+      if (
+        pendingOrder.status !== ImportExportOrderStatus.PENDING_CONFIRMATION
+      ) {
+        throw new ConflictException('Order has already been processed');
+      }
+
+      const rejected = await this.repo.updatePendingByOrderId(
+        orderId,
+        {
+          status: ImportExportOrderStatus.REJECTED,
+          confirmed_by: requester.actor,
+          confirmed_at: new Date(),
+          confirm_note: dto.reason,
+          confirmed_items: [],
+        },
+        session,
+      );
+
+      if (!rejected) {
+        throw new ConflictException('Order has already been processed');
+      }
+
+      return rejected;
+    });
+
+    this.logger.log(
+      `[import-export-order] reject order_id=${orderId} actor=${requester.actor} role=${requester.role ?? 'unknown'} status=${updated.status} reason=${dto.reason}`,
+    );
+
+    return updated;
   }
 
   async update(
@@ -302,6 +532,90 @@ export class ImportExportOrderService {
     if (hasInvalidQuantity) {
       throw new BadRequestException('item quantity must be greater than 0');
     }
+  }
+
+  private prepareConfirmedItems(
+    order: ImportExportOrder,
+    dto: ConfirmImportExportOrderDto,
+  ) {
+    if (!order.blind_count_required) {
+      throw new BadRequestException('Blind count is disabled for this order');
+    }
+
+    if (dto.confirmed_items.length !== order.items.length) {
+      throw new BadRequestException(
+        'confirmed_items must fully match order items',
+      );
+    }
+
+    const expectedMap = new Map<string, ImportExportOrder['items']>();
+    for (const expected of order.items) {
+      const key = this.toItemKey(
+        expected.material_id,
+        expected.lot_id,
+        expected.unit_of_measure,
+      );
+      const current = expectedMap.get(key) ?? [];
+      current.push(expected);
+      expectedMap.set(key, current);
+    }
+
+    const prepared = dto.confirmed_items.map((confirmed) => {
+      const key = this.toItemKey(
+        confirmed.material_id,
+        confirmed.lot_id,
+        confirmed.unit_of_measure,
+      );
+      const candidates = expectedMap.get(key);
+
+      if (!candidates || candidates.length === 0) {
+        throw new BadRequestException(
+          `confirmed item is not in order: ${confirmed.material_id}/${confirmed.lot_id ?? 'no-lot'}`,
+        );
+      }
+
+      const expected = candidates.shift();
+      if (!expected) {
+        throw new BadRequestException(
+          `confirmed item is not in order: ${confirmed.material_id}/${confirmed.lot_id ?? 'no-lot'}`,
+        );
+      }
+
+      if (!this.isNumberEqual(confirmed.expected_quantity, expected.quantity)) {
+        throw new BadRequestException(
+          `expected_quantity mismatch for ${confirmed.material_id}/${confirmed.lot_id ?? 'no-lot'}`,
+        );
+      }
+
+      return {
+        material_id: confirmed.material_id,
+        lot_id: confirmed.lot_id,
+        expected_quantity: expected.quantity,
+        actual_quantity: confirmed.actual_quantity,
+        variance_quantity: confirmed.actual_quantity - expected.quantity,
+        unit_of_measure: confirmed.unit_of_measure,
+      };
+    });
+
+    const hasUnmatchedItems = Array.from(expectedMap.values()).some(
+      (items) => items.length > 0,
+    );
+
+    if (hasUnmatchedItems) {
+      throw new BadRequestException(
+        'confirmed_items must fully match order items',
+      );
+    }
+
+    return prepared;
+  }
+
+  private toItemKey(materialId: string, lotId?: string, unit?: string) {
+    return `${materialId}::${lotId ?? ''}::${unit ?? ''}`;
+  }
+
+  private isNumberEqual(left: number, right: number) {
+    return Math.abs(left - right) < 1e-9;
   }
 
   private async toResolvedFromLot(

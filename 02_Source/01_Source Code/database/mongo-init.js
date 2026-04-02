@@ -11,7 +11,7 @@
  * - production_batches (25 batches)
  * - batch_components (30 components)
  * - qc_tests (30 tests)
- * - import_export_orders (6 orders)
+ * - import_export_orders (8 orders)
  */
 
 // ============================================================================
@@ -417,6 +417,12 @@ db.import_export_orders.createIndex({ order_id: 1 }, { unique: true });
 db.import_export_orders.createIndex({ status: 1, created_date: -1 });
 db.import_export_orders.createIndex({ created_by: 1, created_date: -1 });
 db.import_export_orders.createIndex({ order_type: 1, status: 1 });
+db.import_export_orders.createIndex({
+  created_by: 1,
+  status: 1,
+  created_date: -1,
+});
+db.import_export_orders.createIndex({ status: 1, modified_date: -1 });
 
 print(">>> All indexes created successfully");
 
@@ -3342,7 +3348,7 @@ db.qc_tests.insertMany([
   },
 ]);
 
-// ---- IMPORT/EXPORT ORDERS (US24 - 6 orders) ----
+// ---- IMPORT/EXPORT ORDERS (US24 + US25 demo - 8 orders) ----
 db.import_export_orders.insertMany([
   {
     order_id: "7b4e7a2b-3f83-4b14-8e2b-000000000001",
@@ -3351,7 +3357,7 @@ db.import_export_orders.insertMany([
     warehouse_id: "WH-HCM-01",
     reason: "Nhập bù tồn kho cho ca sáng",
     reference_number: "REF-US24-001",
-    created_by: "operator_batch1",
+    created_by: "admin_operator",
     items: [
       {
         material_id: "MAT-001",
@@ -3379,7 +3385,7 @@ db.import_export_orders.insertMany([
     warehouse_id: "WH-HCM-01",
     reason: "Xuất vật tư cho lệnh sản xuất PB-025",
     reference_number: "REF-US24-002",
-    created_by: "operator_batch2",
+    created_by: "admin_operator",
     items: [
       {
         material_id: "MAT-004",
@@ -3404,7 +3410,7 @@ db.import_export_orders.insertMany([
         size_bytes: 241920,
         url: "/uploads/import-export-orders/us24-seed-001.pdf",
         source: "upload",
-        uploaded_by: "operator_batch2",
+        uploaded_by: "admin_operator",
         uploaded_at: new Date("2026-03-15T09:05:00Z"),
       },
     ],
@@ -3418,7 +3424,7 @@ db.import_export_orders.insertMany([
     warehouse_id: "WH-HN-02",
     reason: "Nhập thành phẩm từ xưởng đóng gói",
     reference_number: "REF-US24-003",
-    created_by: "operator_batch3",
+    created_by: "admin_operator",
     items: [
       {
         material_id: "MAT-023",
@@ -3439,7 +3445,7 @@ db.import_export_orders.insertMany([
     warehouse_id: "WH-HN-02",
     reason: "Xuất sai lot nên bị từ chối",
     reference_number: "REF-US24-004",
-    created_by: "operator_batch1",
+    created_by: "admin_operator",
     items: [
       {
         material_id: "MAT-012",
@@ -3457,7 +3463,7 @@ db.import_export_orders.insertMany([
         size_bytes: 182334,
         url: "/uploads/import-export-orders/us24-seed-002.jpg",
         source: "camera",
-        uploaded_by: "operator_batch1",
+        uploaded_by: "admin_operator",
         uploaded_at: new Date("2026-03-14T16:45:00Z"),
       },
     ],
@@ -3471,7 +3477,7 @@ db.import_export_orders.insertMany([
     warehouse_id: "WH-DN-01",
     reason: "Nhập vật tư định kỳ cuối tuần",
     reference_number: "REF-US24-005",
-    created_by: "operator_batch4",
+    created_by: "admin_operator",
     items: [
       {
         material_id: "MAT-022",
@@ -3499,7 +3505,7 @@ db.import_export_orders.insertMany([
     warehouse_id: "WH-HCM-01",
     reason: "Xuất cấp cho kiểm nghiệm QC",
     reference_number: "REF-US24-006",
-    created_by: "operator_batch2",
+    created_by: "admin_operator",
     items: [
       {
         material_id: "MAT-002",
@@ -3513,6 +3519,59 @@ db.import_export_orders.insertMany([
     created_date: new Date("2026-03-13T08:05:00Z"),
     modified_date: new Date("2026-03-13T09:10:00Z"),
   },
+  {
+    order_id: "7b4e7a2b-3f83-4b14-8e2b-000000000007",
+    order_type: "Inbound",
+    status: "PendingConfirmation",
+    warehouse_id: "WH-HCM-01",
+    reason: "US25 demo inbound - cho xac nhan blind count",
+    reference_number: "REF-US25-001",
+    created_by: "admin_operator",
+    items: [
+      {
+        material_id: "MAT-003",
+        lot_id: "LOT-004",
+        quantity: 30,
+        unit_of_measure: "tablet",
+        expected_location: "RECV-ZONE-01",
+      },
+      {
+        material_id: "MAT-008",
+        lot_id: "LOT-009",
+        quantity: 12,
+        unit_of_measure: "bottle",
+        expected_location: "RECV-ZONE-01",
+      },
+    ],
+    attachments: [],
+    blind_count_required: true,
+    confirmed_items: [],
+    created_date: new Date("2026-04-02T07:00:00Z"),
+    modified_date: new Date("2026-04-02T07:00:00Z"),
+  },
+  {
+    order_id: "7b4e7a2b-3f83-4b14-8e2b-000000000008",
+    order_type: "Outbound",
+    status: "PendingConfirmation",
+    warehouse_id: "WH-HCM-01",
+    reason: "US25 demo outbound - cho xac nhan blind count",
+    reference_number: "REF-US25-002",
+    created_by: "admin_operator",
+    items: [
+      {
+        material_id: "MAT-004",
+        lot_id: "LOT-005",
+        quantity: 10,
+        unit_of_measure: "capsule",
+        expected_location: "PRODUCTION-LINE-01",
+      },
+    ],
+    attachments: [],
+    blind_count_required: true,
+    confirmed_items: [],
+    created_date: new Date("2026-04-02T07:15:00Z"),
+    modified_date: new Date("2026-04-02T07:15:00Z"),
+  },
 ]);
 
 print(">>> All seed data inserted successfully!");
@@ -3524,5 +3583,5 @@ print("    - 35 inventory transactions");
 print("    - 25 production batches");
 print("    - 30 batch components");
 print("    - 30 QC tests");
-print("    - 6 import/export orders (US24)");
+print("    - 8 import/export orders (US24 + US25 demo)");
 print(">>> Database initialization completed at: " + new Date());

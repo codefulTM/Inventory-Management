@@ -12,6 +12,10 @@ import {
   InventoryLotSchema,
 } from '../schemas/inventory-lot.schema';
 import { Material, MaterialSchema } from '../schemas/material.schema';
+import {
+  InventoryTransaction,
+  InventoryTransactionSchema,
+} from '../schemas/inventory-transaction.schema';
 
 @Module({
   imports: [
@@ -19,6 +23,7 @@ import { Material, MaterialSchema } from '../schemas/material.schema';
       { name: ImportExportOrder.name, schema: ImportExportOrderSchema },
       { name: InventoryLot.name, schema: InventoryLotSchema },
       { name: Material.name, schema: MaterialSchema },
+      { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
     ]),
   ],
   controllers: [ImportExportOrderController],
