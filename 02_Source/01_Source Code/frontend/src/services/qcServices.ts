@@ -182,10 +182,18 @@ export async function bulkQuarantine(lot_ids: string[]): Promise<{ updated: numb
   });
 }
 
-export async function getSupplierPerformance(): Promise<SupplierPerformance[]> {
+export async function getSupplierPerformance(
+  from?: string,
+  to?: string,
+): Promise<SupplierPerformance[]> {
   return safeApiCall('qcServices.getSupplierPerformance', async () => {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+
     const { data, error } = await apiClient.get<SupplierPerformance[]>(
       '/qc-tests/supplier-performance',
+      { params: Object.keys(params).length > 0 ? params : undefined },
     );
 
     return requireData(data, error, 'Unable to fetch supplier performance');
@@ -203,7 +211,11 @@ export async function analyzeAllSuppliers(
 
     const { data, error } = await apiClient.get<SupplierAnalysisResponse>(
       '/ai/supplier-analysis',
-      { params: Object.keys(params).length > 0 ? params : undefined },
+      {
+        params: Object.keys(params).length > 0 ? params : undefined,
+        // AI analysis may take longer than the default 30s API timeout.
+        timeout: 90000,
+      },
     );
 
     return requireData(data, error, 'Unable to analyze suppliers');
@@ -222,7 +234,11 @@ export async function analyzeOneSupplier(
 
     const { data, error } = await apiClient.get<SupplierAnalysisResponse>(
       `/ai/supplier-analysis/${encodeURIComponent(supplierName)}`,
-      { params: Object.keys(params).length > 0 ? params : undefined },
+      {
+        params: Object.keys(params).length > 0 ? params : undefined,
+        // AI analysis may take longer than the default 30s API timeout.
+        timeout: 90000,
+      },
     );
 
     return requireData(data, error, 'Unable to analyze supplier');
