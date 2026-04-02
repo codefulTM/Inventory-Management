@@ -19,7 +19,7 @@ services:
       context: ./frontend
       dockerfile: ../infra/docker/frontend.Dockerfile
       args:
-        VITE_API_URL: https://api.inventory-system.cloud
+        VITE_API_URL: https://api.inventory-system.cloud/api
     container_name: inventory_frontend
     restart: always
     ports:
