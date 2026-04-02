@@ -39,8 +39,9 @@ export interface KeycloakUserRepresentation {
 
 export interface KeycloakJwtPayload {
   sub: string; // Keycloak user ID
-  preferred_username: string;
-  email: string;
+  preferred_username?: string;
+  username?: string;
+  email?: string;
   realm_access?: { roles: string[] };
   resource_access?: Record<string, { roles: string[] }>;
   exp: number;

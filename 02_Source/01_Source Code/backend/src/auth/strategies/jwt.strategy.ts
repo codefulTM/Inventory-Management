@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { passportJwtSecret } from 'jwks-rsa';
 import { KeycloakJwtPayload } from '../../keycloak/keycloak.service';
 import { UserRole } from '../../schemas/user.schema';
+import { UserService } from '../../user/user.service';
 
 export interface AuthenticatedUser {
   keycloak_id: string;
@@ -22,7 +23,10 @@ export interface AuthenticatedUser {
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   private readonly logger = new Logger(JwtStrategy.name);
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly userService: UserService,
+  ) {
     const serverUrl = config.get<string>(
       'KEYCLOAK_SERVER_URL',
       'http://localhost:8080',
@@ -50,9 +54,24 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * Được gọi sau khi JWT được verify thành công.
    * Map payload Keycloak → AuthenticatedUser gắn vào request.user
    */
-  validate(payload: KeycloakJwtPayload): AuthenticatedUser {
+  async validate(payload: KeycloakJwtPayload): Promise<AuthenticatedUser> {
     if (!payload.sub) {
       throw new UnauthorizedException('Token payload không hợp lệ');
+    }
+
+    const tokenUsername =
+      payload.preferred_username ??
+      payload.username ??
+      payload.email?.split('@')[0];
+
+    let resolvedUsername = tokenUsername;
+    if (!resolvedUsername) {
+      try {
+        const user = await this.userService.findByKeycloakId(payload.sub);
+        resolvedUsername = user.username;
+      } catch {
+        // Fallback dùng keycloak_id nếu không resolve được username
+      }
     }
 
     // Lấy realm roles từ token
@@ -72,13 +91,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     const role = matchedRole ?? UserRole.OPERATOR;
     this.logger.log(
-      `[JwtStrategy] User ${payload.preferred_username} assigned role: ${role}`,
+      `[JwtStrategy] User ${resolvedUsername ?? payload.sub} assigned role: ${role}`,
     );
 
     return {
       keycloak_id: payload.sub,
-      username: payload.preferred_username,
-      email: payload.email,
+      username: resolvedUsername ?? payload.sub,
+      email: payload.email ?? '',
       role,
       realm_roles: realmRoles,
     };

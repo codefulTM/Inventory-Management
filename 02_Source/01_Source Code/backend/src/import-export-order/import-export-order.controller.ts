@@ -52,8 +52,14 @@ export class ImportExportOrderController {
   constructor(private readonly service: ImportExportOrderService) {}
 
   private toRequester(req: { user?: AuthenticatedUser }) {
+    const actor =
+      req.user?.username?.trim() ||
+      req.user?.email?.trim() ||
+      req.user?.keycloak_id ||
+      'system';
+
     return {
-      actor: req.user?.username ?? req.user?.keycloak_id ?? 'system',
+      actor,
       role: req.user?.role,
     };
   }
