@@ -65,6 +65,8 @@ export class KeycloakService {
   private readonly adminClientId: string;
   private readonly adminClientSecret: string;
   private readonly clientId: string;
+  private readonly loginClientId: string;
+  private readonly loginClientSecret: string;
 
   // Cache admin token
   private adminToken: string | null = null;
@@ -87,6 +89,14 @@ export class KeycloakService {
     this.clientId = this.config.get<string>(
       'KEYCLOAK_CLIENT_ID',
       'inventory-backend',
+    );
+    this.loginClientId = this.config.get<string>(
+      'KEYCLOAK_LOGIN_CLIENT_ID',
+      this.clientId,
+    );
+    this.loginClientSecret = this.config.get<string>(
+      'KEYCLOAK_LOGIN_CLIENT_SECRET',
+      this.config.get<string>('KEYCLOAK_CLIENT_SECRET', ''),
     );
   }
 
@@ -162,12 +172,12 @@ export class KeycloakService {
   ): Promise<KeycloakTokenResponse> {
     const body = new URLSearchParams();
     body.set('grant_type', 'password');
-    body.set('client_id', this.clientId);
+    body.set('client_id', this.loginClientId);
     body.set('username', username);
     body.set('password', password);
 
-    const clientSecret = this.config.get<string>('KEYCLOAK_CLIENT_SECRET', '');
-    if (clientSecret) body.set('client_secret', clientSecret);
+    if (this.loginClientSecret)
+      body.set('client_secret', this.loginClientSecret);
 
     const res = await fetch(this.tokenEndpoint, {
       method: 'POST',
@@ -178,6 +188,36 @@ export class KeycloakService {
     if (!res.ok) {
       const text = await res.text();
       this.logger.warn(`Login failed for ${username}: ${res.status} ${text}`);
+
+      try {
+        const parsed = JSON.parse(text) as {
+          error?: string;
+          error_description?: string;
+        };
+
+        if (
+          parsed.error === 'unauthorized_client' ||
+          parsed.error === 'invalid_client'
+        ) {
+          throw new InternalServerErrorException(
+            `Cau hinh Keycloak client khong hop le (client_id=${this.loginClientId}). Kiem tra KEYCLOAK_LOGIN_CLIENT_ID/KEYCLOAK_LOGIN_CLIENT_SECRET va bat Direct Access Grants trong Keycloak client.`,
+          );
+        }
+
+        if (parsed.error === 'invalid_grant') {
+          throw new UnauthorizedException(
+            'Ten dang nhap hoac mat khau khong dung',
+          );
+        }
+      } catch (error) {
+        if (
+          error instanceof UnauthorizedException ||
+          error instanceof InternalServerErrorException
+        ) {
+          throw error;
+        }
+      }
+
       throw new UnauthorizedException('Tên đăng nhập hoặc mật khẩu không đúng');
     }
 
@@ -190,11 +230,11 @@ export class KeycloakService {
   async refreshToken(refreshToken: string): Promise<KeycloakTokenResponse> {
     const body = new URLSearchParams();
     body.set('grant_type', 'refresh_token');
-    body.set('client_id', this.clientId);
+    body.set('client_id', this.loginClientId);
     body.set('refresh_token', refreshToken);
 
-    const clientSecret = this.config.get<string>('KEYCLOAK_CLIENT_SECRET', '');
-    if (clientSecret) body.set('client_secret', clientSecret);
+    if (this.loginClientSecret)
+      body.set('client_secret', this.loginClientSecret);
 
     const res = await fetch(this.tokenEndpoint, {
       method: 'POST',
@@ -217,11 +257,11 @@ export class KeycloakService {
   async logoutUser(refreshToken: string): Promise<void> {
     const logoutUrl = `${this.realmUrl}/protocol/openid-connect/logout`;
     const body = new URLSearchParams();
-    body.set('client_id', this.clientId);
+    body.set('client_id', this.loginClientId);
     body.set('refresh_token', refreshToken);
 
-    const clientSecret = this.config.get<string>('KEYCLOAK_CLIENT_SECRET', '');
-    if (clientSecret) body.set('client_secret', clientSecret);
+    if (this.loginClientSecret)
+      body.set('client_secret', this.loginClientSecret);
 
     await fetch(logoutUrl, {
       method: 'POST',
@@ -513,10 +553,10 @@ export class KeycloakService {
   ): Promise<{ active: boolean; sub?: string; preferred_username?: string }> {
     const body = new URLSearchParams();
     body.set('token', accessToken);
-    body.set('client_id', this.clientId);
+    body.set('client_id', this.loginClientId);
 
-    const clientSecret = this.config.get<string>('KEYCLOAK_CLIENT_SECRET', '');
-    if (clientSecret) body.set('client_secret', clientSecret);
+    if (this.loginClientSecret)
+      body.set('client_secret', this.loginClientSecret);
 
     const introspectUrl = `${this.realmUrl}/protocol/openid-connect/token/introspect`;
 

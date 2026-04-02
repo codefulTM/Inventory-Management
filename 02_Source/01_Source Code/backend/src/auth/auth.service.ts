@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   Logger,
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  HttpException,
 } from '@nestjs/common';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { UserService } from '../user/user.service';
@@ -100,6 +102,11 @@ export class AuthService {
       this.logger.warn(
         `Login failed for username: ${dto.username} - ${error.message}`,
       );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new UnauthorizedException('Đăng nhập thất bại: ' + error.message);
     }
   }
