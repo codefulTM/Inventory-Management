@@ -35,6 +35,7 @@ export class CreateInventoryTransactionDto {
   // số lượng có thể âm hoặc dương; dấu sẽ được hiểu theo loại giao dịch
   @IsNumber()
   @IsNotEmpty()
+  @Type(() => Number)
   quantity: number;
 
   @IsString()
