@@ -18,6 +18,11 @@ export interface CreateUserPayload {
   role: UserRole;
 }
 
+export interface UpdateUserPayload {
+  email?: string;
+  role?: UserRole;
+}
+
 export interface PaginatedUsers {
   data: User[];
   pagination: {
@@ -39,5 +44,9 @@ export const UserService = {
 
   async search(q: string) {
     return apiClient.get<PaginatedUsers>(`/users/search?q=${encodeURIComponent(q)}`);
+  },
+
+  async update(user_id: string, payload: UpdateUserPayload) {
+    return apiClient.put<User>(`/users/${user_id}`, payload);
   },
 };

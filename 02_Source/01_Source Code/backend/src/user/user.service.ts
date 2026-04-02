@@ -197,6 +197,13 @@ export class UserService {
     if (!existing)
       throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
+    // Kiểm tra username mới có trùng không
+    if (dto.username && dto.username !== existing.username) {
+      const byUsername = await this.repository.findByUsername(dto.username);
+      if (byUsername)
+        throw new ConflictException(`Username '${dto.username}' đã được sử dụng`);
+    }
+
     // Kiểm tra email mới có trùng không
     if (dto.email && dto.email !== existing.email) {
       const byEmail = await this.repository.findByEmail(dto.email);

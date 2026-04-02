@@ -27,6 +27,36 @@ export class MailService {
     return rand(upper) + rand(digits) + rand(special) + base;
   }
 
+  async sendResetPasswordEmail(to: string, username: string, resetLink: string): Promise<void> {
+    try {
+      await this.transporter.sendMail({
+        from: `"PharmaWMS System" <${process.env.MAIL_USER}>`,
+        to,
+        subject: '[PharmaWMS] Đặt lại mật khẩu',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #2563eb; padding: 32px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">PharmaWMS</h1>
+              <p style="color: #bfdbfe; margin: 8px 0 0;">Warehouse Management System</p>
+            </div>
+            <div style="padding: 32px; background: #f8fafc; border: 1px solid #e2e8f0;">
+              <h2 style="color: #1e293b;">Yêu cầu đặt lại mật khẩu</h2>
+              <p style="color: #475569;">Xin chào <strong>${username}</strong>, chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+              <a href="${resetLink}" style="display: inline-block; margin: 16px 0; padding: 12px 28px; background: #2563eb; color: white; border-radius: 8px; text-decoration: none; font-weight: bold;">Đặt lại mật khẩu</a>
+              <p style="color: #64748b; font-size: 13px;">Link có hiệu lực trong <strong>15 phút</strong>. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
+            </div>
+            <div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
+              © 2026 PharmaWMS — IT Department
+            </div>
+          </div>
+        `,
+      });
+      this.logger.log(`Reset password email sent to: ${to}`);
+    } catch (err) {
+      this.logger.error(`Failed to send reset email to ${to}: ${err.message}`);
+    }
+  }
+
   async sendNewAccountEmail(to: string, username: string, role: string, tempPassword: string): Promise<void> {
     const loginUrl = 'https://inventory-system.cloud';
 

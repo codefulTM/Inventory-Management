@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UserService, type User, type UserRole } from "../../services/user.service";
+import { UserService, type User, type UserRole, type UpdateUserPayload } from "../../services/user.service";
 
 const ROLES: UserRole[] = [
   "Manager",
@@ -16,6 +16,7 @@ const ROLE_BADGE: Record<UserRole, string> = {
 };
 
 const defaultForm = { username: "", email: "", role: "Operator" as UserRole };
+const defaultEditForm: UpdateUserPayload = { email: "", role: "Operator" };
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -26,6 +27,11 @@ export default function UserManagement() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState<UpdateUserPayload>(defaultEditForm);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -46,6 +52,31 @@ export default function UserManagement() {
     }
     const { data } = await UserService.search(q);
     if (data) setUsers(data.data);
+  };
+
+  const handleOpenEdit = (user: User) => {
+    setEditUser(user);
+    setEditForm({ email: user.email, role: user.role });
+    setEditError(null);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+    setEditSubmitting(true);
+    setEditError(null);
+    const { data, error } = await UserService.update(editUser.user_id, editForm);
+    setEditSubmitting(false);
+    if (error) {
+      setEditError(error.message || "Cập nhật thất bại");
+      return;
+    }
+    if (data) {
+      setSuccess(`Cập nhật tài khoản "${data.username}" thành công`);
+      setEditUser(null);
+      fetchUsers();
+      setTimeout(() => setSuccess(null), 3000);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,13 +140,14 @@ export default function UserManagement() {
               <th className="text-left px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Vai trò</th>
               <th className="text-left px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Trạng thái</th>
               <th className="text-left px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Ngày tạo</th>
+              <th className="px-6 py-4"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center py-12 text-gray-400">Đang tải...</td></tr>
+              <tr><td colSpan={6} className="text-center py-12 text-gray-400">Đang tải...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-12 text-gray-400">Chưa có tài khoản nào</td></tr>
+              <tr><td colSpan={6} className="text-center py-12 text-gray-400">Chưa có tài khoản nào</td></tr>
             ) : (
               users.map((user) => (
                 <tr key={user.user_id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
@@ -134,12 +166,75 @@ export default function UserManagement() {
                   <td className="px-6 py-4 text-gray-400 text-xs">
                     {user.created_date ? new Date(user.created_date).toLocaleDateString("vi-VN") : "-"}
                   </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleOpenEdit(user)}
+                      className="px-3 py-1.5 text-xs font-bold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-all"
+                    >
+                      Chỉnh sửa
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Edit Modal */}
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <h3 className="text-xl font-black text-gray-900 mb-1">Chỉnh sửa tài khoản</h3>
+            <p className="text-sm text-gray-400 mb-6">@{editUser.username}</p>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">Vai trò</label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              {editError && (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold">
+                  {editError}
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setEditUser(null); setEditError(null); }}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all disabled:opacity-50"
+                >
+                  {editSubmitting ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create Modal */}
       {showModal && (

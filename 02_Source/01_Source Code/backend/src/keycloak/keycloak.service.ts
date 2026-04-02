@@ -312,8 +312,22 @@ export class KeycloakService {
   ): Promise<void> {
     const token = await this.getAdminToken();
 
-    const body: Partial<KeycloakUserRepresentation> = {};
-    if (data.email) body.email = data.email;
+    // GET current user để giữ lại firstName/lastName (tránh Keycloak xóa chúng)
+    const existing = await fetch(`${this.adminBaseUrl}/users/${keycloakId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => r.json());
+
+    const body: Partial<KeycloakUserRepresentation> = {
+      firstName: existing.firstName,
+      lastName: existing.lastName,
+      email: existing.email,
+      emailVerified: existing.emailVerified ?? true,
+      requiredActions: [],
+    };
+    if (data.email) {
+      body.email = data.email;
+      body.emailVerified = true;
+    }
     if (data.firstName !== undefined) body.firstName = data.firstName;
     if (data.lastName !== undefined) body.lastName = data.lastName;
     if (data.role) body.attributes = { role: [data.role] };
@@ -396,6 +410,9 @@ export class KeycloakService {
         'Không thể đặt lại mật khẩu trong Keycloak',
       );
     }
+
+    // Clear required actions (VERIFY_EMAIL, UPDATE_PASSWORD, ...) sau khi reset
+    await this.updateUser(keycloakId, {});
   }
 
   /**

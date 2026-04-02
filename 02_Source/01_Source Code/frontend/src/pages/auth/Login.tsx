@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { AuthService } from "../../services/auth.service";
 
 // Mock users for local development (bypass Keycloak)
@@ -148,6 +148,11 @@ const Login = () => {
               )}
             </button>
           </div>
+        </div>
+        <div className="mb-4 text-right">
+          <Link to="/auth/forgot-password" className="text-sm text-blue-600 hover:underline">
+            Quên mật khẩu?
+          </Link>
         </div>
         {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
         <button

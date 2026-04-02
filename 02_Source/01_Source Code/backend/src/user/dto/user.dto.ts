@@ -34,6 +34,11 @@ export class CreateUserDto {
 // ─── Update ──────────────────────────────────────────────────────────────────
 
 export class UpdateUserDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  username?: string;
+
   @IsEmail({}, { message: 'Email không hợp lệ' })
   @IsOptional()
   @MaxLength(100)

@@ -32,6 +32,8 @@ import TransactionHistoryOperator from "../pages/operator/TransactionHistory";
 import LabelPrintOperator from "../pages/operator/LabelPrint";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
+import ForgotPassword from "../pages/auth/ForgotPassword";
+import ResetPassword from "../pages/auth/ResetPassword";
 import ApiTestProductionBatch from "../pages/operator/production-batches/ProductionBatch";
 import ProductionBatchList from "../pages/manager/production-batches/List";
 import ProductionBatchDetail from "../pages/manager/production-batches/Detail";
@@ -346,6 +348,14 @@ export const router = createBrowserRouter([
   {
     path: "/register",
     element: <Register />,
+  },
+  {
+    path: "/auth/forgot-password",
+    element: <ForgotPassword />,
+  },
+  {
+    path: "/auth/reset-password",
+    element: <ResetPassword />,
   },
   {
     path: "/api-test/batches",

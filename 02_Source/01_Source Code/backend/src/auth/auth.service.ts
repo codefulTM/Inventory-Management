@@ -4,9 +4,14 @@ import {
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { UserService } from '../user/user.service';
+import { MailService } from '../mail/mail.service';
 import { UserDocument, UserRole } from '../schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -14,6 +19,10 @@ import {
   buildFallbackEmail,
   mapRealmRolesToUserRole,
 } from './utils/role-mapper';
+import {
+  PasswordResetToken,
+  PasswordResetTokenDocument,
+} from '../schemas/password-reset-token.schema';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +31,9 @@ export class AuthService {
   constructor(
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
+    private readonly mailService: MailService,
+    @InjectModel(PasswordResetToken.name)
+    private readonly resetTokenModel: Model<PasswordResetTokenDocument>,
   ) {}
 
   /**
@@ -181,5 +193,54 @@ export class AuthService {
       throw new NotFoundException('Không tìm thấy thông tin người dùng');
     }
     return user;
+  }
+
+  /**
+   * Gửi link đặt lại mật khẩu về email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userService.findByEmail(email);
+    // Trả về cùng message dù email có tồn tại hay không (tránh lộ thông tin)
+    if (!user || !user.keycloak_id) {
+      return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
+    }
+
+    const token = uuidv4();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+
+    await this.resetTokenModel.create({
+      token,
+      user_id: user.user_id,
+      email: user.email,
+      expires_at: expiresAt,
+      used: false,
+    });
+
+    const resetLink = `${process.env.FRONTEND_URL || 'https://inventory-system.cloud'}/auth/reset-password?token=${token}`;
+    await this.mailService.sendResetPasswordEmail(user.email, user.username, resetLink);
+
+    this.logger.log(`Password reset requested for: ${user.email}`);
+    return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
+  }
+
+  /**
+   * Đặt lại mật khẩu bằng token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const record = await this.resetTokenModel.findOne({ token });
+
+    if (!record) throw new BadRequestException('Token không hợp lệ');
+    if (record.used) throw new BadRequestException('Token đã được sử dụng');
+    if (record.expires_at < new Date()) throw new BadRequestException('Token đã hết hạn');
+
+    const user = await this.userService.findByEmail(record.email);
+    if (!user || !user.keycloak_id) throw new NotFoundException('Không tìm thấy tài khoản');
+
+    await this.keycloakService.resetPassword(user.keycloak_id, newPassword);
+
+    await this.resetTokenModel.updateOne({ token }, { used: true });
+
+    this.logger.log(`Password reset completed for: ${record.email}`);
+    return { message: 'Đặt lại mật khẩu thành công' };
   }
 }
