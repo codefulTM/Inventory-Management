@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LabelTemplateService } from './label-template.service';
-import { LabelTemplateRepository } from './label-template.repository';
+import { LabelTemplateService } from '../label-template/label-template.service';
+import { LabelTemplateRepository } from '../label-template/label-template.repository';
 import {
   CreateLabelTemplateDto,
   UpdateLabelTemplateDto,
   GenerateLabelDto,
   LabelTemplateResponseDto,
   LabelType,
-} from './label-template.dto';
+} from '../label-template/label-template.dto';
 import {
   ConflictException,
   NotFoundException,
@@ -155,7 +155,7 @@ describe('LabelTemplateService', () => {
       expect(result.totalPages).toBe(1);
     });
 
-    it('should use default page and limit', async () => {
+    it('should call repository without paging arguments when page/limit are omitted', async () => {
       const mockResult = {
         data: [mockLabelTemplateDoc],
         total: 1,
@@ -168,7 +168,7 @@ describe('LabelTemplateService', () => {
 
       await service.findAll();
 
-      expect(repository.findAll).toHaveBeenCalledWith(1, 20);
+      expect(repository.findAll).toHaveBeenCalledWith();
     });
 
     it('should throw BadRequestException if page < 1', async () => {

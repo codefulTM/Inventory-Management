@@ -1,11 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
-import { InventoryTransactionService } from './inventory-transaction.service';
-import { InventoryTransactionRepository } from './inventory-transaction.repository';
+import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
+import { InventoryTransactionRepository } from '../inventory-transaction/inventory-transaction.repository';
 import {
   CreateInventoryTransactionDto,
   TransactionType,
-} from './dto/create-inventory-transaction.dto';
-import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
+} from '../inventory-transaction/dto/create-inventory-transaction.dto';
+import { UpdateInventoryTransactionDto } from '../inventory-transaction/dto/update-inventory-transaction.dto';
+
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'test-transaction-id'),
+}));
 
 // utility helper
 function makeDto(
@@ -131,6 +135,34 @@ describe('InventoryTransactionService', () => {
         quantity: 5,
       });
       await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('sets transaction_id and transaction_date when missing', async () => {
+      const dto = makeDto({
+        transaction_type: TransactionType.Receipt,
+        transaction_date: undefined,
+      });
+
+      const result = await svc.create(dto);
+
+      expect(result).toHaveProperty('_id');
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transaction_id: 'test-transaction-id',
+        }),
+      );
+      const createdPayload = (repo.create as jest.Mock).mock.calls[0][0];
+      expect(createdPayload.transaction_date).toBeDefined();
+      expect(typeof createdPayload.transaction_date).toBe('string');
+    });
+
+    it('throws for unknown transaction type', async () => {
+      const dto = makeDto({
+        transaction_type: 'UnknownType' as TransactionType,
+      });
+
+      await expect(svc.create(dto)).rejects.toBeInstanceOf(BadRequestException);
+      expect(repo.create).not.toHaveBeenCalled();
     });
   });
 
