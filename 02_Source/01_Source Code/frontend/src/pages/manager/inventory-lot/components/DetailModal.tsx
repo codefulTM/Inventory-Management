@@ -14,7 +14,7 @@ interface DetailModalProps {
   isOpen: boolean;
   selectedLot: InventoryLot | null;
   onClose: () => void;
-  onEdit: (lot: InventoryLot) => void;
+  onEdit?: (lot: InventoryLot) => void;
 }
 
 export function DetailModal({
@@ -293,16 +293,18 @@ export function DetailModal({
           >
             Đóng
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onEdit(selectedLot);
-            }}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition text-sm"
-          >
-            <Edit size={16} /> Sửa thông tin
-          </button>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onEdit(selectedLot);
+              }}
+              className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition text-sm"
+            >
+              <Edit size={16} /> Sửa thông tin
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -9,7 +9,9 @@ import {
   Query,
   ValidationPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { InventoryLotService } from './inventory-lot.service';
 import {
   CreateInventoryLotDto,
@@ -20,8 +22,10 @@ import {
 import { BulkQuarantineDto } from '../qc-test/dto/bulk-quarantine.dto';
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
-import {Roles} from "../auth/decorators/roles.decorator";
-import {UserRole} from "../schemas/user.schema";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { UserRole } from "../schemas/user.schema";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 
 @Controller('inventory-lots')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -148,12 +152,22 @@ export class InventoryLotController {
     return await this.inventoryLotService.findById(id);
   }
 
+  @Roles(UserRole.MANAGER)
   @Put(':id')
   async update(
     @Param('id') id: string,
     @Body(ValidationPipe) dto: UpdateInventoryLotDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
   ) {
-    return await this.inventoryLotService.update(id, dto);
+    const actor = user
+      ? { username: user.username, user_id: user.keycloak_id }
+      : undefined;
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    return await this.inventoryLotService.update(id, dto, actor, ctx);
   }
 
   @Put(':id/status/:status')

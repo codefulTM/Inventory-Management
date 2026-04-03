@@ -5,7 +5,7 @@ import { getStatusColor, getStatusText } from "../utils";
 interface InventoryLotTableProps {
   lots: InventoryLot[];
   onViewDetail: (lot: InventoryLot) => void;
-  onEdit: (lot: InventoryLot) => void;
+  onEdit?: (lot: InventoryLot) => void;
 }
 
 export function InventoryLotTable({
@@ -74,13 +74,15 @@ export function InventoryLotTable({
                       >
                         <Eye size={18} />
                       </button>
-                      <button
-                        onClick={() => onEdit(inventoryLot)}
-                        className="text-green-500 hover:bg-green-50 rounded-lg transition"
-                        title="Chỉnh sửa"
-                      >
-                        <Edit size={18} />
-                      </button>
+                      {onEdit && (
+                        <button
+                          onClick={() => onEdit(inventoryLot)}
+                          className="text-green-500 hover:bg-green-50 rounded-lg transition"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

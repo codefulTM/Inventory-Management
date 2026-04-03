@@ -26,6 +26,9 @@ export class InventoryLot {
   @Prop({ type: String, maxlength: 100, required: false })
   supplier_name?: string;
 
+  @Prop({ type: Date, required: false })
+  manufacture_date?: Date;
+
   @Prop({ type: Date, required: true })
   received_date: Date;
 

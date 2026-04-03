@@ -44,6 +44,11 @@ export class CreateInventoryLotDto {
   supplier_name?: string;
 
   @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  manufacture_date?: Date;
+
+  @IsDate()
   @IsNotEmpty()
   @Type(() => Date)
   received_date: Date;
@@ -113,6 +118,11 @@ export class UpdateInventoryLotDto {
   supplier_name?: string;
 
   @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  manufacture_date?: Date;
+
+  @IsDate()
   @IsNotEmpty()
   @Type(() => Date)
   received_date: Date;
@@ -173,6 +183,7 @@ export class InventoryLotResponseDto {
   manufacturer_name: string;
   manufacturer_lot: string;
   supplier_name?: string;
+  manufacture_date?: Date;
   received_date: Date;
   expiration_date: Date;
   in_use_expiration_date?: Date;

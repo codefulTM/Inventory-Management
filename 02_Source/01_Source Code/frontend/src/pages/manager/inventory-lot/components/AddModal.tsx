@@ -36,6 +36,7 @@ export function AddModal({
     register,
     handleSubmit: checkOnSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<EditFormValues>({
     defaultValues: {
@@ -44,6 +45,7 @@ export function AddModal({
       manufacturer_name: "",
       manufacturer_lot: "",
       supplier_name: "",
+      manufacture_date: "",
       received_date: new Date().toISOString().split("T")[0],
       expiration_date: "",
       in_use_expiration_date: "",
@@ -281,7 +283,45 @@ export function AddModal({
               <p className="flex items-center gap-1.5 text-xs font-bold text-blue-600 uppercase tracking-wider mb-3">
                 <Calendar size={13} /> Thời hạn
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  label="Ngày sản xuất"
+                  error={errors.manufacture_date?.message}
+                >
+                  <input
+                    type="date"
+                    {...register("manufacture_date", {
+                      validate: (val) => {
+                        if (!val) return true;
+                        const expDate = watch("expiration_date");
+                        if (expDate && val > expDate)
+                          return "Ngày sản xuất không được sau hạn sử dụng";
+                        return true;
+                      },
+                    })}
+                    className={errors.manufacture_date ? INPUT_ERR_CLS : INPUT_CLS}
+                  />
+                </FormField>
+                <FormField
+                  label="Hạn sử dụng *"
+                  error={errors.expiration_date?.message}
+                >
+                  <input
+                    type="date"
+                    {...register("expiration_date", {
+                      required: "Bắt buộc nhập",
+                      validate: (val) => {
+                        const mfgDate = watch("manufacture_date");
+                        if (mfgDate && val < mfgDate)
+                          return "Hạn sử dụng không được trước ngày sản xuất";
+                        return true;
+                      },
+                    })}
+                    className={
+                      errors.expiration_date ? INPUT_ERR_CLS : INPUT_CLS
+                    }
+                  />
+                </FormField>
                 <FormField
                   label="Ngày nhận hàng *"
                   error={errors.received_date?.message}
@@ -295,31 +335,13 @@ export function AddModal({
                   />
                 </FormField>
                 <FormField
-                  label="Hạn sử dụng *"
-                  error={errors.expiration_date?.message}
-                >
-                  <input
-                    type="date"
-                    {...register("expiration_date", {
-                      required: "Bắt buộc nhập",
-                    })}
-                    className={
-                      errors.expiration_date ? INPUT_ERR_CLS : INPUT_CLS
-                    }
-                  />
-                </FormField>
-                <FormField
                   label="Hạn sau khi mở"
                   error={errors.in_use_expiration_date?.message}
                 >
                   <input
                     type="date"
-                    {...register("in_use_expiration_date", {
-                      required: "Bắt buộc nhập",
-                    })}
-                    className={
-                      errors.in_use_expiration_date ? INPUT_ERR_CLS : INPUT_CLS
-                    }
+                    {...register("in_use_expiration_date")}
+                    className={INPUT_CLS}
                   />
                 </FormField>
               </div>

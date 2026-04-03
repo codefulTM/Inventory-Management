@@ -59,6 +59,7 @@ export function EditModal({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<EditFormValues>({
     values: selectedLot
@@ -68,6 +69,7 @@ export function EditModal({
           manufacturer_name: selectedLot.manufacturer_name,
           manufacturer_lot: selectedLot.manufacturer_lot,
           supplier_name: selectedLot.supplier_name,
+          manufacture_date: toDateInputValue(selectedLot.manufacture_date),
           received_date: toDateInputValue(selectedLot.received_date),
           expiration_date: toDateInputValue(selectedLot.expiration_date),
           in_use_expiration_date: toDateInputValue(
@@ -310,17 +312,23 @@ export function EditModal({
               <p className="flex items-center gap-1.5 text-xs font-bold text-blue-600 uppercase tracking-wider mb-3">
                 <Calendar size={13} /> Thời hạn
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
-                  label="Ngày nhận hàng *"
-                  error={errors.received_date?.message}
+                  label="Ngày sản xuất"
+                  error={errors.manufacture_date?.message}
                 >
                   <input
                     type="date"
-                    {...register("received_date", {
-                      required: "Bắt buộc nhập",
+                    {...register("manufacture_date", {
+                      validate: (val) => {
+                        if (!val) return true;
+                        const expDate = watch("expiration_date");
+                        if (expDate && val > expDate)
+                          return "Ngày sản xuất không được sau hạn sử dụng";
+                        return true;
+                      },
                     })}
-                    className={errors.received_date ? INPUT_ERR_CLS : INPUT_CLS}
+                    className={errors.manufacture_date ? INPUT_ERR_CLS : INPUT_CLS}
                   />
                 </FormField>
                 <FormField
@@ -331,10 +339,28 @@ export function EditModal({
                     type="date"
                     {...register("expiration_date", {
                       required: "Bắt buộc nhập",
+                      validate: (val) => {
+                        const mfgDate = watch("manufacture_date");
+                        if (mfgDate && val < mfgDate)
+                          return "Hạn sử dụng không được trước ngày sản xuất";
+                        return true;
+                      },
                     })}
                     className={
                       errors.expiration_date ? INPUT_ERR_CLS : INPUT_CLS
                     }
+                  />
+                </FormField>
+                <FormField
+                  label="Ngày nhận hàng *"
+                  error={errors.received_date?.message}
+                >
+                  <input
+                    type="date"
+                    {...register("received_date", {
+                      required: "Bắt buộc nhập",
+                    })}
+                    className={errors.received_date ? INPUT_ERR_CLS : INPUT_CLS}
                   />
                 </FormField>
                 <FormField
