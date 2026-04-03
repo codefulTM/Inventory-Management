@@ -15,7 +15,15 @@ import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
+import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
+import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
+import { LogModule } from './log-management/log.module';
+import { BarcodeModule } from './barcode/barcode.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { AppService } from './app.service';
+import { AiAgentsModule } from './ai-agents/ai-agents.module';
+import { ReportsModule } from './reports/reports.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -29,9 +37,15 @@ import { AppService } from './app.service';
     ProductionBatchModule,
     InventoryTransactionModule,
     QCTestModule,
-    // AiModule,
+    AiModule,
     LabelTemplateModule,
-    InventoryTransactionModule,
+    WarehouseHierarchyModule,
+    SystemMonitoringModule,
+    LogModule,
+    BarcodeModule,
+    MetricsModule,
+    ReportsModule,
+    AuditLogModule,
   ],
   controllers: [AppController],
   providers: [

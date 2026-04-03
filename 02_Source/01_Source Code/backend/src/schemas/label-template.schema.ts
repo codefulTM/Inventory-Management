@@ -10,6 +10,7 @@ export type LabelTemplateDocument = LabelTemplate & Document;
 
 // Timestamps đồng bộ với model
 const options: SchemaOptions = {
+  collection: 'label_templates',
   timestamps: { createdAt: 'created_date', updatedAt: 'modified_date' },
 };
 

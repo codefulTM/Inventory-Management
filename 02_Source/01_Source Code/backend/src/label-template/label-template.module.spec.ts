@@ -67,8 +67,15 @@ describe('LabelTemplateModule', () => {
   });
 
   it('should register a mongoose feature import', () => {
-    expect(imports).toHaveLength(1);
-    expect(imports[0]).toEqual(
+    const mongooseImport = imports.find(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        'module' in item &&
+        (item as { module?: unknown }).module === MongooseModule,
+    ) as DynamicModuleLike | undefined;
+
+    expect(mongooseImport).toEqual(
       expect.objectContaining({
         module: MongooseModule,
       }),
@@ -76,8 +83,14 @@ describe('LabelTemplateModule', () => {
   });
 
   it('should include the label template model token in mongoose providers', () => {
-    const dynamicImport = imports[0];
-    const providerTokens = getProviderTokens(dynamicImport.providers);
+    const mongooseImport = imports.find(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        'module' in item &&
+        (item as { module?: unknown }).module === MongooseModule,
+    ) as DynamicModuleLike | undefined;
+    const providerTokens = getProviderTokens(mongooseImport?.providers);
 
     expect(providerTokens).toContain(getModelToken(LabelTemplate.name));
   });

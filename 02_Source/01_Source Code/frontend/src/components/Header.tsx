@@ -6,8 +6,16 @@ const Header: React.FC = () => {
 	const navigate = useNavigate();
 	const handleLogout = async () => {
 		const refresh_token = localStorage.getItem('refresh_token');
+		console.log('[Header] Logging out with refresh_token:', refresh_token ? 'YES' : 'NO');
 		if (refresh_token) {
-			await AuthService.logout(refresh_token);
+			try {
+				const result = await AuthService.logout(refresh_token);
+				console.log('[Header] Logout API response:', result);
+			} catch (err) {
+				console.error('[Header] Logout API error:', err);
+			}
+		} else {
+			console.warn('[Header] No refresh_token found');
 		}
 		localStorage.removeItem('auth_token');
 		localStorage.removeItem('refresh_token');

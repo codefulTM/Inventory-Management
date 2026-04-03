@@ -15,6 +15,8 @@ import {
 } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { LabelTemplateDocument } from '../schemas/label-template.schema';
+import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
+import { ProductionBatchService } from '../production-batch/production-batch.service';
 
 type PagedResult = {
   data: LabelTemplateDocument[];
@@ -74,12 +76,56 @@ describe('LabelTemplateService', () => {
       delete: jest.fn(),
     };
 
+    const mockInventoryLotService = {
+      findById: jest.fn(async (lotId: string) => ({
+        lot_id: lotId ?? 'LOT-MOCK-001',
+        material_id: 'MAT-001',
+        manufacturer_name: 'Acme Manufacturing',
+        manufacturer_lot: 'MFR-LOT-001',
+        supplier_name: 'Acme Supplier',
+        received_date: '2026-01-01',
+        expiration_date: '2027-11-15',
+        in_use_expiration_date: '2027-10-15',
+        status: 'Quarantine',
+        quantity: 100,
+        unit_of_measure: 'kg',
+        storage_location: 'WH-A1',
+        is_sample: false,
+        parent_lot_id: null,
+        notes: null,
+        received_by: 'operator-1',
+        qc_by: 'qc-1',
+      })),
+    };
+
+    const mockProductionBatchService = {
+      findOne: jest.fn(async (batchId: string) => ({
+        batch_id: batchId ?? 'BATCH-MOCK-001',
+        batch_number: 'PB-2025-0001',
+        product_id: 'MAT-PROD-001',
+        batch_size: 500,
+        unit_of_measure: 'kg',
+        shelf_life_value: 24,
+        shelf_life_unit: 'months',
+        status: 'Complete',
+        created_by: 'manager-1',
+      })),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LabelTemplateService,
         {
           provide: 'LabelTemplateRepository',
           useValue: mockRepository,
+        },
+        {
+          provide: InventoryLotService,
+          useValue: mockInventoryLotService,
+        },
+        {
+          provide: ProductionBatchService,
+          useValue: mockProductionBatchService,
         },
       ],
     })
@@ -448,6 +494,7 @@ describe('LabelTemplateService', () => {
     it('should generate label with placeholder replacement', async () => {
       const generateDto: GenerateLabelDto = {
         template_id: 'RAW-001',
+        lot_id: 'LOT-MOCK-001',
       };
       jest
         .spyOn(repository, 'findByTemplateId')
@@ -493,7 +540,10 @@ describe('LabelTemplateService', () => {
           mockLabelTemplateDoc as unknown as LabelTemplateDocument,
         );
 
-      const result = await service.generateLabel({ template_id: 'RAW-001' });
+      const result = await service.generateLabel({
+        template_id: 'RAW-001',
+        lot_id: 'LOT-MOCK-001',
+      });
 
       const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z?$/;
       expect(result.generatedAt).toMatch(iso8601Regex);
@@ -508,7 +558,10 @@ describe('LabelTemplateService', () => {
         .spyOn(repository, 'findByTemplateId')
         .mockResolvedValue(staticDoc as unknown as LabelTemplateDocument);
 
-      const result = await service.generateLabel({ template_id: 'RAW-001' });
+      const result = await service.generateLabel({
+        template_id: 'RAW-001',
+        lot_id: 'LOT-MOCK-001',
+      });
 
       expect(result.populatedContent).toBe('Static text no placeholders');
     });
@@ -932,8 +985,8 @@ describe('LabelTemplateService', () => {
 
     describe.each([
       {
-        name: 'default lot source',
-        dto: { template_id: 'RAW-001' } as GenerateLabelDto,
+        name: 'lot source',
+        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
         expectedKey: 'lot_id',
         expectedValue: 'LOT-MOCK-001',
       },
@@ -998,20 +1051,20 @@ describe('LabelTemplateService', () => {
       {
         name: 'missing placeholder stays unchanged',
         template: 'UNKNOWN={{unknown_key}}',
-        dto: { template_id: 'RAW-001' } as GenerateLabelDto,
+        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
         expected: ['UNKNOWN={{unknown_key}}'],
       },
       {
         name: 'no placeholders unchanged',
         template: 'Static content only',
-        dto: { template_id: 'RAW-001' } as GenerateLabelDto,
+        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
         expected: ['Static content only'],
       },
       {
         name: 'mixed known and unknown placeholders',
         template: '{{material_name}}|{{unknown}}|{{expiration_date}}',
-        dto: { template_id: 'RAW-001' } as GenerateLabelDto,
-        expected: ['Acetaminophen API', '{{unknown}}', '2027-11-15'],
+        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
+        expected: ['{{unknown}}', '2027-11-15'],
       },
       {
         name: 'batch placeholders with batch source',

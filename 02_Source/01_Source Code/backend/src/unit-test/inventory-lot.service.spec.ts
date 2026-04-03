@@ -8,6 +8,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import {
   CreateInventoryLotDto,
   InventoryLotStatus,
 } from '../inventory-lot/inventory-lot.dto';
@@ -54,6 +59,7 @@ beforeEach(async () => {
     findByStatus: jest.fn(),
     findBySampleStatus: jest.fn(),
     findSamplesByParentLot: jest.fn(),
+    search: jest.fn(),
     search: jest.fn(),
     findByFilter: jest.fn(),
     update: jest.fn(),
@@ -300,6 +306,7 @@ describe('search', () => {
     };
     repo.search.mockResolvedValue(mockResponse);
 
+    const result = await service.search('ABC', 1, 10);
     const result = await service.search('ABC', 1, 10);
 
     expect(result.data).toHaveLength(1);

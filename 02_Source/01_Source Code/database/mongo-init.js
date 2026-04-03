@@ -34,6 +34,7 @@ db.createCollection("users", {
       required: ["user_id", "username", "email", "role"],
       properties: {
         user_id: { bsonType: "string" },
+        keycloak_id: { bsonType: ["string", "null"] },
         username: { bsonType: "string" },
         email: { bsonType: "string" },
         role: { bsonType: "string", enum: ["Manager", "Operator", "Quality Control Technician", "IT Administrator"] },
@@ -56,7 +57,7 @@ db.createCollection("materials", {
         material_id: { bsonType: "string" },
         part_number: { bsonType: "string" },
         material_name: { bsonType: "string" },
-        material_type: { bsonType: "string" },
+        material_type: { bsonType: "string", enum: ["API", "Excipient", "Dietary Supplement", "Container", "Closure", "Process Chemical", "Testing Material"] },
         storage_conditions: { bsonType: ["string", "null"] },
         specification_document: { bsonType: ["string", "null"] },
         created_by: { bsonType: ["string", "null"] },
@@ -85,7 +86,7 @@ db.createCollection("inventory_lots", {
         expiration_date: { bsonType: "date" },
         in_use_expiration_date: { bsonType: ["date", "null"] },
         status: { bsonType: "string", enum: ["Quarantine", "Accepted", "Rejected", "Depleted"] },
-        quantity: { bsonType: "int" },
+        quantity: { bsonType: ["int", "double"] },
         unit_of_measure: { bsonType: "string" },
         storage_location: { bsonType: ["string", "null"] },
         is_sample: { bsonType: "bool" },
@@ -112,7 +113,7 @@ db.createCollection("inventory_transactions", {
         lot_id: { bsonType: "string" },
         related_lot_id: { bsonType: ["string", "null"] },
         transaction_type: { bsonType: "string", enum: ["Receipt", "Usage", "Split", "Adjustment", "Transfer", "Disposal"] },
-        quantity: { bsonType: "string" },
+        quantity: { bsonType: ["int", "double"] },
         unit_of_measure: { bsonType: "string" },
         transaction_date: { bsonType: "date" },
         reference_number: { bsonType: ["string", "null"] },
@@ -139,7 +140,7 @@ db.createCollection("production_batches", {
         shelf_life_value: { bsonType: "int" },
         shelf_life_unit: { bsonType: "string" },
         status: { bsonType: "string", enum: ["In Progress", "Complete", "On Hold", "Cancelled"] },
-        batch_size: { bsonType: "decimal" },
+        batch_size: { bsonType: ["int", "double"] },
         created_by: { bsonType: ["string", "null"] },
         approved_by: { bsonType: ["string", "null"] },
         completed_by: { bsonType: ["string", "null"] },
@@ -160,8 +161,8 @@ db.createCollection("batch_components", {
         component_id: { bsonType: "string" },
         batch_id: { bsonType: "string" },
         lot_id: { bsonType: "string" },
-        planned_quantity: { bsonType: "decimal" },
-        actual_quantity: { bsonType: ["decimal", "null"] },
+        planned_quantity: { bsonType: ["int", "double"] },
+        actual_quantity: { bsonType: ["int", "double", "null"] },
         unit_of_measure: { bsonType: "string" },
         addition_date: { bsonType: ["date", "null"] },
         added_by: { bsonType: ["string", "null"] },
@@ -190,7 +191,51 @@ db.createCollection("qc_tests", {
         performed_by: { bsonType: "string" },
         verified_by: { bsonType: ["string", "null"] },
         reject_reason: { bsonType: ["string", "null"] },
-        retry_count: { bsonType: ["int", "null"] },
+        label_id: { bsonType: ["string", "null"] },
+        approved_by: { bsonType: ["string", "null"] },
+        history: { bsonType: ["array", "null"] },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" }
+      }
+    }
+  }
+});
+
+// Warehouse Locations Collection
+db.createCollection("warehouse_locations", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["location_code", "location_name", "level"],
+      properties: {
+        location_code: { bsonType: "string" },
+        location_name: { bsonType: "string" },
+        level: { bsonType: "string", enum: ["warehouse", "zone", "shelf", "bin"] },
+        parent_code: { bsonType: ["string", "null"] },
+        description: { bsonType: ["string", "null"] },
+        capacity: { bsonType: ["int", "double", "null"] },
+        is_active: { bsonType: "bool" },
+        notes: { bsonType: ["string", "null"] },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" }
+      }
+    }
+  }
+});
+
+// Label Templates Collection
+db.createCollection("label_templates", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["template_id", "template_name", "label_type", "template_content", "width", "height"],
+      properties: {
+        template_id: { bsonType: "string" },
+        template_name: { bsonType: "string" },
+        label_type: { bsonType: "string", enum: ["Raw Material", "Sample", "Intermediate", "Finished Product", "API", "Status"] },
+        template_content: { bsonType: "string" },
+        width: { bsonType: ["int", "double"] },
+        height: { bsonType: ["int", "double"] },
         created_date: { bsonType: "date" },
         modified_date: { bsonType: "date" }
       }
@@ -205,6 +250,8 @@ print(">>> All collections created successfully");
 // 3. CREATE INDEXES FOR PERFORMANCE
 // ============================================================================
 
+db.users.createIndex({ user_id: 1 }, { unique: true });
+db.users.createIndex({ keycloak_id: 1 }, { unique: true, sparse: true });
 db.users.createIndex({ username: 1 }, { unique: true });
 db.users.createIndex({ email: 1 }, { unique: true });
 db.users.createIndex({ role: 1 });
@@ -220,11 +267,13 @@ db.inventory_lots.createIndex({ lot_id: 1 }, { unique: true });
 db.inventory_lots.createIndex({ material_id: 1 });
 db.inventory_lots.createIndex({ status: 1 });
 db.inventory_lots.createIndex({ expiration_date: 1 });
-db.inventory_lots.createIndex({ is_sample: 1 });
+db.inventory_lots.createIndex({ created_date: -1 });
+db.inventory_lots.createIndex({ is_sample: 1, parent_lot_id: 1 });
 db.inventory_lots.createIndex({ material_id: 1, status: 1 });
 
 db.inventory_transactions.createIndex({ transaction_id: 1 }, { unique: true });
 db.inventory_transactions.createIndex({ lot_id: 1 });
+db.inventory_transactions.createIndex({ lot_id: 1, transaction_date: -1 });
 db.inventory_transactions.createIndex({ transaction_type: 1 });
 db.inventory_transactions.createIndex({ transaction_date: -1 });
 db.inventory_transactions.createIndex({ performed_by: 1 });
@@ -242,6 +291,16 @@ db.qc_tests.createIndex({ test_id: 1 }, { unique: true });
 db.qc_tests.createIndex({ lot_id: 1 });
 db.qc_tests.createIndex({ result_status: 1 });
 db.qc_tests.createIndex({ test_date: -1 });
+
+db.warehouse_locations.createIndex({ location_code: 1 }, { unique: true });
+db.warehouse_locations.createIndex({ level: 1 });
+db.warehouse_locations.createIndex({ parent_code: 1 });
+db.warehouse_locations.createIndex({ is_active: 1 });
+
+db.label_templates.createIndex({ template_id: 1 }, { unique: true });
+db.label_templates.createIndex({ label_type: 1 });
+db.label_templates.createIndex({ template_name: "text" });
+db.label_templates.createIndex({ created_date: -1 });
 
 print(">>> All indexes created successfully");
 

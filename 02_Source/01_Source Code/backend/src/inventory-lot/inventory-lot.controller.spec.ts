@@ -8,6 +8,22 @@ import {
   UpdateInventoryLotDto,
 } from './inventory-lot.dto';
 
+jest.mock('uuid', () => ({
+  v4: () => '00000000-0000-4000-8000-000000000004',
+}));
+
+jest.mock('../auth/guards/jwt-auth.guard', () => ({
+  JwtAuthGuard: class JwtAuthGuardMock {},
+}));
+
+jest.mock('../auth/guards/roles.guard', () => ({
+  RolesGuard: class RolesGuardMock {},
+}));
+
+jest.mock('../auth/decorators/roles.decorator', () => ({
+  Roles: () => () => undefined,
+}));
+
 jest.mock(
   'src/inventory-lot/inventory-lot.dto',
   () => ({
@@ -28,7 +44,7 @@ type MockedInventoryLotService = {
   getExpiringSoon: jest.Mock;
   getExpiredLots: jest.Mock;
   findSampleLots: jest.Mock;
-  searchByManufacturer: jest.Mock;
+  search: jest.Mock;
   filterLots: jest.Mock;
   findByMaterialId: jest.Mock;
   findByStatus: jest.Mock;
@@ -66,7 +82,7 @@ describe('InventoryLotController', () => {
       getExpiringSoon: jest.fn(),
       getExpiredLots: jest.fn(),
       findSampleLots: jest.fn(),
-      searchByManufacturer: jest.fn(),
+      search: jest.fn(),
       filterLots: jest.fn(),
       findByMaterialId: jest.fn(),
       findByStatus: jest.fn(),
@@ -210,12 +226,12 @@ describe('InventoryLotController', () => {
         '7',
       );
 
-      expect(service.searchByManufacturer).not.toHaveBeenCalled();
+      expect(service.search).not.toHaveBeenCalled();
       expect(result).toEqual({ data: [], total: 0, page: 1, limit: '7' });
     });
 
-    it('should call service.searchByManufacturer with parsed pagination', async () => {
-      service.searchByManufacturer.mockResolvedValue({
+    it('should call service.search with parsed pagination', async () => {
+      service.search.mockResolvedValue({
         data: [sampleResponse],
         total: 4,
         page: 2,
@@ -224,7 +240,7 @@ describe('InventoryLotController', () => {
 
       const result = await controller.search('ABC', '2', '2');
 
-      expect(service.searchByManufacturer).toHaveBeenCalledWith('ABC', 2, 2);
+      expect(service.search).toHaveBeenCalledWith('ABC', 2, 2);
       expect(result.total).toBe(4);
     });
   });
@@ -330,8 +346,8 @@ describe('InventoryLotController', () => {
       service.findByStatus.mockResolvedValue({
         data: [sampleResponse],
         total: 1,
-        page: 1,
-        limit: 10,
+        page: 2,
+        limit: 3,
       });
 
       await controller.findAll('2', '3', InventoryLotStatus.ACCEPTED);

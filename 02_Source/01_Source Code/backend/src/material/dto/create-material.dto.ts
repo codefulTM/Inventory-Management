@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, MaxLength, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  MaxLength,
+  IsEnum,
+} from 'class-validator';
 
 export enum MaterialType {
   API = 'API',

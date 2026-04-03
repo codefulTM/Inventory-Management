@@ -13,7 +13,14 @@ export class CreateQCTestDto {
   @MaxLength(36)
   lot_id: string;
 
-  @IsEnum(['Identity', 'Potency', 'Microbial', 'Growth Promotion', 'Physical', 'Chemical'])
+  @IsEnum([
+    'Identity',
+    'Potency',
+    'Microbial',
+    'Growth Promotion',
+    'Physical',
+    'Chemical',
+  ])
   test_type: string;
 
   @IsString()

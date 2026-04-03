@@ -44,6 +44,7 @@ export class CreateProductionBatchDto {
   @IsNumber({}, { message: 'shelf_life_value must be a number' })
   @IsPositive({ message: 'shelf_life_value must be positive' })
   @IsNotEmpty({ message: 'shelf_life_value is required' })
+  @Type(() => Number)
   shelf_life_value: number;
 
   @IsString({ message: 'shelf_life_unit must be a string' })
@@ -56,7 +57,9 @@ export class CreateProductionBatchDto {
   @IsNotEmpty({ message: 'status is required' })
   status: BatchStatus;
 
-  @IsString({ message: 'batch_size must be a string' })
+  @IsNumber({}, { message: 'batch_size must be a number' })
+  @IsPositive({ message: 'batch_size must be a positive number' })
   @IsNotEmpty({ message: 'batch_size is required' })
-  batch_size: string; // Using string to represent Decimal128
+  @Type(() => Number)
+  batch_size: number;
 }

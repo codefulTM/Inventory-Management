@@ -11,6 +11,15 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-transaction-id'),
 }));
 
+// Mock uuid to avoid ESM import issues
+jest.mock(
+  'uuid',
+  () => ({
+    v4: () => 'test-uuid-1234-5678-90ab-cdef',
+  }),
+  { virtual: true },
+);
+
 // utility helper
 function makeDto(
   overrides: Partial<CreateInventoryTransactionDto> = {},
@@ -27,6 +36,10 @@ function makeDto(
     ...overrides,
   } as any;
 }
+
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mock-transaction-id'),
+}));
 
 describe('InventoryTransactionService', () => {
   let svc: InventoryTransactionService;

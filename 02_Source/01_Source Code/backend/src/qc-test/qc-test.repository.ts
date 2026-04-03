@@ -6,7 +6,8 @@ import { QCTest, QCTestDocument } from '../schemas/qc-test.schema';
 @Injectable()
 export class QCTestRepository {
   constructor(
-    @InjectModel(QCTest.name) private readonly qcTestModel: Model<QCTestDocument>,
+    @InjectModel(QCTest.name)
+    private readonly qcTestModel: Model<QCTestDocument>,
   ) {}
 
   async findAll(filter?: {
@@ -55,9 +56,7 @@ export class QCTestRepository {
   }
 
   async deleteByTestId(test_id: string): Promise<boolean> {
-    const result = await this.qcTestModel
-      .deleteOne({ test_id })
-      .exec();
+    const result = await this.qcTestModel.deleteOne({ test_id }).exec();
     return result.deletedCount > 0;
   }
 

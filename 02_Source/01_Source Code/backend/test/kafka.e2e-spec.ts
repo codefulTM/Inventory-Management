@@ -6,7 +6,7 @@ const topic = 'test-topic-' + Date.now();
 
 describe('Kafka e2e', () => {
   let kafka: Kafka;
-  let messages: any[] = [];
+  const messages: any[] = [];
 
   beforeAll(async () => {
     // start broker via npm script (relative to backend folder)

@@ -13,8 +13,12 @@ import {
 import { CreateQCTestDto } from './dto/create-qc-test.dto';
 import { UpdateQCTestDto } from './dto/update-qc-test.dto';
 import { QCDecisionDto } from './dto/qc-decision.dto';
-import { InventoryLotStatus, InventoryLotResponseDto } from '../inventory-lot/inventory-lot.dto';
+import {
+  InventoryLotStatus,
+  InventoryLotResponseDto,
+} from '../inventory-lot/inventory-lot.dto';
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
+import { ProductionBatchService } from '../production-batch/production-batch.service';
 
 // TODO [Workflow B]: After ProductionBatchModule is ready, inject ProductionBatchService
 // and call QCTestService.createTest() after batch QC completes.
@@ -29,14 +33,13 @@ import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 //   quantity         ← batch.batch_size (Decimal128 → number)
 //   unit_of_measure  ← batch.unit_of_measure
 
-
 @Injectable()
 export class QCTestService {
   constructor(
     private readonly repository: QCTestRepository,
     private readonly inventoryLotService: InventoryLotService,
+    private readonly productionBatchService: ProductionBatchService,
   ) {}
-
 
   // ─── InventoryLotService helpers ─────────────────────────────────────
 
@@ -57,12 +60,10 @@ export class QCTestService {
     return test;
   }
 
-
   async getTestsByLotId(lot_id: string): Promise<QCTestDocument[]> {
     await this.inventoryLotService.findById(lot_id); // validate lot exists
     return this.repository.findByLotId(lot_id);
   }
-
 
   async createTest(dto: CreateQCTestDto): Promise<QCTestDocument> {
     await this.inventoryLotService.findById(dto.lot_id); // validate lot exists
@@ -75,6 +76,65 @@ export class QCTestService {
     };
 
     return this.repository.create(data);
+  }
+
+  async initTestFromBatch(
+    batch_id: string,
+    dto: {
+      performed_by: string;
+      test_type?: CreateQCTestDto['test_type'];
+      test_method?: string;
+      acceptance_criteria?: string;
+    },
+  ): Promise<QCTestDocument> {
+    if (!dto.performed_by?.trim()) {
+      throw new BadRequestException('performed_by is required');
+    }
+
+    const batch = await this.productionBatchService.findOne(batch_id);
+
+    const lotSearch = await this.inventoryLotService.search(
+      batch.batch_number,
+      1,
+      20,
+    );
+
+    const lot = lotSearch.data.find(
+      (item) =>
+        item.manufacturer_lot === batch.batch_number &&
+        item.material_id === batch.product_id,
+    );
+
+    if (!lot) {
+      throw new NotFoundException(
+        `Finished inventory lot for batch '${batch_id}' not found`,
+      );
+    }
+
+    const existed = await this.repository.findByLotId(lot.lot_id);
+    const hasPendingBatchQC = existed.some(
+      (test) =>
+        test.result_status === 'Pending' &&
+        test.test_method === 'Batch Completion QC',
+    );
+
+    if (hasPendingBatchQC) {
+      throw new BadRequestException(
+        `Pending QC test already exists for batch '${batch_id}'`,
+      );
+    }
+
+    return this.createTest({
+      lot_id: lot.lot_id,
+      test_type: dto.test_type ?? 'Physical',
+      test_method: dto.test_method ?? 'Batch Completion QC',
+      test_date: new Date().toISOString(),
+      test_result: `Pending QC test for completed batch ${batch.batch_number}`,
+      acceptance_criteria:
+        dto.acceptance_criteria ?? 'Internal batch release criteria',
+      result_status: 'Pending',
+      performed_by: dto.performed_by,
+    });
   }
 
   async updateTest(
@@ -100,7 +160,6 @@ export class QCTestService {
   }
 
   // ─── Workflow ────────────────────────────────────────────────────────────
-
 
   async submitDecision(
     lot_id: string,
@@ -147,7 +206,6 @@ export class QCTestService {
     return { lot, tests };
   }
 
-
   async submitRetestDecision(
     lot_id: string,
     action: 'extend' | 'discard',
@@ -163,7 +221,10 @@ export class QCTestService {
       }
 
       // Chỉ update status, không update các trường khác để tránh lỗi type
-      const lot = await this.inventoryLotService.updateStatus(lot_id, InventoryLotStatus.ACCEPTED);
+      const lot = await this.inventoryLotService.updateStatus(
+        lot_id,
+        InventoryLotStatus.ACCEPTED,
+      );
 
       await this.repository.create({
         test_id: uuidv4(),
@@ -178,7 +239,10 @@ export class QCTestService {
 
       return lot;
     } else {
-      const lot = await this.inventoryLotService.updateStatus(lot_id, InventoryLotStatus.DEPLETED);
+      const lot = await this.inventoryLotService.updateStatus(
+        lot_id,
+        InventoryLotStatus.DEPLETED,
+      );
 
       await this.repository.create({
         test_id: uuidv4(),
@@ -196,7 +260,6 @@ export class QCTestService {
   }
 
   // ─── Dashboard & Reporting ────────────────────────────────────────────────
-
 
   async getDashboardKPI(): Promise<{
     pending_count: number;
@@ -232,7 +295,10 @@ export class QCTestService {
     if (quarantineLots && typeof quarantineLots === 'object') {
       if (Array.isArray(quarantineLots)) {
         pending_count = quarantineLots.length;
-      } else if ('data' in quarantineLots && Array.isArray(quarantineLots.data)) {
+      } else if (
+        'data' in quarantineLots &&
+        Array.isArray(quarantineLots.data)
+      ) {
         pending_count = quarantineLots.data.length;
       }
     }
@@ -240,10 +306,10 @@ export class QCTestService {
       pending_count,
       approved_count: typeof approved_count === 'number' ? approved_count : 0,
       rejected_count: typeof rejected_count === 'number' ? rejected_count : 0,
-      error_rate: typeof error_rate === 'number' ? Math.round(error_rate * 100) / 100 : 0,
+      error_rate:
+        typeof error_rate === 'number' ? Math.round(error_rate * 100) / 100 : 0,
     };
   }
-
 
   async getSupplierPerformance(filter?: {
     from?: string;
@@ -265,7 +331,9 @@ export class QCTestService {
 
     const uniqueLotIds = [...new Set(tests.map((t) => t.lot_id))];
     // Không có findByIds, dùng Promise.all(findById)
-    const lotsArr = await Promise.all(uniqueLotIds.map(id => this.inventoryLotService.findById(id)));
+    const lotsArr = await Promise.all(
+      uniqueLotIds.map((id) => this.inventoryLotService.findById(id)),
+    );
     const lotMap = new Map(lotsArr.map((l) => [l.lot_id, l]));
 
     const supplierMap = new Map<
@@ -275,7 +343,10 @@ export class QCTestService {
 
     for (const test of tests) {
       const lot = lotMap.get(test.lot_id) || {};
-      const name = (lot as any).supplier_name ?? (lot as any).manufacturer_name ?? 'Unknown';
+      const name =
+        (lot as any).supplier_name ??
+        (lot as any).manufacturer_name ??
+        'Unknown';
       if (!supplierMap.has(name)) {
         supplierMap.set(name, { total_batches: 0, approved: 0, rejected: 0 });
       }

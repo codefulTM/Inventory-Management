@@ -17,10 +17,11 @@ import {
   InventoryLotSearchParams,
   InventoryLotStatus,
 } from './inventory-lot.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../schemas/user.schema';
+import { BulkQuarantineDto } from '../qc-test/dto/bulk-quarantine.dto';
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import {Roles} from "../auth/decorators/roles.decorator";
+import {UserRole} from "../schemas/user.schema";
 
 @Controller('inventory-lots')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -32,6 +33,12 @@ export class InventoryLotController {
   @Post()
   async create(@Body(ValidationPipe) dto: CreateInventoryLotDto) {
     return await this.inventoryLotService.create(dto);
+  }
+
+  @Roles(UserRole.QC_TECHNICIAN, UserRole.MANAGER)
+  @Post('bulk-quarantine')
+  async bulkQuarantine(@Body(ValidationPipe) dto: BulkQuarantineDto) {
+    return await this.inventoryLotService.bulkQuarantine(dto.lot_ids);
   }
 
   @Roles(UserRole.OPERATOR, UserRole.MANAGER, UserRole.QC_TECHNICIAN)

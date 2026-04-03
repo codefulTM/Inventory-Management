@@ -17,7 +17,7 @@ export interface KeycloakTokenResponse {
 }
 
 export interface KeycloakUserRepresentation {
-  id: string;           // Keycloak UUID
+  id: string; // Keycloak UUID
   username: string;
   email: string;
   firstName?: string;
@@ -32,10 +32,11 @@ export interface KeycloakUserRepresentation {
     value: string;
     temporary: boolean;
   }>;
+  requiredActions?: string[];
 }
 
 export interface KeycloakJwtPayload {
-  sub: string;           // Keycloak user ID
+  sub: string; // Keycloak user ID
   preferred_username: string;
   email: string;
   realm_access?: { roles: string[] };
@@ -68,11 +69,23 @@ export class KeycloakService {
   private adminTokenExpiry: number = 0;
 
   constructor(private readonly config: ConfigService) {
-    this.serverUrl = this.config.get<string>('KEYCLOAK_SERVER_URL', 'http://localhost:8080');
+    this.serverUrl = this.config.get<string>(
+      'KEYCLOAK_SERVER_URL',
+      'http://localhost:8080',
+    );
     this.realm = this.config.get<string>('KEYCLOAK_REALM', 'inventory');
-    this.adminClientId = this.config.get<string>('KEYCLOAK_ADMIN_CLIENT_ID', 'admin-cli');
-    this.adminClientSecret = this.config.get<string>('KEYCLOAK_ADMIN_CLIENT_SECRET', '');
-    this.clientId = this.config.get<string>('KEYCLOAK_CLIENT_ID', 'inventory-backend');
+    this.adminClientId = this.config.get<string>(
+      'KEYCLOAK_ADMIN_CLIENT_ID',
+      'admin-cli',
+    );
+    this.adminClientSecret = this.config.get<string>(
+      'KEYCLOAK_ADMIN_CLIENT_SECRET',
+      '',
+    );
+    this.clientId = this.config.get<string>(
+      'KEYCLOAK_CLIENT_ID',
+      'inventory-backend',
+    );
   }
 
   // ─── Base URL helpers ────────────────────────────────────────────────────
@@ -119,7 +132,9 @@ export class KeycloakService {
       if (!res.ok) {
         const text = await res.text();
         this.logger.error(`Failed to get admin token: ${res.status} ${text}`);
-        throw new InternalServerErrorException('Keycloak admin authentication failed');
+        throw new InternalServerErrorException(
+          'Keycloak admin authentication failed',
+        );
       }
 
       const data = (await res.json()) as KeycloakTokenResponse;
@@ -139,7 +154,10 @@ export class KeycloakService {
    * Đăng nhập user bằng username/password qua Keycloak.
    * Trả về token set (access_token, refresh_token, …)
    */
-  async loginUser(username: string, password: string): Promise<KeycloakTokenResponse> {
+  async loginUser(
+    username: string,
+    password: string,
+  ): Promise<KeycloakTokenResponse> {
     const body = new URLSearchParams();
     body.set('grant_type', 'password');
     body.set('client_id', this.clientId);
@@ -183,7 +201,9 @@ export class KeycloakService {
     });
 
     if (!res.ok) {
-      throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException(
+        'Refresh token không hợp lệ hoặc đã hết hạn',
+      );
     }
 
     return res.json() as Promise<KeycloakTokenResponse>;
@@ -230,11 +250,12 @@ export class KeycloakService {
       email: data.email,
       enabled: true,
       emailVerified: true,
-      firstName: data.firstName ?? '',
-      lastName: data.lastName ?? '',
+      firstName: data.firstName || data.username,
+      lastName: data.lastName || data.username,
       credentials: [
         { type: 'password', value: data.password, temporary: false },
       ],
+      requiredActions: [],
       attributes: {
         role: [data.role],
       },
@@ -253,9 +274,13 @@ export class KeycloakService {
       const text = await res.text();
       this.logger.error(`Create user failed: ${res.status} ${text}`);
       if (res.status === 409) {
-        throw new InternalServerErrorException('User đã tồn tại trong Keycloak');
+        throw new InternalServerErrorException(
+          'User đã tồn tại trong Keycloak',
+        );
       }
-      throw new InternalServerErrorException('Không thể tạo user trong Keycloak');
+      throw new InternalServerErrorException(
+        'Không thể tạo user trong Keycloak',
+      );
     }
 
     // Keycloak trả về Location header: /admin/realms/{realm}/users/{id}
@@ -276,16 +301,33 @@ export class KeycloakService {
   /**
    * Cập nhật thông tin user trong Keycloak
    */
-  async updateUser(keycloakId: string, data: {
-    email?: string;
-    role?: string;
-    firstName?: string;
-    lastName?: string;
-  }): Promise<void> {
+  async updateUser(
+    keycloakId: string,
+    data: {
+      email?: string;
+      role?: string;
+      firstName?: string;
+      lastName?: string;
+    },
+  ): Promise<void> {
     const token = await this.getAdminToken();
 
-    const body: Partial<KeycloakUserRepresentation> = {};
-    if (data.email) body.email = data.email;
+    // GET current user để giữ lại firstName/lastName (tránh Keycloak xóa chúng)
+    const existing = await fetch(`${this.adminBaseUrl}/users/${keycloakId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => r.json());
+
+    const body: Partial<KeycloakUserRepresentation> = {
+      firstName: existing.firstName,
+      lastName: existing.lastName,
+      email: existing.email,
+      emailVerified: existing.emailVerified ?? true,
+      requiredActions: [],
+    };
+    if (data.email) {
+      body.email = data.email;
+      body.emailVerified = true;
+    }
     if (data.firstName !== undefined) body.firstName = data.firstName;
     if (data.lastName !== undefined) body.lastName = data.lastName;
     if (data.role) body.attributes = { role: [data.role] };
@@ -301,8 +343,12 @@ export class KeycloakService {
 
     if (!res.ok) {
       const text = await res.text();
-      this.logger.error(`Update user ${keycloakId} failed: ${res.status} ${text}`);
-      throw new InternalServerErrorException('Không thể cập nhật user trong Keycloak');
+      this.logger.error(
+        `Update user ${keycloakId} failed: ${res.status} ${text}`,
+      );
+      throw new InternalServerErrorException(
+        'Không thể cập nhật user trong Keycloak',
+      );
     }
 
     // Cập nhật role nếu có
@@ -329,7 +375,9 @@ export class KeycloakService {
     if (!res.ok) {
       const text = await res.text();
       this.logger.error(`Set user enabled failed: ${res.status} ${text}`);
-      throw new InternalServerErrorException('Không thể thay đổi trạng thái user trong Keycloak');
+      throw new InternalServerErrorException(
+        'Không thể thay đổi trạng thái user trong Keycloak',
+      );
     }
   }
 
@@ -339,20 +387,32 @@ export class KeycloakService {
   async resetPassword(keycloakId: string, newPassword: string): Promise<void> {
     const token = await this.getAdminToken();
 
-    const res = await fetch(`${this.adminBaseUrl}/users/${keycloakId}/reset-password`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    const res = await fetch(
+      `${this.adminBaseUrl}/users/${keycloakId}/reset-password`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          type: 'password',
+          value: newPassword,
+          temporary: false,
+        }),
       },
-      body: JSON.stringify({ type: 'password', value: newPassword, temporary: false }),
-    });
+    );
 
     if (!res.ok) {
       const text = await res.text();
       this.logger.error(`Reset password failed: ${res.status} ${text}`);
-      throw new InternalServerErrorException('Không thể đặt lại mật khẩu trong Keycloak');
+      throw new InternalServerErrorException(
+        'Không thể đặt lại mật khẩu trong Keycloak',
+      );
     }
+
+    // Clear required actions (VERIFY_EMAIL, UPDATE_PASSWORD, ...) sau khi reset
+    await this.updateUser(keycloakId, {});
   }
 
   /**
@@ -368,20 +428,29 @@ export class KeycloakService {
 
     if (!res.ok && res.status !== 404) {
       const text = await res.text();
-      this.logger.error(`Delete user ${keycloakId} failed: ${res.status} ${text}`);
-      throw new InternalServerErrorException('Không thể xóa user khỏi Keycloak');
+      this.logger.error(
+        `Delete user ${keycloakId} failed: ${res.status} ${text}`,
+      );
+      throw new InternalServerErrorException(
+        'Không thể xóa user khỏi Keycloak',
+      );
     }
   }
 
   /**
    * Tìm kiếm user trong Keycloak theo username
    */
-  async findKeycloakUserByUsername(username: string): Promise<KeycloakUserRepresentation | null> {
+  async findKeycloakUserByUsername(
+    username: string,
+  ): Promise<KeycloakUserRepresentation | null> {
     const token = await this.getAdminToken();
 
-    const res = await fetch(`${this.adminBaseUrl}/users?username=${encodeURIComponent(username)}&exact=true`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(
+      `${this.adminBaseUrl}/users?username=${encodeURIComponent(username)}&exact=true`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
 
     if (!res.ok) return null;
 
@@ -406,23 +475,31 @@ export class KeycloakService {
       );
 
       if (!roleRes.ok) {
-        this.logger.warn(`Role '${roleName}' not found in Keycloak realm, skipping assignment`);
+        this.logger.warn(
+          `Role '${roleName}' not found in Keycloak realm, skipping assignment`,
+        );
         return;
       }
 
       const role = await roleRes.json();
 
       // Gán role cho user
-      await fetch(`${this.adminBaseUrl}/users/${keycloakId}/role-mappings/realm`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      await fetch(
+        `${this.adminBaseUrl}/users/${keycloakId}/role-mappings/realm`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify([role]),
         },
-        body: JSON.stringify([role]),
-      });
+      );
     } catch (err) {
-      this.logger.warn(`Failed to assign role ${roleName} to ${keycloakId}:`, err);
+      this.logger.warn(
+        `Failed to assign role ${roleName} to ${keycloakId}:`,
+        err,
+      );
     }
   }
 
@@ -431,9 +508,12 @@ export class KeycloakService {
    */
   async getRealmRolesForUser(keycloakId: string): Promise<string[]> {
     const token = await this.getAdminToken();
-    const res = await fetch(`${this.adminBaseUrl}/users/${keycloakId}/role-mappings/realm`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(
+      `${this.adminBaseUrl}/users/${keycloakId}/role-mappings/realm`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
     if (!res.ok) return [];
     const roles = await res.json();
     return Array.isArray(roles) ? roles.map((r: any) => r.name) : [];
@@ -444,7 +524,9 @@ export class KeycloakService {
   /**
    * Introspect token tại Keycloak để xác minh tính hợp lệ
    */
-  async introspectToken(accessToken: string): Promise<{ active: boolean; sub?: string; preferred_username?: string }> {
+  async introspectToken(
+    accessToken: string,
+  ): Promise<{ active: boolean; sub?: string; preferred_username?: string }> {
     const body = new URLSearchParams();
     body.set('token', accessToken);
     body.set('client_id', this.clientId);
@@ -462,6 +544,10 @@ export class KeycloakService {
 
     if (!res.ok) return { active: false };
 
-    return res.json() as Promise<{ active: boolean; sub?: string; preferred_username?: string }>;
+    return res.json() as Promise<{
+      active: boolean;
+      sub?: string;
+      preferred_username?: string;
+    }>;
   }
 }

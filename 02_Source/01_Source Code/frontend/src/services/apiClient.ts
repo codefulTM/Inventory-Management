@@ -110,8 +110,8 @@ class ApiClient {
     // Request interceptor - thêm token auth + user info
     this.axiosInstance.interceptors.request.use(
       (config) => {
-        // Không require token cho auth endpoints
-        const isAuthEndpoint = config.url?.includes("/auth/");
+        // Không require token cho auth endpoints (trừ logout cần token)
+        const isAuthEndpoint = config.url?.includes("/auth/") && !config.url?.includes("/auth/logout");
 
         // Thêm Authorization header với token (ngoại trừ auth endpoints)
         const token = localStorage.getItem("auth_token");

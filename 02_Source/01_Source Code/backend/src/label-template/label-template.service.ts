@@ -15,41 +15,10 @@ import {
   LabelType,
 } from './label-template.dto';
 import type { LabelTemplateDocument } from '../schemas/label-template.schema';
-
-/**
- * Mock data for InventoryLot fields used in label generation.
- * TODO: Replace with real InventoryLotService injection when fully integrated.
- */
-const MOCK_LOT_DATA: Record<string, unknown> = {
-  lot_id: 'LOT-MOCK-001',
-  material_id: 'MAT-001',
-  material_name: 'Acetaminophen API',
-  manufacturer_name: 'PharmaCorp Ltd.',
-  manufacturer_lot: 'PC-2025-0045',
-  supplier_name: 'Global Pharma Supply',
-  received_date: '2025-11-15',
-  expiration_date: '2027-11-15',
-  status: 'Quarantine',
-  quantity: '50.000',
-  unit_of_measure: 'kg',
-  storage_location: 'Kho A - Kệ 3',
-};
-
-/**
- * Mock data for ProductionBatch fields used in label generation.
- * TODO: Replace with real ProductionBatchService injection when fully integrated.
- */
-const MOCK_BATCH_DATA: Record<string, unknown> = {
-  batch_id: 'BATCH-MOCK-001',
-  batch_number: 'PB-2025-0001',
-  product_name: 'Paracetamol Tablet 500mg',
-  product_id: 'MAT-PROD-001',
-  batch_size: '10000.000',
-  unit_of_measure: 'tablets',
-  manufacture_date: '2025-12-01',
-  expiration_date: '2027-12-01',
-  status: 'Complete',
-};
+import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
+import { ProductionBatchService } from '../production-batch/production-batch.service';
+import type { InventoryLotResponseDto } from '../inventory-lot/inventory-lot.dto';
+import type { ProductionBatchResponseDto } from '../production-batch/production-batch.dto';
 
 /**
  * LabelTemplate Service
@@ -59,7 +28,11 @@ const MOCK_BATCH_DATA: Record<string, unknown> = {
 export class LabelTemplateService {
   private readonly logger = new Logger(LabelTemplateService.name);
 
-  constructor(private readonly repository: LabelTemplateRepository) {}
+  constructor(
+    private readonly repository: LabelTemplateRepository,
+    private readonly inventoryLotService: InventoryLotService,
+    private readonly productionBatchService: ProductionBatchService,
+  ) {}
 
   /**
    * Create a new label template
@@ -174,8 +147,7 @@ export class LabelTemplateService {
 
   /**
    * Generate label content by populating template with entity data.
-   * Uses mock data for InventoryLot / ProductionBatch until those modules
-   * are fully integrated. Each {{placeholder}} in the template is replaced.
+   * Each {{placeholder}} in the template is replaced from real lot/batch data.
    */
   async generateLabel(dto: GenerateLabelDto): Promise<{
     template: LabelTemplateResponseDto;
@@ -190,16 +162,15 @@ export class LabelTemplateService {
       );
     }
 
-    // Determine source data — use mock data with TODO for real integration
     let sourceData: Record<string, unknown>;
     if (dto.lot_id) {
-      // TODO: Replace with InventoryLotService.findByLotId(dto.lot_id)
-      sourceData = { ...MOCK_LOT_DATA, lot_id: dto.lot_id };
+      const lot = await this.inventoryLotService.findById(dto.lot_id);
+      sourceData = this.mapInventoryLotData(lot);
     } else if (dto.batch_id) {
-      // TODO: Replace with ProductionBatchService.findByBatchId(dto.batch_id)
-      sourceData = { ...MOCK_BATCH_DATA, batch_id: dto.batch_id };
+      const batch = await this.productionBatchService.findOne(dto.batch_id);
+      sourceData = this.mapProductionBatchData(batch);
     } else {
-      sourceData = { ...MOCK_LOT_DATA };
+      throw new BadRequestException('Either lot_id or batch_id is required to generate label');
     }
 
     const populatedContent = this.populateTemplate(
@@ -230,6 +201,46 @@ export class LabelTemplateService {
         ? String(value)
         : `{{${key}}}`;
     });
+  }
+
+  private mapInventoryLotData(lot: InventoryLotResponseDto): Record<string, unknown> {
+    return {
+      lot_id: lot.lot_id,
+      material_id: lot.material_id,
+      manufacturer_name: lot.manufacturer_name,
+      manufacturer_lot: lot.manufacturer_lot,
+      supplier_name: lot.supplier_name,
+      received_date: lot.received_date,
+      expiration_date: lot.expiration_date,
+      in_use_expiration_date: lot.in_use_expiration_date,
+      status: lot.status,
+      quantity: lot.quantity,
+      unit_of_measure: lot.unit_of_measure,
+      storage_location: lot.storage_location,
+      is_sample: lot.is_sample,
+      parent_lot_id: lot.parent_lot_id,
+      notes: lot.notes,
+      received_by: lot.received_by,
+      qc_by: lot.qc_by,
+    };
+  }
+
+  private mapProductionBatchData(
+    batch: ProductionBatchResponseDto,
+  ): Record<string, unknown> {
+    return {
+      batch_id: batch.batch_id,
+      batch_number: batch.batch_number,
+      product_id: batch.product_id,
+      batch_size: batch.batch_size,
+      unit_of_measure: batch.unit_of_measure,
+      shelf_life_value: batch.shelf_life_value,
+      shelf_life_unit: batch.shelf_life_unit,
+      status: batch.status,
+      created_by: batch.created_by,
+      approved_by: batch.approved_by,
+      completed_by: batch.completed_by,
+    };
   }
 
   private toResponseDto(doc: LabelTemplateDocument): LabelTemplateResponseDto {

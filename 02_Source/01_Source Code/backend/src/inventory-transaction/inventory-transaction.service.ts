@@ -1,7 +1,12 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { DeleteResult } from 'mongodb';
-import { InventoryTransactionRepository } from './inventory-transaction.repository';
+import {
+  FilterOptions,
+  InventoryTransactionRepository,
+  PaginationOptions,
+} from './inventory-transaction.repository';
 import { MaterialRepository } from '../material/material.repository';
+import type { InventoryTransactionDocument } from '../schemas/inventory-transaction.schema';
 import {
   CreateInventoryTransactionDto,
   TransactionType,
@@ -17,7 +22,7 @@ export class InventoryTransactionService {
     if (!transactionDto.transaction_date) {
       transactionDto.transaction_date = new Date().toISOString();
     }
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     transactionDto.transaction_id = require('uuid').v4();
 
     // các kiểm tra validation được thực hiện bên trong mỗi hàm xử lý; quy tắc dấu theo loại đã ghi chú ở đó
@@ -41,7 +46,10 @@ export class InventoryTransactionService {
     }
   }
 
-  async getAll(filters, paging) {
+  async getAll(
+    filters: FilterOptions = {},
+    paging: PaginationOptions = { page: 1, limit: 20 },
+  ): Promise<{ items: InventoryTransactionDocument[]; total: number }> {
     return this.repo.findAll(filters, paging);
   }
   async getOne(id: string) {

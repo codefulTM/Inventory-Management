@@ -11,6 +11,9 @@ async function bootstrap() {
   const frontendOrigin =
     config.get<string>('FRONTEND_ORIGIN') ?? 'http://localhost:5173';
 
+  // Enable trust proxy để lấy IP thực từ X-Forwarded-For header
+  app.getHttpAdapter().getInstance().set('trust proxy', true);
+
   // Cấu hình CORS: cho phép các nguồn, phương thức, header và credentials cụ thể
   app.enableCors({
     origin: frontendOrigin.split(',').map((url) => url.trim()), // support multiple origins separated by comma
@@ -31,6 +34,8 @@ async function bootstrap() {
   // bật ValidationPipe toàn cục để xử lý các DTO
   // whitelist loại bỏ các thuộc tính không khai báo trong DTO,
   // transform tự động convert payload thành instance class
+  // app.setGlobalPrefix('api');
+
   app.useGlobalPipes(
     new (require('@nestjs/common').ValidationPipe)({
       whitelist: true,

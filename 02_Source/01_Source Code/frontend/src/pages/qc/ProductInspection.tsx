@@ -126,9 +126,9 @@ export default function ProductInspection() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                 <tr>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Số lô</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Ngày sx</th>
+                  <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô hàng</th>
+                  <th className="px-6 py-4 text-left font-bold tracking-wider">Mã sản phẩm</th>
+                  <th className="px-6 py-4 text-left font-bold tracking-wider">Ngày sản xuất</th>
                   <th className="px-6 py-4 text-left font-bold tracking-wider">Số lượng</th>
                   <th className="px-6 py-4 text-left font-bold tracking-wider">Dây chuyền</th>
                   <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
@@ -139,7 +139,7 @@ export default function ProductInspection() {
                   <tr key={batch.batch_number} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-mono font-medium text-gray-800">{batch.batch_number}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-700">{batch.product_id}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-500">{new Date(batch.manufacture_date).toLocaleDateString('vi-VN')}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-500">{new Date(batch.created_date).toLocaleDateString('vi-VN')}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-700">{batch.batch_size} {batch.unit_of_measure}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-500">{batch.status}</td>
                     <td className="px-6 py-4">
@@ -178,7 +178,7 @@ export default function ProductInspection() {
             <div className="p-5 space-y-4">
               {/* Batch info */}
               <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg text-sm">
-                <div><span className="text-gray-400">Ngày sx:</span> <span className="font-medium">{new Date(selectedBatch.manufacture_date).toLocaleDateString('vi-VN')}</span></div>
+                <div><span className="text-gray-400">Ngày sản xuất:</span> <span className="font-medium">{new Date(selectedBatch.created_date).toLocaleDateString('vi-VN')}</span></div>
                 <div><span className="text-gray-400">Số lượng:</span> <span className="font-medium">{selectedBatch.batch_size} {selectedBatch.unit_of_measure}</span></div>
                 <div><span className="text-gray-400">Trạng thái:</span> <span className="font-medium">{selectedBatch.status}</span></div>
               </div>
