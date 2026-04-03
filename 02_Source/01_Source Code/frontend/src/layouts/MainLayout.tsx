@@ -1,10 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react";
-import {
-  Link,
-  useNavigate,
-  useLocation,
-  Outlet,
-} from "react-router-dom";
+import { Link, useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -108,10 +103,14 @@ export default function Layout() {
           localStorage.removeItem("auth_token");
           localStorage.removeItem("refresh_token");
           const reason = data.lock_reason ? `Lý do: ${data.lock_reason}\n` : "";
-          const lockMsg = data.lock_type === 'locked'
-            ? `Tài khoản của bạn đã bị khóa tạm thời.\n${reason}Chúng tôi sẽ xem xét và liên hệ lại với bạn.\nĐể được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`
-            : `Tài khoản của bạn đã bị vô hiệu hóa vĩnh viễn.\n${reason}Để được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`;
-          navigate("/login", { replace: true, state: { lockMessage: lockMsg } });
+          const lockMsg =
+            data.lock_type === "locked"
+              ? `Tài khoản của bạn đã bị khóa tạm thời.\n${reason}Chúng tôi sẽ xem xét và liên hệ lại với bạn.\nĐể được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`
+              : `Tài khoản của bạn đã bị vô hiệu hóa vĩnh viễn.\n${reason}Để được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`;
+          navigate("/login", {
+            replace: true,
+            state: { lockMessage: lockMsg },
+          });
           return;
         }
 
@@ -119,13 +118,15 @@ export default function Layout() {
         const stored = localStorage.getItem("user");
         const storedUser = stored ? JSON.parse(stored) : null;
         if (storedUser && storedUser.role !== freshRole) {
-          localStorage.setItem("user", JSON.stringify({ ...storedUser, role: freshRole }));
+          localStorage.setItem(
+            "user",
+            JSON.stringify({ ...storedUser, role: freshRole }),
+          );
           navigate(dashboardMap[freshRole] || "/", { replace: true });
         }
       })
       .catch(() => {});
   }, []);
-
 
   // Hàm hiển thị tên vai trò trên giao diện
   const getDisplayNameFromUsername = (_username?: string) => {
@@ -175,7 +176,7 @@ export default function Layout() {
           {
             to: "/manager/inventory-transactions",
             icon: <FileText size={20} />,
-            label: "Quản lý giao dịch kho",
+            label: "Lịch sử giao dịch",
           },
           {
             to: "/manager/stock",
@@ -187,11 +188,11 @@ export default function Layout() {
             icon: <FileText size={20} />,
             label: "Báo cáo",
           },
-          {
-            to: "/manager/transaction",
-            icon: <History size={20} />,
-            label: "Lịch sử giao dịch",
-          },
+          // {
+          //   to: "/manager/transaction",
+          //   icon: <History size={20} />,
+          //   label: "Lịch sử giao dịch",
+          // },
           {
             to: "/manager/users",
             icon: <FileText size={20} />,
@@ -281,7 +282,7 @@ export default function Layout() {
           {
             to: "/operator/inventory-transactions",
             icon: <FileText size={20} />,
-            label: "Quản lý giao dịch kho",
+            label: "Lịch sử giao dịch",
           },
           {
             to: "/operator/labels",

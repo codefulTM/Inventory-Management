@@ -59,7 +59,12 @@ export class InventoryTransactionRepository {
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-      this.model.find(mongoQuery).skip(skip).limit(limit).exec(),
+      this.model
+        .find(mongoQuery)
+        .sort({ created_date: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
       // count filtered documents without pagination
       this.model.countDocuments(mongoQuery).exec(),
     ]);
