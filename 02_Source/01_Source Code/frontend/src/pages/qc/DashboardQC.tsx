@@ -12,10 +12,13 @@ function getPriority(expirationDate?: string): 'High' | 'Normal' {
   return days < 7 ? 'High' : 'Normal';
 }
 
+const PENDING_LOT_PAGE_SIZE = 5;
+
 export default function DashboardQC() {
   const navigate = useNavigate();
   const [kpi, setKpi] = useState<DashboardKPI | null>(null);
   const [pendingLots, setPendingLots] = useState<InventoryLot[]>([]);
+  const [pendingPage, setPendingPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +32,8 @@ export default function DashboardQC() {
         ]);
         setKpi(kpiData);
         console.log('Fetched KPI:', kpiData);
-        setPendingLots(lotsData.slice(0, 5));
+        setPendingLots(lotsData);
+        setPendingPage(1);
         console.log('Fetched pending lots:', lotsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Lỗi tải dữ liệu');
@@ -55,6 +59,28 @@ export default function DashboardQC() {
     { label: 'Từ chối tháng này', value: String(safeKPI.rejected_count), color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
     { label: 'Tỷ lệ lỗi', value: `${safeKPI.error_rate.toFixed(1)}%`, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
   ];
+
+  const pendingTotalItems = pendingLots.length;
+  const pendingTotalPages = Math.max(
+    1,
+    Math.ceil(pendingTotalItems / PENDING_LOT_PAGE_SIZE),
+  );
+  const pendingStart = (pendingPage - 1) * PENDING_LOT_PAGE_SIZE;
+  const paginatedPendingLots = pendingLots.slice(
+    pendingStart,
+    pendingStart + PENDING_LOT_PAGE_SIZE,
+  );
+  const pendingDisplayFrom = pendingTotalItems === 0 ? 0 : pendingStart + 1;
+  const pendingDisplayTo = Math.min(
+    pendingPage * PENDING_LOT_PAGE_SIZE,
+    pendingTotalItems,
+  );
+
+  useEffect(() => {
+    if (pendingPage > pendingTotalPages) {
+      setPendingPage(pendingTotalPages);
+    }
+  }, [pendingPage, pendingTotalPages]);
 
   return (
     <div className="p-6 space-y-6">
@@ -111,46 +137,73 @@ export default function DashboardQC() {
           ) : pendingLots.length === 0 ? (
             <p className="p-6 text-center text-gray-400 text-sm">Không có lô hàng nào đang chờ kiểm định.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                <tr>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Số lượng</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Ưu tiên</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {pendingLots.map((lot) => {
-                  const priority = getPriority(lot.expiration_date);
-                  return (
-                    <tr key={lot.lot_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.supplier_name}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.quantity} {lot.unit_of_measure ?? ''}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {priority === 'High' ? 'Cao' : 'Bình thường'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => void navigate('/qc/inbound')}
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          Lấy mẫu ngay →
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Số lượng</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Ưu tiên</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paginatedPendingLots.map((lot) => {
+                    const priority = getPriority(lot.expiration_date);
+                    return (
+                      <tr key={lot.lot_id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.supplier_name}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.quantity} {lot.unit_of_measure ?? ''}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {priority === 'High' ? 'Cao' : 'Bình thường'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => void navigate('/qc/inbound')}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            Lấy mẫu ngay →
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  Hiển thị {pendingDisplayFrom}-{pendingDisplayTo} / {pendingTotalItems} lô hàng
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPendingPage((prev) => Math.max(1, prev - 1))}
+                    disabled={pendingPage === 1}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Trước
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    Trang {pendingPage}/{pendingTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setPendingPage((prev) => Math.min(pendingTotalPages, prev + 1))}
+                    disabled={pendingPage === pendingTotalPages}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -13,6 +13,8 @@ const RESULT_BADGE: Record<string, string> = {
   Pending: 'bg-amber-100 text-amber-700',
 };
 
+const SUPPLIER_PAGE_SIZE = 10;
+
 export default function ReportTraceability() {
   const [activeTab, setActiveTab] = useState<Tab>('history');
 
@@ -24,6 +26,7 @@ export default function ReportTraceability() {
 
   // Supplier tab
   const [suppliers, setSuppliers] = useState<SupplierPerformance[]>([]);
+  const [supplierPage, setSupplierPage] = useState(1);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
@@ -42,6 +45,7 @@ export default function ReportTraceability() {
     try {
       const data = await getSupplierPerformance(from, to);
       setSuppliers(data);
+      setSupplierPage(1);
     } catch {
       setToast({ message: 'Không thể tải báo cáo nhà cung cấp', type: 'error' });
     } finally {
@@ -75,6 +79,24 @@ export default function ReportTraceability() {
   const bestSupplier = [...suppliers].sort((a, b) => b.quality_rate - a.quality_rate)[0];
   const worstSupplier = [...suppliers].sort((a, b) => a.quality_rate - b.quality_rate)[0];
   const totalBatches = suppliers.reduce((sum, s) => sum + s.total_batches, 0);
+  const supplierTotalItems = suppliers.length;
+  const supplierTotalPages = Math.max(1, Math.ceil(supplierTotalItems / SUPPLIER_PAGE_SIZE));
+  const supplierStart = (supplierPage - 1) * SUPPLIER_PAGE_SIZE;
+  const paginatedSuppliers = suppliers.slice(
+    supplierStart,
+    supplierStart + SUPPLIER_PAGE_SIZE,
+  );
+  const supplierDisplayFrom = supplierTotalItems === 0 ? 0 : supplierStart + 1;
+  const supplierDisplayTo = Math.min(
+    supplierPage * SUPPLIER_PAGE_SIZE,
+    supplierTotalItems,
+  );
+
+  useEffect(() => {
+    if (supplierPage > supplierTotalPages) {
+      setSupplierPage(supplierTotalPages);
+    }
+  }, [supplierPage, supplierTotalPages]);
 
   async function handleAiAnalyze() {
     if (aiMode === 'single' && !aiSupplierInput.trim()) {
@@ -485,47 +507,74 @@ export default function ReportTraceability() {
             ) : suppliers.length === 0 ? (
               <p className="p-10 text-center text-gray-400">Không có dữ liệu nhà cung cấp trong khoảng thời gian này.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                      <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
-                      <th className="px-6 py-4 text-right font-bold tracking-wider">Tổng lô</th>
-                      <th className="px-6 py-4 text-right font-bold tracking-wider">Đạt</th>
-                      <th className="px-6 py-4 text-right font-bold tracking-wider">Từ chối</th>
-                      <th className="px-6 py-4 text-left font-bold tracking-wider">Chỉ số chất lượng</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {suppliers.map((s) => (
-                      <tr key={s.supplier_name} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-semibold text-gray-800">{s.supplier_name}</td>
-                        <td className="px-6 py-4 text-right text-gray-700">{s.total_batches}</td>
-                        <td className="px-6 py-4 text-right text-green-600 font-medium">{s.approved}</td>
-                        <td className="px-6 py-4 text-right text-red-600 font-medium">{s.rejected}</td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 max-w-32 bg-gray-100 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  s.quality_rate >= 90 ? 'bg-green-500' :
-                                  s.quality_rate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                                }`}
-                                style={{ width: `${Math.min(s.quality_rate, 100)}%` }}
-                              />
-                            </div>
-                            <span className={`text-xs font-semibold min-w-10 ${
-                              s.quality_rate >= 90 ? 'text-green-600' :
-                              s.quality_rate >= 70 ? 'text-yellow-600' : 'text-red-600'
-                            }`}>
-                              {s.quality_rate.toFixed(1)}%
-                            </span>
-                          </div>
-                        </td>
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                      <tr>
+                        <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
+                        <th className="px-6 py-4 text-right font-bold tracking-wider">Tổng lô</th>
+                        <th className="px-6 py-4 text-right font-bold tracking-wider">Đạt</th>
+                        <th className="px-6 py-4 text-right font-bold tracking-wider">Từ chối</th>
+                        <th className="px-6 py-4 text-left font-bold tracking-wider">Chỉ số chất lượng</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {paginatedSuppliers.map((s) => (
+                        <tr key={s.supplier_name} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 font-semibold text-gray-800">{s.supplier_name}</td>
+                          <td className="px-6 py-4 text-right text-gray-700">{s.total_batches}</td>
+                          <td className="px-6 py-4 text-right text-green-600 font-medium">{s.approved}</td>
+                          <td className="px-6 py-4 text-right text-red-600 font-medium">{s.rejected}</td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 max-w-32 bg-gray-100 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full ${
+                                    s.quality_rate >= 90 ? 'bg-green-500' :
+                                    s.quality_rate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${Math.min(s.quality_rate, 100)}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs font-semibold min-w-10 ${
+                                s.quality_rate >= 90 ? 'text-green-600' :
+                                s.quality_rate >= 70 ? 'text-yellow-600' : 'text-red-600'
+                              }`}>
+                                {s.quality_rate.toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    Hiển thị {supplierDisplayFrom}-{supplierDisplayTo} / {supplierTotalItems} nhà cung cấp
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSupplierPage((prev) => Math.max(1, prev - 1))}
+                      disabled={supplierPage === 1}
+                      className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Trước
+                    </button>
+                    <span className="text-xs text-gray-500">
+                      Trang {supplierPage}/{supplierTotalPages}
+                    </span>
+                    <button
+                      onClick={() => setSupplierPage((prev) => Math.min(supplierTotalPages, prev + 1))}
+                      disabled={supplierPage === supplierTotalPages}
+                      className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

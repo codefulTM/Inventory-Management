@@ -37,6 +37,18 @@ export interface InventoryLot {
   location?: string;
 }
 
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedInventoryLots {
+  data: InventoryLot[];
+  pagination: PaginationMeta;
+}
+
 // ── KPI / Reporting ──────────────────────────────────────────────────────────
 export interface DashboardKPI {
   pending_count: number;
