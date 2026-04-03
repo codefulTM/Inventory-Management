@@ -37,10 +37,10 @@ export default function ReportTraceability() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<SupplierAnalysisResponse | null>(null);
 
-  const loadSuppliers = useCallback(async () => {
+  const loadSuppliers = useCallback(async (from?: string, to?: string) => {
     setLoadingSuppliers(true);
     try {
-      const data = await getSupplierPerformance();
+      const data = await getSupplierPerformance(from, to);
       setSuppliers(data);
     } catch {
       setToast({ message: 'Không thể tải báo cáo nhà cung cấp', type: 'error' });
@@ -84,10 +84,13 @@ export default function ReportTraceability() {
     setAiLoading(true);
     setAiResult(null);
     try {
+      const from = dateFrom || undefined;
+      const to = dateTo || undefined;
+
       const result =
         aiMode === 'all'
-          ? await analyzeAllSuppliers(dateFrom || undefined, dateTo || undefined)
-          : await analyzeOneSupplier(aiSupplierInput.trim(), dateFrom || undefined, dateTo || undefined);
+          ? await analyzeAllSuppliers(from, to)
+          : await analyzeOneSupplier(aiSupplierInput.trim(), from, to);
       setAiResult(result);
       if (!result.success) {
         setToast({ message: 'AI phân tích không thành công. Xem chi tiết trong kết quả.', type: 'error' });
@@ -114,6 +117,148 @@ export default function ReportTraceability() {
     a.download = `supplier_performance_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  async function exportCOAPdf() {
+    if (!selectedLotId) {
+      setToast({ message: 'Vui lòng tìm và chọn lô hàng trước khi xuất COA', type: 'error' });
+      return;
+    }
+
+    if (qcHistory.length === 0) {
+      setToast({ message: 'Lô hàng chưa có dữ liệu QC để xuất COA', type: 'error' });
+      return;
+    }
+
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+
+      const generatedAt = new Date();
+      const companyInfo = {
+        name: import.meta.env.VITE_COMPANY_NAME || 'Inventory Management Co., Ltd.',
+        address:
+          import.meta.env.VITE_COMPANY_ADDRESS ||
+          '123 Nguyen Van Linh, District 7, Ho Chi Minh City',
+        hotline: import.meta.env.VITE_COMPANY_HOTLINE || '1900 1234',
+        email: import.meta.env.VITE_COMPANY_EMAIL || 'qa@inventory.local',
+        website: import.meta.env.VITE_COMPANY_WEBSITE || 'https://inventory.local',
+        issuedBy: import.meta.env.VITE_COA_ISSUED_BY || 'QC Department',
+      };
+
+      const coaRows = qcHistory
+        .map((test, idx) => {
+          const date = test.test_date
+            ? new Date(test.test_date).toLocaleDateString('vi-VN')
+            : 'N/A';
+
+          return `
+            <tr>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${idx + 1}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${escapeHtml(test.test_type ?? '')}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${escapeHtml(test.test_method ?? '')}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${escapeHtml(test.test_result ?? '')}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${escapeHtml(test.result_status ?? '')}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${escapeHtml(date)}</td>
+              <td style="padding: 8px; border: 1px solid #d1d5db;">${escapeHtml(test.performed_by ?? '')}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-10000px';
+      container.style.top = '0';
+      container.style.width = '1000px';
+      container.style.background = '#ffffff';
+      container.style.padding = '24px';
+      container.style.boxSizing = 'border-box';
+      container.style.fontFamily = 'Arial, sans-serif';
+      container.innerHTML = `
+        <div style="border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <h2 style="margin: 0 0 8px 0; font-size: 18px; color: #111827;">${escapeHtml(companyInfo.name)}</h2>
+          <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Address:</strong> ${escapeHtml(companyInfo.address)}</p>
+          <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Hotline:</strong> ${escapeHtml(companyInfo.hotline)} | <strong>Email:</strong> ${escapeHtml(companyInfo.email)}</p>
+          <p style="margin: 2px 0; font-size: 12px; color: #374151;"><strong>Website:</strong> ${escapeHtml(companyInfo.website)}</p>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h1 style="margin: 0; font-size: 24px; color: #111827;">CERTIFICATE OF ANALYSIS (COA)</h1>
+          <span style="font-size: 12px; color: #6b7280;">Generated: ${escapeHtml(generatedAt.toLocaleString('vi-VN'))}</span>
+        </div>
+        <div style="margin-bottom: 16px; font-size: 14px; color: #374151;">
+          <p style="margin: 0 0 4px 0;"><strong>Lot ID:</strong> ${escapeHtml(selectedLotId)}</p>
+          <p style="margin: 0;"><strong>Total QC Records:</strong> ${qcHistory.length}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #111827;">
+          <thead>
+            <tr style="background: #f3f4f6;">
+              <th style="padding: 8px; border: 1px solid #d1d5db; text-align: left;">#</th>
+              <th style="padding: 8px; border: 1px solid #d1d5db; text-align: left;">Test Type</th>
+              <th style="padding: 8px; border: 1px solid #d1d5db; text-align: left;">Method</th>
+              <th style="padding: 8px; border: 1px solid #d1d5db; text-align: left;">Result</th>
+              <th style="padding: 8px; border: 1px solid #d1d5db; text-align: left;">Status</th>
+              <th style="padding: 8px; border: 1px solid #d1d5db; text-align: left;">Date</th>
+              <th style="padding: 8px; border: 1px solid #d1d5db; text-align: left;">Performed By</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${coaRows}
+          </tbody>
+        </table>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 12px; color: #374151;">
+          <span><strong>Issued by:</strong> ${escapeHtml(companyInfo.issuedBy)}</span>
+          <span><strong>Signature:</strong> ____________________</span>
+        </div>
+      `;
+
+      document.body.appendChild(container);
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+
+      document.body.removeChild(container);
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`COA_${selectedLotId}_${generatedAt.toISOString().slice(0, 10)}.pdf`);
+      setToast({ message: 'Xuất COA PDF thành công', type: 'success' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+      setToast({ message: `Không thể tạo PDF: ${message}`, type: 'error' });
+    }
   }
 
   return (
@@ -191,7 +336,7 @@ export default function ReportTraceability() {
                   <p className="text-xs text-gray-400 mt-0.5">{qcHistory.length} bản ghi kiểm nghiệm</p>
                 </div>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => void exportCOAPdf()}
                   className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs rounded-lg hover:bg-gray-50"
                 >
                   🖨️ Xuất COA
@@ -283,7 +428,7 @@ export default function ReportTraceability() {
               />
             </div>
             <button
-              onClick={() => void loadSuppliers()}
+              onClick={() => void loadSuppliers(dateFrom || undefined, dateTo || undefined)}
               disabled={loadingSuppliers}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
             >

@@ -74,6 +74,7 @@ export default function InboundControl() {
     setLoading(true);
     try {
       const data = await getInventoryLots(STATUS_MAP[filterStatus]);
+      console.log('Fetched lots:', data);
       setLots(data);
     } catch {
       setToast({ message: 'Không thể tải danh sách lô hàng', type: 'error' });
