@@ -3,11 +3,14 @@ import {
   Post,
   Get,
   Body,
+  Req,
   HttpCode,
   HttpStatus,
   ValidationPipe,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -17,6 +20,7 @@ import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { AuthenticatedUser } from './strategies/jwt.strategy';
+import { UserRepository } from '../user/user.repository';
 
 /**
  * AuthController
@@ -24,7 +28,38 @@ import type { AuthenticatedUser } from './strategies/jwt.strategy';
  */
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private readonly logger = new Logger(AuthController.name);
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userRepository: UserRepository,
+  ) {}
+
+  /**
+   * Helper: Get actor's username from @CurrentUser or DB lookup
+   */
+  private async getActorUsername(actor: AuthenticatedUser): Promise<string | undefined> {
+    if (actor?.username) {
+      this.logger.debug(`[getActorUsername] Using @CurrentUser username: ${actor.username}`);
+      return actor.username;
+    }
+    
+    // Fallback: lookup username in DB using keycloak_id
+    if (actor?.keycloak_id) {
+      try {
+        const user = await this.userRepository.findByKeycloakId(actor.keycloak_id);
+        if (user?.username) {
+          this.logger.debug(`[getActorUsername] Found username in DB: ${user.username}`);
+          return user.username;
+        }
+      } catch (err) {
+        this.logger.error(`[getActorUsername] Failed to lookup user in DB:`, err);
+      }
+    }
+    
+    this.logger.warn(`[getActorUsername] Could not determine actor username, will default to 'system'`);
+    return undefined;
+  }
 
   /**
    * POST /auth/login
@@ -33,8 +68,12 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body(ValidationPipe) dto: LoginDto) {
-    const result = await this.authService.login(dto);
+  async login(@Body(ValidationPipe) dto: LoginDto, @Req() req: Request) {
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    const result = await this.authService.login(dto, ctx);
     return { success: true, data: result };
   }
 
@@ -67,8 +106,18 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(@Body(ValidationPipe) dto: RefreshTokenDto) {
-    return this.authService.logout(dto.refresh_token);
+  async logout(
+    @Body(ValidationPipe) dto: RefreshTokenDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const username = await this.getActorUsername(user);
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    this.logger.log(`[Logout] actor: ${username}`);
+    return this.authService.logout(dto.refresh_token, username, undefined, ctx);
   }
 
   /**

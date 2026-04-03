@@ -12,6 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
+import { AuditLogService, LogContext } from '../audit-log/audit-log.service';
+import { AuditAction } from '../audit-log/audit-log.schema';
 import { UserDocument, UserRole } from '../schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -32,6 +34,7 @@ export class AuthService {
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
     private readonly mailService: MailService,
+    private readonly auditLogService: AuditLogService,
     @InjectModel(PasswordResetToken.name)
     private readonly resetTokenModel: Model<PasswordResetTokenDocument>,
   ) {}
@@ -39,7 +42,7 @@ export class AuthService {
   /**
    * Đăng nhập: xác thực qua Keycloak, cập nhật last_login trong MongoDB.
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ctx: LogContext = {}) {
     try {
       // 1. Kiểm tra trạng thái tài khoản trong MongoDB trước
       const existingUser = await this.userService.findByUsername(dto.username);
@@ -108,10 +111,11 @@ export class AuthService {
         throw new UnauthorizedException(msg);
       }
 
-      // 3. Cập nhật last_login
+      // 4. Cập nhật last_login
       await this.userService.updateLastLogin(user.user_id);
 
       this.logger.log(`User logged in: ${dto.username}`);
+      await this.auditLogService.log(dto.username, AuditAction.LOGIN_SUCCESS, ctx, undefined, user.user_id);
 
       return {
         access_token: tokenSet.access_token,
@@ -131,6 +135,7 @@ export class AuthService {
         `Login failed for username: ${dto.username} - ${error.message}`,
       );
       const msg: string = error.message || '';
+      await this.auditLogService.log(dto.username, AuditAction.LOGIN_FAILED, ctx, { reason: msg }).catch(() => {});
       if (msg.startsWith('ACCOUNT_LOCKED:') || msg.startsWith('ACCOUNT_DEACTIVATED:')) {
         throw new UnauthorizedException(msg);
       }
@@ -154,9 +159,49 @@ export class AuthService {
   /**
    * Logout — revoke token tại Keycloak
    */
-  async logout(refreshToken: string): Promise<{ message: string }> {
-    await this.keycloakService.logoutUser(refreshToken);
-    return { message: 'Đăng xuất thành công' };
+  async logout(
+    refreshToken: string,
+    username?: string,
+    userId?: string,
+    ctx: LogContext = {},
+  ): Promise<{ message: string }> {
+    try {
+      console.log('[AuthService] logout called with:', { username, userId, ctx });
+      await this.keycloakService.logoutUser(refreshToken);
+      
+      // Ghi audit log khi logout thành công
+      if (username) {
+        this.logger.log(`User logged out: ${username}`);
+        console.log('[AuthService] Logging LOGOUT_SUCCESS for:', username);
+        await this.auditLogService.log(
+          username,
+          AuditAction.LOGOUT_SUCCESS,
+          ctx,
+          undefined,
+          userId,
+        ).catch((err) => {
+          console.error('[AuthService] Failed to log LOGOUT_SUCCESS:', err);
+        });
+      } else {
+        console.warn('[AuthService] logout called without username');
+      }
+      
+      return { message: 'Đăng xuất thành công' };
+    } catch (error) {
+      // Ghi audit log khi logout thất bại
+      if (username) {
+        this.logger.warn(`Logout failed for username: ${username} - ${error.message}`);
+        console.log('[AuthService] Logging LOGOUT_FAILED for:', username);
+        await this.auditLogService.log(
+          username,
+          AuditAction.LOGOUT_FAILED,
+          ctx,
+          { reason: error.message },
+          userId,
+        ).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   /**

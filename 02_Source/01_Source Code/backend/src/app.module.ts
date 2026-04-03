@@ -22,6 +22,7 @@ import { BarcodeModule } from './barcode/barcode.module';
 import { AppService } from './app.service';
 import { AiAgentsModule } from './ai-agents/ai-agents.module';
 import { ReportsModule } from './reports/reports.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ReportsModule } from './reports/reports.module';
     LogModule,
     BarcodeModule,
     ReportsModule,
+    AuditLogModule,
   ],
   controllers: [AppController],
   providers: [
