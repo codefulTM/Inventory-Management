@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Lock, X, MapPin } from 'lucide-react';
 import Toast from '../../components/Toast';
 import { getInventoryLots, submitRetest, bulkQuarantine } from '../../services/qcServices';
+import { useAuth } from '../../hooks/useAuth';
 import type { InventoryLot } from '../../types/qc';
 
 type Tab = 'alert' | 'quarantine';
@@ -22,6 +23,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function InventoryQC() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('alert');
   const [lots, setLots] = useState<InventoryLot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export default function InventoryQC() {
     try {
       await submitRetest(retestLot.lot_id, {
         action: retestAction,
-        performed_by: 'qc_user',
+        performed_by: user?.username ?? 'unknown_user',
         new_expiry_date: retestAction === 'extend' ? newExpiryDate : undefined,
       });
       setToast({

@@ -323,7 +323,7 @@ describe('QCTestService', () => {
   describe('submitRetestDecision() — extend', () => {
     it('should update expiration_date to new date', async () => {
       mockInventoryLotService.findById.mockResolvedValue(mockLot);
-      mockInventoryLotService.updateStatus.mockResolvedValue({
+      mockInventoryLotService.update.mockResolvedValue({
         ...mockLot,
         status: 'Accepted',
         expiration_date: new Date('2028-03-08'),
@@ -335,10 +335,14 @@ describe('QCTestService', () => {
         performed_by: 'qc_user_01',
       });
 
-      expect(mockInventoryLotService.updateStatus).toHaveBeenCalledWith(
+      expect(mockInventoryLotService.update).toHaveBeenCalledWith(
         'lot-001',
-        'Accepted',
+        expect.objectContaining({
+          status: 'Accepted',
+          expiration_date: new Date('2028-03-08'),
+        }),
       );
+      expect(result.status).toBe('Accepted');
     });
 
     it('should throw BadRequestException when new_expiry_date is missing', async () => {
@@ -346,6 +350,28 @@ describe('QCTestService', () => {
 
       await expect(
         service.submitRetestDecision('lot-001', 'extend', {
+          performed_by: 'qc_user_01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when new_expiry_date is invalid', async () => {
+      mockInventoryLotService.findById.mockResolvedValue(mockLot);
+
+      await expect(
+        service.submitRetestDecision('lot-001', 'extend', {
+          new_expiry_date: 'invalid-date',
+          performed_by: 'qc_user_01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when new_expiry_date is in the past', async () => {
+      mockInventoryLotService.findById.mockResolvedValue(mockLot);
+
+      await expect(
+        service.submitRetestDecision('lot-001', 'extend', {
+          new_expiry_date: '2000-01-01',
           performed_by: 'qc_user_01',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -372,6 +398,20 @@ describe('QCTestService', () => {
         'Depleted',
       );
       expect(result.status).toBe('Depleted');
+    });
+
+    it('should throw BadRequestException when action is invalid', async () => {
+      mockInventoryLotService.findById.mockResolvedValue(mockLot);
+
+      await expect(
+        service.submitRetestDecision(
+          'lot-001',
+          'invalid-action' as unknown as 'extend' | 'discard',
+          {
+            performed_by: 'qc_user_01',
+          },
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

@@ -1,7 +1,9 @@
-import { UseGuards } from '@nestjs/common';
+import { UseGuards, BadRequestException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../schemas/user.schema';
 import {
   Controller,
@@ -19,6 +21,7 @@ import { QCTestService } from './qc-test.service';
 import { CreateQCTestDto } from './dto/create-qc-test.dto';
 import { UpdateQCTestDto } from './dto/update-qc-test.dto';
 import { QCDecisionDto } from './dto/qc-decision.dto';
+import { SubmitRetestDecisionDto } from './dto/submit-retest-decision.dto';
 
 @Controller('qc-tests')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -86,16 +89,17 @@ export class QCTestController {
   @HttpCode(HttpStatus.OK)
   submitRetestDecision(
     @Param('lot_id') lot_id: string,
-    @Body()
-    dto: {
-      action: 'extend' | 'discard';
-      new_expiry_date?: string;
-      performed_by: string;
-    },
+    @Body() dto: SubmitRetestDecisionDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
+    const performedBy = user?.username || dto.performed_by;
+    if (!performedBy) {
+      throw new BadRequestException('performed_by is required');
+    }
+
     return this.qcTestService.submitRetestDecision(lot_id, dto.action, {
       new_expiry_date: dto.new_expiry_date,
-      performed_by: dto.performed_by,
+      performed_by: performedBy,
     });
   }
 
