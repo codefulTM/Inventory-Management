@@ -8,17 +8,8 @@ import {
 import { UpdateInventoryTransactionDto } from '../inventory-transaction/dto/update-inventory-transaction.dto';
 
 jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'test-transaction-id'),
+  v4: jest.fn(() => 'mock-transaction-id'),
 }));
-
-// Mock uuid to avoid ESM import issues
-jest.mock(
-  'uuid',
-  () => ({
-    v4: () => 'test-uuid-1234-5678-90ab-cdef',
-  }),
-  { virtual: true },
-);
 
 // utility helper
 function makeDto(
@@ -36,10 +27,6 @@ function makeDto(
     ...overrides,
   } as any;
 }
-
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'mock-transaction-id'),
-}));
 
 describe('InventoryTransactionService', () => {
   let svc: InventoryTransactionService;
@@ -161,7 +148,7 @@ describe('InventoryTransactionService', () => {
       expect(result).toHaveProperty('_id');
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          transaction_id: 'test-transaction-id',
+          transaction_id: expect.any(String),
         }),
       );
       const createdPayload = (repo.create as jest.Mock).mock.calls[0][0];

@@ -307,7 +307,6 @@ describe('search', () => {
     repo.search.mockResolvedValue(mockResponse);
 
     const result = await service.search('ABC', 1, 10);
-    const result = await service.search('ABC', 1, 10);
 
     expect(result.data).toHaveLength(1);
     expect(result.total).toBe(5);

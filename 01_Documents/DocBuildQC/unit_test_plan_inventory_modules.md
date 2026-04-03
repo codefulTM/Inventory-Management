@@ -172,6 +172,7 @@ Ngưỡng mục tiêu coverage tham chiếu:
 - Nhánh: `draft`
 - Commit ID: `c069f5e`
 - Phạm vi: Inventory Lot, Inventory Transaction, Label Template
+- Lần chạy xác nhận lại: PASS (194/194 test, exit code 0)
 
 ### 7.2. Kết quả tổng quan
 
@@ -180,7 +181,7 @@ Ngưỡng mục tiêu coverage tham chiếu:
 | Inventory Lot         |           42 |   42 |    0 |    0 | Đã sửa test search để khớp service.search                  |
 | Inventory Transaction |           15 |   15 |    0 |    0 | Đã mock uuid để tránh lỗi ESM khi chạy Jest                |
 | Label Template        |          137 |  137 |    0 |    0 | Đã chỉnh assertion findAll mặc định theo behavior hiện tại |
-| Tổng cộng             |          194 |  194 |    0 |    0 | Chạy batch 3 suite đều pass                                |
+| Tổng cộng             |          194 |  194 |    0 |    0 | Chạy lại lần gần nhất vẫn pass toàn bộ                     |
 
 ### 7.3. Coverage (theo từng service)
 
