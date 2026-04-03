@@ -30,6 +30,7 @@ import {
   FlaskConical,
 } from "lucide-react";
 import MyAssistantWidget from "../components/assistant/MyAssistantWidget";
+import { AuthService } from "../services/auth.service";
 
 interface NavItem {
   to: string;
@@ -301,6 +302,11 @@ export default function Layout() {
             label: "Quản lý tài khoản",
           },
           {
+            to: "/admin/audit",
+            icon: <ShieldCheck size={20} />,
+            label: "Audit Trail",
+          },
+          {
             to: "/admin/monitoring",
             icon: <Activity size={20} />,
             label: "Giám sát hệ thống",
@@ -333,7 +339,15 @@ export default function Layout() {
     user?.role === "quality-control";
 
   // Thêm handleLogout
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const refresh_token = localStorage.getItem("refresh_token");
+    if (refresh_token) {
+      try {
+        await AuthService.logout(refresh_token);
+      } catch {
+        // ignore lỗi, vẫn logout local
+      }
+    }
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");

@@ -4,6 +4,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import DashboardIT from "../pages/admin/DashboardIT";
+import AuditLog from "../pages/admin/AuditLog";
 import SystemMonitoring from "../pages/admin/SystemMonitoring";
 import BackupRestore from "../pages/admin/BackupRestore";
 import ErrorLogs from "../pages/admin/ErrorLogs";
@@ -209,6 +210,7 @@ export const router = createBrowserRouter([
       { path: "/admin/error-logs", element: requireAdminAuth(<ErrorLogs />) },
       { path: "/admin/reports", element: requireAdminAuth(<SystemReports />) },
       { path: "/admin/users", element: requireAdminAuth(<UserManagementIT />) },
+      { path: "/admin/audit", element: requireAdminAuth(<AuditLog />) },
 
       // QC - Chỉ allow role 'quality-control'
       { path: "/qc/dashboard", element: requireQCAuth(<DashboardQC />) },

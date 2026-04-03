@@ -8,6 +8,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { UserModule } from '../user/user.module';
 import { MailModule } from '../mail/mail.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import {
   PasswordResetToken,
   PasswordResetTokenSchema,
@@ -23,6 +24,7 @@ import {
     PassportModule.register({ defaultStrategy: 'jwt' }),
     UserModule,
     MailModule,
+    AuditLogModule,
     MongooseModule.forFeature([
       { name: PasswordResetToken.name, schema: PasswordResetTokenSchema },
     ]),
