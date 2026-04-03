@@ -4,7 +4,10 @@ import { execSync } from 'child_process';
 const kafkaHost = 'localhost:9092';
 const topic = 'test-topic-' + Date.now();
 
-describe('Kafka e2e', () => {
+const describeKafka =
+  process.env.RUN_KAFKA_E2E === '1' ? describe : describe.skip;
+
+describeKafka('Kafka e2e', () => {
   let kafka: Kafka;
   const messages: any[] = [];
 
