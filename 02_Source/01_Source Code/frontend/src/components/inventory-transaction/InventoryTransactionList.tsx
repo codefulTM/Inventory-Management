@@ -420,6 +420,21 @@ const InventoryTransactionList: React.FC<Props> = ({ title, mode = "all" }) => {
             </option>
           ))}
         </select>
+        <select
+          value={transactionType}
+          onChange={(e) => {
+            setTransactionType(e.target.value as "" | InventoryTransactionType);
+            setPage(1);
+          }}
+          className="w-full sm:w-56 px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white"
+        >
+          <option value="">Tất cả loại giao dịch</option>
+          {TRANSACTION_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
         <div className="relative flex gap-2">
           <button
             onClick={() => setShowFilter((v) => !v)}

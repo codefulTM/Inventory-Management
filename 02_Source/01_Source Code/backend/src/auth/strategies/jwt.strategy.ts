@@ -54,7 +54,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * Được gọi sau khi JWT được verify thành công.
    * Map payload Keycloak → AuthenticatedUser gắn vào request.user
    */
-  async validate(payload: KeycloakJwtPayload): Promise<AuthenticatedUser> {
+  validate(payload: KeycloakJwtPayload): AuthenticatedUser {
     if (!payload.sub) {
       throw new UnauthorizedException('Token payload không hợp lệ');
     }
@@ -79,9 +79,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     this.logger.debug(
       `[JwtStrategy] Token realm_roles: ${JSON.stringify(realmRoles)}`,
     );
+    this.logger.debug(
+      `[JwtStrategy] Token realm_roles: ${JSON.stringify(realmRoles)}`,
+    );
 
     // Map Keycloak role → UserRole enum
     const appRoles: UserRole[] = Object.values(UserRole);
+    this.logger.debug(
+      `[JwtStrategy] Available app roles: ${JSON.stringify(appRoles)}`,
+    );
     this.logger.debug(
       `[JwtStrategy] Available app roles: ${JSON.stringify(appRoles)}`,
     );
