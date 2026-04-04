@@ -16,6 +16,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { AppService } from './app.service';
 import { ImportExportOrderModule } from './import-export-order/import-export-order.module';
+import { InventoryAdjustmentModule } from './inventory-adjustment/inventory-adjustment.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ImportExportOrderModule } from './import-export-order/import-export-ord
     // AiModule,
     LabelTemplateModule,
     ImportExportOrderModule,
+    InventoryAdjustmentModule,
   ],
   controllers: [AppController],
   providers: [

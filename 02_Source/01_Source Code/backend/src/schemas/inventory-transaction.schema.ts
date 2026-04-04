@@ -1,10 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import {
-  Document,
-  SchemaOptions,
-  Types,
-  Schema as MongooseSchema,
-} from 'mongoose';
+import { Document, SchemaOptions } from 'mongoose';
 
 export type InventoryTransactionDocument = InventoryTransaction & Document;
 
@@ -49,6 +44,12 @@ export class InventoryTransaction {
 
   @Prop({ type: String, required: false })
   notes?: string;
+
+  @Prop({ type: String, required: false, maxlength: 36 })
+  adjustment_id?: string;
+
+  @Prop({ type: String, required: false, maxlength: 50 })
+  adjustment_reason_code?: string;
 }
 
 export const InventoryTransactionSchema =
@@ -61,3 +62,4 @@ InventoryTransactionSchema.index({ transaction_type: 1 });
 InventoryTransactionSchema.index({ performed_by: 1, transaction_date: -1 });
 InventoryTransactionSchema.index({ performed_by: 1, reference_number: 1 });
 InventoryTransactionSchema.index({ performed_by: 1, lot_id: 1 });
+InventoryTransactionSchema.index({ adjustment_id: 1 });

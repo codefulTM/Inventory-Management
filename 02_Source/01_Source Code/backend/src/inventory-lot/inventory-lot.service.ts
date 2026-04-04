@@ -16,7 +16,7 @@ import type {
 import { InventoryLotStatus } from './inventory-lot.dto';
 import { TransactionType } from '../inventory-transaction/dto/create-inventory-transaction.dto';
 import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
-import { InventoryLot } from 'src/schemas/inventory-lot.schema';
+import { InventoryLot } from '../schemas/inventory-lot.schema';
 
 @Injectable()
 export class InventoryLotService {

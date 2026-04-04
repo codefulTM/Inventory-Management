@@ -1,5 +1,22 @@
 # [Manager][US10] - Kế hoạch phát triển backend điều chỉnh số lượng tồn kho
 
+## Cập nhật trạng thái triển khai (04/04/2026)
+
+Trạng thái thực hiện thực tế:
+
+- Phase 1 (Contract + validation + RBAC): DONE
+- Phase 2 (Cập nhật tồn kho + ghi transaction Adjustment): DONE
+- Phase 3 (Tính Inventory Valuation): DONE
+- Phase 4 (Query/reporting + audit completeness mức API): DONE
+- Phase 5 (Test đầy đủ + handoff FE): DONE
+
+Artifact Phase 5 đã bổ sung:
+
+- Unit test: src/inventory-adjustment/inventory-adjustment.service.spec.ts
+- E2E test: test/us10-manager-inventory-adjustment.e2e-spec.ts
+- FE handoff API guide: frontend/US10_MANAGER_INVENTORY_ADJUSTMENT_API_GUIDE.md
+- FE smoke checklist: frontend/US10_MANAGER_INVENTORY_ADJUSTMENT_SMOKE_CHECKLIST.md
+
 ## 0) Cơ sở yêu cầu đã review lại từ 01_Documents
 
 Nguồn chính:
@@ -106,7 +123,7 @@ Hiện trạng chưa có trường cost chuẩn toàn hệ thống, nên đề x
 
 - Bước ngắn hạn (đủ AC):
   - Lưu unit_cost_snapshot trên phiếu adjustment (bắt buộc từ material hoặc lot policy).
-  - Tính total_value_delta = adjustment_quantity * unit_cost_snapshot.
+  - Tính total_value_delta = adjustment_quantity \* unit_cost_snapshot.
   - Cập nhật inventory valuation summary theo material hoặc toàn kho.
 
 - Bước trung hạn:
@@ -251,7 +268,7 @@ Dự kiến cập nhật:
 - src/inventory-transaction/inventory-transaction.repository.ts
 - src/inventory-transaction/dto/create-inventory-transaction.dto.ts (nếu thêm metadata adjustment)
 - src/database/database.module.ts hoặc module wiring tương ứng
-- test/*.spec.ts và test/*.e2e-spec.ts liên quan
+- test/_.spec.ts và test/_.e2e-spec.ts liên quan
 
 ## 7) Rủi ro và hướng giảm thiểu
 
