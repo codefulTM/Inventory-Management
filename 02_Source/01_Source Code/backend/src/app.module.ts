@@ -17,6 +17,7 @@ import { LabelTemplateModule } from './label-template/label-template.module';
 import { AppService } from './app.service';
 import { ImportExportOrderModule } from './import-export-order/import-export-order.module';
 import { InventoryAdjustmentModule } from './inventory-adjustment/inventory-adjustment.module';
+import { InventoryAuditReportModule } from './inventory-audit-report/inventory-audit-report.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { InventoryAdjustmentModule } from './inventory-adjustment/inventory-adju
     LabelTemplateModule,
     ImportExportOrderModule,
     InventoryAdjustmentModule,
+    InventoryAuditReportModule,
   ],
   controllers: [AppController],
   providers: [
