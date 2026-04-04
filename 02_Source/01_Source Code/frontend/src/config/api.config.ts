@@ -15,6 +15,13 @@ export const apiConfig = {
 };
 
 export const API_ENDPOINTS = {
+  TRANSACTIONS: "/transactions",
+  TRANSACTIONS_BULK: "/transactions/bulk",
+  TRANSACTIONS_DETAIL: (id: string) => `/transactions/${id}`,
+  TRANSACTIONS_MY_HISTORY: "/transactions/my-history",
+  TRANSACTIONS_MY_HISTORY_DETAIL: (transactionId: string) =>
+    `/transactions/my-history/${transactionId}`,
+
   MATERIALS: "/materials",
   MATERIALS_SEARCH: "/materials/search",
   MATERIALS_TYPES: "/materials/types",

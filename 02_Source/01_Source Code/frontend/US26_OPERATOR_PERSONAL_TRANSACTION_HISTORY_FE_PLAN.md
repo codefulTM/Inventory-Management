@@ -32,7 +32,7 @@ Khoảng trống hiện tại cho US26:
 
 ## 3.1 Bố cục trang
 
-Đề xuất route: /operator/my-transactions
+Đề xuất route: /operator/inventory-transactions
 
 Khu vực chính:
 

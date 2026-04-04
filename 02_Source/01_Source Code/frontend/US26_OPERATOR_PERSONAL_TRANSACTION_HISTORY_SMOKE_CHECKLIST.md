@@ -108,8 +108,8 @@ Smoke test cho luồng tra cứu lịch sử giao dịch cá nhân của Operato
 
 ## 9) Execution record
 
-- Frontend build: [ ] PASS / [ ] FAIL
+- Frontend build: [x] PASS / [ ] FAIL
 - Smoke manual: [ ] PASS / [ ] FAIL
-- Người test:
-- Thời điểm test:
-- Ghi chú:
+- Người test: GitHub Copilot
+- Thời điểm test: 2026-04-03 16:00:38
+- Ghi chú: Đã re-apply lại code US26 FE do có thay đổi ngoài phiên làm việc trước đó; build frontend pass sau khi hoàn tất FE-5 hardening.

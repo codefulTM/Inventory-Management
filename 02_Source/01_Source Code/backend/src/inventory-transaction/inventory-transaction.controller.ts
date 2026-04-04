@@ -94,7 +94,7 @@ export class InventoryTransactionController {
   @Get('my-history/:id')
   @Roles(UserRole.OPERATOR)
   async findMyHistoryDetail(
-    @Param('id', ParseUUIDPipe) transactionId: string,
+    @Param('id') transactionId: string,
     @Req() req: { user?: AuthenticatedUser },
   ) {
     const requester = this.toRequester(req);
