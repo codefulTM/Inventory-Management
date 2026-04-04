@@ -62,4 +62,11 @@ export const API_ENDPOINTS = {
 
   // Inventory Adjustment endpoints (US10)
   INVENTORY_ADJUSTMENTS: "/inventory-adjustments",
+
+  // Inventory Audit Report endpoints (US16)
+  INVENTORY_AUDIT_REPORTS: "/inventory-audit-reports",
+  INVENTORY_AUDIT_REPORT_DETAIL: (reportId: string) =>
+    `/inventory-audit-reports/${reportId}`,
+  INVENTORY_AUDIT_REPORT_DOWNLOAD: (reportId: string) =>
+    `/inventory-audit-reports/${reportId}/download`,
 };

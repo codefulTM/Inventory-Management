@@ -83,7 +83,8 @@ Smoke test cho luồng backend xuất báo cáo kiểm kê của Manager:
 - Backend build: [x] PASS / [ ] FAIL
 - Unit test US16: [x] PASS / [ ] FAIL
 - E2E test US16: [x] PASS / [ ] FAIL
+- Frontend build: [x] PASS / [ ] FAIL
 - Frontend smoke manual: [ ] PASS / [ ] FAIL
 - Người test: GitHub Copilot
 - Thời điểm test: 2026-04-04
-- Ghi chú: Checklist tập trung vào contract API backend US16. Kiểm thử chữ ký số pháp định (PAdES/TSA) cần môi trường tích hợp provider thực tế.
+- Ghi chú: FE đã tích hợp create/list/detail/download và polling trạng thái cho US16; cần QA xác nhận smoke manual trên môi trường tích hợp thực tế. Kiểm thử chữ ký số pháp định (PAdES/TSA) cần môi trường provider thực.

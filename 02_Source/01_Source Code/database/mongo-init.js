@@ -10,6 +10,7 @@
  * - materials (25 materials)
  * - inventory_lots (30 lots)
  * - inventory_transactions (35 transactions)
+ * - inventory_audit_reports (6 reports)
  * - production_batches (25 batches)
  * - batch_components (30 components)
  * - qc_tests (30 tests)
@@ -409,6 +410,59 @@ db.createCollection("import_export_orders", {
   },
 });
 
+// Inventory Audit Reports Collection (US16)
+db.createCollection("inventory_audit_reports", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: [
+        "report_id",
+        "period_from",
+        "period_to",
+        "report_template_code",
+        "status",
+        "requested_by",
+      ],
+      properties: {
+        report_id: { bsonType: "string" },
+        period_from: { bsonType: "date" },
+        period_to: { bsonType: "date" },
+        scope_warehouse_ids: {
+          bsonType: ["array", "null"],
+          items: { bsonType: "string" },
+        },
+        report_template_code: { bsonType: "string" },
+        status: {
+          bsonType: "string",
+          enum: ["PENDING", "PROCESSING", "READY", "FAILED"],
+        },
+        summary_total_items: { bsonType: ["int", "long", "double", "null"] },
+        summary_total_quantity: {
+          bsonType: ["int", "long", "double", "decimal", "null"],
+        },
+        summary_total_value: {
+          bsonType: ["int", "long", "double", "decimal", "null"],
+        },
+        file_storage_key: { bsonType: ["string", "null"] },
+        file_sha256: { bsonType: ["string", "null"] },
+        file_size_bytes: { bsonType: ["int", "long", "double", "null"] },
+        pdf_version: { bsonType: ["string", "null"] },
+        signed_at: { bsonType: ["date", "null"] },
+        signature_provider: { bsonType: ["string", "null"] },
+        signature_serial_number: { bsonType: ["string", "null"] },
+        signature_valid_from: { bsonType: ["date", "null"] },
+        signature_valid_to: { bsonType: ["date", "null"] },
+        requested_by: { bsonType: "string" },
+        approved_by: { bsonType: ["string", "null"] },
+        note: { bsonType: ["string", "null"] },
+        failure_reason: { bsonType: ["string", "null"] },
+        created_date: { bsonType: ["date", "null"] },
+        modified_date: { bsonType: ["date", "null"] },
+      },
+    },
+  },
+});
+
 print(">>> All collections created successfully");
 
 // ============================================================================
@@ -471,6 +525,11 @@ db.import_export_orders.createIndex({
   created_date: -1,
 });
 db.import_export_orders.createIndex({ status: 1, modified_date: -1 });
+
+db.inventory_audit_reports.createIndex({ report_id: 1 }, { unique: true });
+db.inventory_audit_reports.createIndex({ status: 1, created_date: -1 });
+db.inventory_audit_reports.createIndex({ requested_by: 1, created_date: -1 });
+db.inventory_audit_reports.createIndex({ period_from: 1, period_to: 1 });
 
 print(">>> All indexes created successfully");
 
@@ -3954,12 +4013,132 @@ db.import_export_orders.insertMany([
   },
 ]);
 
+// ---- INVENTORY AUDIT REPORTS (6 reports) ----
+db.inventory_audit_reports.insertMany([
+  {
+    report_id: "11111111-1111-4111-8111-111111111111",
+    period_from: new Date("2026-03-01T00:00:00Z"),
+    period_to: new Date("2026-03-31T23:59:59Z"),
+    scope_warehouse_ids: ["WH-HN-01"],
+    report_template_code: "STATUTORY_V1",
+    status: "READY",
+    summary_total_items: 120,
+    summary_total_quantity: 95000,
+    summary_total_value: 95000,
+    file_storage_key: "11111111-1111-4111-8111-111111111111.pdf",
+    file_sha256:
+      "9e2c6d68f07be31f9abf7c0edfd9730b1f5c0f0f3a03b6a2ec4d5b0f4d7b9c11",
+    file_size_bytes: 102400,
+    pdf_version: "1.0",
+    signed_at: new Date("2026-04-02T09:10:00Z"),
+    signature_provider: "RSA_SHA256",
+    signature_serial_number: "SERIAL-US16-001",
+    requested_by: "manager_inventory",
+    approved_by: "manager_quality",
+    note: "Bao cao tong hop ton kho ky thang 03/2026 - kho Ha Noi",
+    created_date: new Date("2026-04-02T09:00:00Z"),
+    modified_date: new Date("2026-04-02T09:10:00Z"),
+  },
+  {
+    report_id: "22222222-2222-4222-8222-222222222222",
+    period_from: new Date("2026-03-01T00:00:00Z"),
+    period_to: new Date("2026-03-31T23:59:59Z"),
+    scope_warehouse_ids: ["WH-HCM-01"],
+    report_template_code: "STATUTORY_V1",
+    status: "READY",
+    summary_total_items: 86,
+    summary_total_quantity: 43210,
+    summary_total_value: 43210,
+    file_storage_key: "22222222-2222-4222-8222-222222222222.pdf",
+    file_sha256:
+      "3fa12d8892c8d67e1a4d2a8a2ccf3f4a0f8f59f8f7cb3df9e7abde113fd7f6aa",
+    file_size_bytes: 76800,
+    pdf_version: "1.0",
+    signed_at: new Date("2026-04-02T10:05:00Z"),
+    signature_provider: "RSA_SHA256",
+    signature_serial_number: "SERIAL-US16-002",
+    requested_by: "manager_warehouse",
+    approved_by: "manager_quality",
+    note: "Bao cao ton kho ky thang 03/2026 - kho TP.HCM",
+    created_date: new Date("2026-04-02T09:50:00Z"),
+    modified_date: new Date("2026-04-02T10:05:00Z"),
+  },
+  {
+    report_id: "33333333-3333-4333-8333-333333333333",
+    period_from: new Date("2026-04-01T00:00:00Z"),
+    period_to: new Date("2026-04-03T23:59:59Z"),
+    scope_warehouse_ids: ["WH-DN-01"],
+    report_template_code: "STATUTORY_V1",
+    status: "PROCESSING",
+    summary_total_items: 0,
+    summary_total_quantity: 0,
+    summary_total_value: 0,
+    requested_by: "manager_inventory",
+    approved_by: "manager_quality",
+    note: "Bao cao so bo dau ky thang 04/2026 - dang xu ly",
+    created_date: new Date("2026-04-04T07:30:00Z"),
+    modified_date: new Date("2026-04-04T07:35:00Z"),
+  },
+  {
+    report_id: "44444444-4444-4444-8444-444444444444",
+    period_from: new Date("2026-04-01T00:00:00Z"),
+    period_to: new Date("2026-04-04T23:59:59Z"),
+    scope_warehouse_ids: ["WH-HN-01", "WH-HCM-01"],
+    report_template_code: "STATUTORY_V1",
+    status: "PENDING",
+    requested_by: "manager_warehouse",
+    approved_by: "manager_quality",
+    note: "Tong hop lien kho dau thang 04/2026",
+    created_date: new Date("2026-04-04T08:10:00Z"),
+    modified_date: new Date("2026-04-04T08:10:00Z"),
+  },
+  {
+    report_id: "55555555-5555-4555-8555-555555555555",
+    period_from: new Date("2026-03-15T00:00:00Z"),
+    period_to: new Date("2026-03-20T23:59:59Z"),
+    scope_warehouse_ids: ["WH-HN-01"],
+    report_template_code: "STATUTORY_V1",
+    status: "FAILED",
+    requested_by: "manager_inventory",
+    approved_by: "manager_quality",
+    note: "Bao cao dot kiem ke giua ky",
+    failure_reason: "Render PDF timeout khi tong hop du lieu ton kho",
+    created_date: new Date("2026-03-21T13:00:00Z"),
+    modified_date: new Date("2026-03-21T13:12:00Z"),
+  },
+  {
+    report_id: "66666666-6666-4666-8666-666666666666",
+    period_from: new Date("2026-02-01T00:00:00Z"),
+    period_to: new Date("2026-02-28T23:59:59Z"),
+    scope_warehouse_ids: [],
+    report_template_code: "STATUTORY_V1",
+    status: "READY",
+    summary_total_items: 210,
+    summary_total_quantity: 150230,
+    summary_total_value: 150230,
+    file_storage_key: "66666666-6666-4666-8666-666666666666.pdf",
+    file_sha256:
+      "74f31ef6e397f2d4f4b7400a7f8aa402a4822aef6ad9958c6d53dd54bd9a41ea",
+    file_size_bytes: 146320,
+    pdf_version: "1.0",
+    signed_at: new Date("2026-03-03T15:20:00Z"),
+    signature_provider: "HMAC_SHA256_FALLBACK",
+    signature_serial_number: "SERIAL-US16-003",
+    requested_by: "manager_quality",
+    approved_by: "manager_production",
+    note: "Bao cao tong hop ton kho thang 02/2026 tat ca kho",
+    created_date: new Date("2026-03-03T15:00:00Z"),
+    modified_date: new Date("2026-03-03T15:20:00Z"),
+  },
+]);
+
 print(">>> All seed data inserted successfully!");
 print(">>> Pharmacy Inventory Management System initialized with:");
 print("    - 20 users");
 print("    - 25 materials");
 print("    - 30 inventory lots");
 print("    - 35 inventory transactions");
+print("    - 6 inventory audit reports");
 print("    - 25 production batches");
 print("    - 30 batch components");
 print("    - 30 QC tests");
