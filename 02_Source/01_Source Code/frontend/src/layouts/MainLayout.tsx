@@ -129,11 +129,6 @@ export default function Layout() {
             label: "Tồn kho",
           },
           {
-            to: "/manager/inventory-adjustments",
-            icon: <FileText size={20} />,
-            label: "Điều chỉnh tồn kho",
-          },
-          {
             to: "/manager/reports",
             icon: <FileText size={20} />,
             label: "Báo cáo",

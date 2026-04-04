@@ -73,6 +73,11 @@ export class CreateInventoryLotDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
+  warehouse_id?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(100)
   storage_location?: string;
 
@@ -141,6 +146,11 @@ export class UpdateInventoryLotDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
+  warehouse_id?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(100)
   storage_location?: string;
 
@@ -177,6 +187,7 @@ export class InventoryLotResponseDto {
   status: InventoryLotStatus;
   quantity: number;
   unit_of_measure: string;
+  warehouse_id?: string;
   storage_location?: string;
   is_sample: boolean;
   parent_lot_id?: string;

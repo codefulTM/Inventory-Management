@@ -13,7 +13,11 @@ import { RejectImportExportOrderDto } from './dto/reject-import-export-order.dto
 import { UpdateImportExportOrderDto } from './dto/update-import-export-order.dto';
 import {
   ImportExportOrderFilterOptions,
+  InventoryLotOptionsQuery,
   InventoryTransactionCreatePayload,
+  MaterialOptionsQuery,
+  StorageLocationOptionsQuery,
+  WarehouseOptionsQuery,
   ImportExportOrderPaginationOptions,
   ImportExportOrderRepository,
 } from './import-export-order.repository';
@@ -45,6 +49,7 @@ interface ScanResolvedItem {
   material_name: string | null;
   unit_of_measure: string | null;
   expected_location: string | null;
+  warehouse_id: string | null;
 }
 
 interface ScanResolvedLotSnapshot {
@@ -72,8 +77,18 @@ export class ImportExportOrderService {
   async create(dto: CreateImportExportOrderDto, requester: RequesterContext) {
     this.validateItemsQuantity(dto.items);
 
+    await this.ensureWarehouseExists(dto.warehouse_id);
+
+    const normalizedItems = await this.normalizeItemsForOrderType(
+      dto.items,
+      dto.order_type,
+      dto.warehouse_id,
+      true,
+    );
+
     const payload = {
       ...dto,
+      items: normalizedItems,
       order_id: uuidv4(),
       status: ImportExportOrderStatus.PENDING_CONFIRMATION,
       created_by: requester.actor,
@@ -85,6 +100,22 @@ export class ImportExportOrderService {
       `[import-export-order] create order_id=${created.order_id} actor=${requester.actor} role=${requester.role ?? 'unknown'} status=${created.status}`,
     );
     return created;
+  }
+
+  async getMaterialOptions(query: MaterialOptionsQuery = {}) {
+    return this.repo.findMaterialOptions(query);
+  }
+
+  async getInventoryLotOptions(query: InventoryLotOptionsQuery = {}) {
+    return this.repo.findInventoryLotOptions(query);
+  }
+
+  async getWarehouseOptions(query: WarehouseOptionsQuery = {}) {
+    return this.repo.findWarehouseOptions(query);
+  }
+
+  async getStorageLocationOptions(query: StorageLocationOptionsQuery = {}) {
+    return this.repo.findStorageLocationOptions(query);
   }
 
   async getAll(
@@ -172,7 +203,29 @@ export class ImportExportOrderService {
           );
         }
 
-        const lot = await this.repo.findLotByLotId(item.lot_id, session);
+        let lot = await this.repo.findLotByLotId(item.lot_id, session);
+
+        if (pendingOrder.order_type === ImportExportOrderType.INBOUND && !lot) {
+          const matchedPendingItem = pendingOrder.items.find(
+            (pendingItem) =>
+              pendingItem.material_id === item.material_id &&
+              (pendingItem.lot_id ?? '') === (item.lot_id ?? '') &&
+              pendingItem.unit_of_measure === item.unit_of_measure,
+          );
+
+          lot = await this.repo.createProvisionalInboundLot(
+            {
+              lot_id: item.lot_id,
+              material_id: item.material_id,
+              unit_of_measure: item.unit_of_measure,
+              storage_location: matchedPendingItem?.expected_location,
+              warehouse_id: pendingOrder.warehouse_id,
+              received_by: requester.actor,
+            },
+            session,
+          );
+        }
+
         if (!lot) {
           throw new BadRequestException(
             `Inventory lot ${item.lot_id} not found`,
@@ -366,8 +419,26 @@ export class ImportExportOrderService {
       );
     }
 
-    const updatePayload: Partial<ImportExportOrder> = { ...dto };
-    delete updatePayload.status;
+    const updatePayload: Partial<ImportExportOrder> = {
+      order_type: dto.order_type,
+      warehouse_id: dto.warehouse_id,
+      reason: dto.reason,
+      reference_number: dto.reference_number,
+      attachments: dto.attachments,
+    };
+
+    const effectiveWarehouseId = dto.warehouse_id ?? existing.warehouse_id;
+    await this.ensureWarehouseExists(effectiveWarehouseId);
+
+    if (dto.items) {
+      const effectiveOrderType = dto.order_type ?? existing.order_type;
+      updatePayload.items = await this.normalizeItemsForOrderType(
+        dto.items,
+        effectiveOrderType,
+        effectiveWarehouseId,
+        true,
+      );
+    }
 
     const updated = await this.repo.updateByOrderId(orderId, updatePayload);
 
@@ -438,53 +509,84 @@ export class ImportExportOrderService {
   async resolveScanCode(
     scanCode: string,
     requester: RequesterContext,
+    orderType?: ImportExportOrderType,
   ): Promise<ResolveImportExportOrderScanResult> {
     const normalizedScanCode = scanCode.trim();
     if (!normalizedScanCode) {
       throw new BadRequestException('scan_code is required');
     }
 
-    const byLotId = await this.repo.findLotByLotId(normalizedScanCode);
-    if (byLotId) {
-      return this.toResolvedFromLot(
-        normalizedScanCode,
-        'lot_id',
-        byLotId,
-        requester,
-      );
-    }
+    const resolveByLot = async () => {
+      const byLotId = await this.repo.findLotByLotId(normalizedScanCode);
+      if (byLotId) {
+        return this.toResolvedFromLot(
+          normalizedScanCode,
+          'lot_id',
+          byLotId,
+          requester,
+        );
+      }
 
-    const byManufacturerLot =
-      await this.repo.findLotByManufacturerLot(normalizedScanCode);
-    if (byManufacturerLot) {
-      return this.toResolvedFromLot(
-        normalizedScanCode,
-        'manufacturer_lot',
-        byManufacturerLot,
-        requester,
-      );
-    }
+      const byManufacturerLot =
+        await this.repo.findLotByManufacturerLot(normalizedScanCode);
+      if (byManufacturerLot) {
+        return this.toResolvedFromLot(
+          normalizedScanCode,
+          'manufacturer_lot',
+          byManufacturerLot,
+          requester,
+        );
+      }
 
-    const byMaterialId =
-      await this.repo.findMaterialByMaterialId(normalizedScanCode);
-    if (byMaterialId) {
-      return this.toResolvedFromMaterial(
-        normalizedScanCode,
-        'material_id',
-        byMaterialId,
-        requester,
-      );
-    }
+      return null;
+    };
 
-    const byPartNumber =
-      await this.repo.findMaterialByPartNumber(normalizedScanCode);
-    if (byPartNumber) {
-      return this.toResolvedFromMaterial(
-        normalizedScanCode,
-        'part_number',
-        byPartNumber,
-        requester,
-      );
+    const resolveByMaterial = async () => {
+      const byMaterialId =
+        await this.repo.findMaterialByMaterialId(normalizedScanCode);
+      if (byMaterialId) {
+        return this.toResolvedFromMaterial(
+          normalizedScanCode,
+          'material_id',
+          byMaterialId,
+          requester,
+        );
+      }
+
+      const byPartNumber =
+        await this.repo.findMaterialByPartNumber(normalizedScanCode);
+      if (byPartNumber) {
+        return this.toResolvedFromMaterial(
+          normalizedScanCode,
+          'part_number',
+          byPartNumber,
+          requester,
+        );
+      }
+
+      return null;
+    };
+
+    if (orderType === ImportExportOrderType.INBOUND) {
+      const materialFirst = await resolveByMaterial();
+      if (materialFirst) {
+        return materialFirst;
+      }
+
+      const lotFallback = await resolveByLot();
+      if (lotFallback) {
+        return lotFallback;
+      }
+    } else {
+      const lotFirst = await resolveByLot();
+      if (lotFirst) {
+        return lotFirst;
+      }
+
+      const materialFallback = await resolveByMaterial();
+      if (materialFallback) {
+        return materialFallback;
+      }
     }
 
     return {
@@ -531,6 +633,169 @@ export class ImportExportOrderService {
 
     if (hasInvalidQuantity) {
       throw new BadRequestException('item quantity must be greater than 0');
+    }
+  }
+
+  private async normalizeItemsForOrderType(
+    items: CreateImportExportOrderDto['items'],
+    orderType: ImportExportOrderType,
+    warehouseId: string,
+    reserveInboundLot: boolean,
+  ) {
+    const normalizedWarehouseId = warehouseId.trim();
+
+    const normalized: ImportExportOrder['items'] = [];
+
+    for (const item of items) {
+      if (orderType === ImportExportOrderType.INBOUND) {
+        if (!item.material_id?.trim()) {
+          throw new BadRequestException(
+            'Inbound item requires material_id from dropdown options',
+          );
+        }
+
+        const material = await this.repo.findMaterialByMaterialId(
+          item.material_id,
+        );
+        if (!material) {
+          throw new BadRequestException(
+            `Material ${item.material_id} was not found`,
+          );
+        }
+
+        const reservedLotId = reserveInboundLot
+          ? await this.repo.reserveNextLotId()
+          : item.lot_id?.trim();
+
+        if (!reservedLotId) {
+          throw new BadRequestException(
+            'Inbound item requires lot_id to be reserved by system',
+          );
+        }
+
+        const expectedLocation = item.expected_location?.trim();
+        if (!expectedLocation) {
+          throw new BadRequestException(
+            'Inbound item requires expected_location from location dropdown',
+          );
+        }
+
+        await this.ensureLocationBelongsToWarehouse(
+          expectedLocation,
+          normalizedWarehouseId,
+        );
+
+        normalized.push({
+          ...item,
+          material_id: item.material_id,
+          lot_id: reservedLotId,
+          expected_location: expectedLocation,
+        });
+        continue;
+      }
+
+      if (!item.lot_id?.trim()) {
+        throw new BadRequestException(
+          'Outbound item requires lot_id from dropdown options',
+        );
+      }
+
+      const lot = await this.repo.findLotByLotId(item.lot_id);
+      if (!lot) {
+        throw new BadRequestException(`Inventory lot ${item.lot_id} not found`);
+      }
+
+      const lotStorageLocation = lot.storage_location?.trim();
+      if (!lotStorageLocation) {
+        throw new BadRequestException(
+          `Lot ${item.lot_id} does not have storage_location`,
+        );
+      }
+
+      let lotWarehouseId = lot.warehouse_id?.trim();
+      if (!lotWarehouseId) {
+        const mappedLocation =
+          await this.repo.findStorageLocationById(lotStorageLocation);
+        lotWarehouseId = mappedLocation?.warehouse_id?.trim();
+      }
+
+      if (!lotWarehouseId) {
+        throw new BadRequestException(
+          `Lot ${item.lot_id} does not map to a warehouse`,
+        );
+      }
+
+      if (lotWarehouseId !== normalizedWarehouseId) {
+        throw new BadRequestException(
+          `Lot ${item.lot_id} belongs to warehouse ${lotWarehouseId}, but order warehouse is ${normalizedWarehouseId}`,
+        );
+      }
+
+      if (
+        item.expected_location?.trim() &&
+        item.expected_location.trim() !== lotStorageLocation
+      ) {
+        throw new BadRequestException(
+          `Lot ${item.lot_id} is stored at ${lotStorageLocation}, expected_location cannot be ${item.expected_location}`,
+        );
+      }
+
+      if (item.material_id && item.material_id !== lot.material_id) {
+        throw new BadRequestException(
+          `Lot ${item.lot_id} does not match material ${item.material_id}`,
+        );
+      }
+
+      if (
+        item.unit_of_measure &&
+        item.unit_of_measure !== lot.unit_of_measure
+      ) {
+        throw new BadRequestException(
+          `Unit mismatch for lot ${item.lot_id}: expected ${lot.unit_of_measure}, got ${item.unit_of_measure}`,
+        );
+      }
+
+      normalized.push({
+        ...item,
+        material_id: lot.material_id,
+        unit_of_measure: lot.unit_of_measure,
+        expected_location: lotStorageLocation,
+      });
+    }
+
+    return normalized;
+  }
+
+  private async ensureWarehouseExists(warehouseId: string) {
+    if (!warehouseId?.trim()) {
+      throw new BadRequestException('warehouse_id is required');
+    }
+
+    const warehouse = await this.repo.findWarehouseById(warehouseId.trim());
+
+    if (!warehouse || warehouse.is_active === false) {
+      throw new BadRequestException(
+        `Warehouse ${warehouseId} is not available`,
+      );
+    }
+  }
+
+  private async ensureLocationBelongsToWarehouse(
+    locationId: string,
+    warehouseId: string,
+  ) {
+    const location = await this.repo.findStorageLocationById(locationId.trim());
+
+    if (!location || location.is_active === false) {
+      throw new BadRequestException(
+        `Storage location ${locationId} is not available`,
+      );
+    }
+
+    if (location.warehouse_id !== warehouseId) {
+      throw new BadRequestException(
+        `Storage location ${locationId} does not belong to warehouse ${warehouseId}`,
+      );
     }
   }
 
@@ -627,6 +892,7 @@ export class ImportExportOrderService {
       manufacturer_lot: string;
       unit_of_measure: string;
       storage_location?: string;
+      warehouse_id?: string;
       status: string;
       quantity: number;
     },
@@ -649,6 +915,7 @@ export class ImportExportOrderService {
         material_name: material?.material_name ?? null,
         unit_of_measure: lot.unit_of_measure ?? null,
         expected_location: lot.storage_location ?? null,
+        warehouse_id: lot.warehouse_id ?? null,
       },
       lot: {
         status: lot.status,
@@ -684,6 +951,7 @@ export class ImportExportOrderService {
         material_name: material.material_name,
         unit_of_measure: null,
         expected_location: null,
+        warehouse_id: null,
       },
       lot: null,
       warnings: [],

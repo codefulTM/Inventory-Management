@@ -24,6 +24,7 @@ export const API_ENDPOINTS = {
 
   MATERIALS: "/materials",
   MATERIALS_SEARCH: "/materials/search",
+  MATERIALS_OPTIONS: "/materials/options",
   MATERIALS_TYPES: "/materials/types",
   MATERIALS_DETAIL: (id: string) => `/materials/${id}`,
   MATERIALS_UPDATE: (id: string) => `/materials/${id}`,
@@ -53,9 +54,12 @@ export const API_ENDPOINTS = {
   IMPORT_EXPORT_ORDER_ATTACHMENTS: (orderId: string) =>
     `/import-export-orders/${orderId}/attachments`,
   IMPORT_EXPORT_ORDER_SCAN_RESOLVE: "/import-export-orders/scan/resolve",
+  IMPORT_EXPORT_WAREHOUSES_OPTIONS: "/import-export-orders/warehouses/options",
+  IMPORT_EXPORT_STORAGE_LOCATIONS_OPTIONS:
+    "/import-export-orders/storage-locations/options",
+
+  INVENTORY_LOTS_OPTIONS: "/inventory-lots/options",
 
   // Inventory Adjustment endpoints (US10)
   INVENTORY_ADJUSTMENTS: "/inventory-adjustments",
-  INVENTORY_ADJUSTMENTS_DETAIL: (adjustmentId: string) =>
-    `/inventory-adjustments/${adjustmentId}`,
 };

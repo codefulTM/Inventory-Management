@@ -70,6 +70,19 @@ export class MaterialController {
     return this.materialService.search(query, page, limit);
   }
 
+  @Get('options')
+  @HttpCode(HttpStatus.OK)
+  async getOptions(
+    @Query('q') query?: string,
+    @Query('status') status?: string,
+    @Query('page', new ParseIntPipe({ optional: true }))
+    page: number = 1,
+    @Query('limit', new ParseIntPipe({ optional: true }))
+    limit: number = 20,
+  ) {
+    return this.materialService.getOptions(query, status, page, limit);
+  }
+
   /**
    * GET /materials/type/:type
    * Filter materials by material_type

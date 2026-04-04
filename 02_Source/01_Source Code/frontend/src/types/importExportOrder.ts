@@ -102,6 +102,7 @@ export interface ResolveScanItem {
   material_name: string | null;
   unit_of_measure: string | null;
   expected_location: string | null;
+  warehouse_id: string | null;
 }
 
 export interface ResolveScanLotSnapshot {
@@ -118,6 +119,68 @@ export interface ResolveImportExportOrderScanResult {
   lot: ResolveScanLotSnapshot | null;
   warnings: string[];
   message?: string;
+}
+
+export interface ResolveImportExportOrderScanPayload {
+  scan_code: string;
+  order_type?: ImportExportOrderType;
+}
+
+export interface MaterialOption {
+  material_id: string;
+  material_name: string;
+  part_number: string;
+}
+
+export interface MaterialOptionListResponse {
+  data: MaterialOption[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface InventoryLotOption {
+  lot_id: string;
+  material_id: string;
+  quantity: number;
+  unit_of_measure: string;
+  status: string;
+  storage_location: string;
+  warehouse_id?: string;
+}
+
+export interface InventoryLotOptionListResponse {
+  items: InventoryLotOption[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface WarehouseOption {
+  warehouse_id: string;
+  warehouse_name: string;
+  is_active: boolean;
+}
+
+export interface WarehouseOptionListResponse {
+  items: WarehouseOption[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface StorageLocationOption {
+  location_id: string;
+  warehouse_id: string;
+  location_name: string;
+  is_active: boolean;
+}
+
+export interface StorageLocationOptionListResponse {
+  items: StorageLocationOption[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface UploadImportExportOrderAttachmentPayload {

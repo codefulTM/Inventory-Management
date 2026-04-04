@@ -58,7 +58,6 @@ export interface CreateInventoryAdjustmentResponse {
 }
 
 export interface InventoryAdjustmentItem {
-  _id?: string;
   adjustment_id: string;
   lot_id: string;
   material_id: string;
@@ -85,8 +84,8 @@ export interface InventoryAdjustmentListQuery {
   material_id?: string;
   performed_by?: string;
   reason_code?: InventoryAdjustmentReasonCode;
-  from?: string | Date;
-  to?: string | Date;
+  from?: string;
+  to?: string;
 }
 
 export interface InventoryAdjustmentListResponse {

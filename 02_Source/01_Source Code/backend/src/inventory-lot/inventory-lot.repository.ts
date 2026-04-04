@@ -172,6 +172,57 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  async findOptions(
+    options: {
+      q?: string;
+      material_id?: string;
+      status?: string;
+      exclude_statuses?: string[];
+      warehouse_id?: string;
+    },
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{ data: InventoryLotDocument[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const query: any = {};
+
+    if (options.material_id) {
+      query.material_id = options.material_id;
+    }
+
+    if (options.status) {
+      query.status = options.status;
+    }
+
+    if (options.exclude_statuses && options.exclude_statuses.length > 0) {
+      query.status = {
+        $nin: options.exclude_statuses,
+      };
+    }
+
+    if (options.warehouse_id) {
+      query.warehouse_id = options.warehouse_id;
+    }
+
+    if (options.q?.trim()) {
+      const regex = new RegExp(options.q.trim(), 'i');
+      query.$or = [
+        { lot_id: regex },
+        { material_id: regex },
+        { manufacturer_lot: regex },
+      ];
+    }
+
+    const data = await this.inventoryLotModel
+      .find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ lot_id: 1 })
+      .exec();
+    const total = await this.inventoryLotModel.countDocuments(query).exec();
+    return { data, total };
+  }
+
   async update(
     lot_id: string,
     updateDto: Partial<UpdateInventoryLotDto>,

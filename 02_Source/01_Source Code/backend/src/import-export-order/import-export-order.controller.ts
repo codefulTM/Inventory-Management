@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -136,6 +137,58 @@ export class ImportExportOrderController {
     return this.service.getWorklist(filters, paging, requester);
   }
 
+  @Get('warehouses/options')
+  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  async getWarehouseOptions(
+    @Query('q') q?: string,
+    @Query('is_active') is_active?: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20,
+  ) {
+    const isActiveFilter =
+      is_active === undefined
+        ? true
+        : is_active.toLowerCase() === 'true'
+          ? true
+          : is_active.toLowerCase() === 'false'
+            ? false
+            : undefined;
+
+    return this.service.getWarehouseOptions({
+      q,
+      is_active: isActiveFilter,
+      page,
+      limit,
+    });
+  }
+
+  @Get('storage-locations/options')
+  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  async getStorageLocationOptions(
+    @Query('warehouse_id') warehouse_id?: string,
+    @Query('q') q?: string,
+    @Query('is_active') is_active?: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20,
+  ) {
+    const isActiveFilter =
+      is_active === undefined
+        ? true
+        : is_active.toLowerCase() === 'true'
+          ? true
+          : is_active.toLowerCase() === 'false'
+            ? false
+            : undefined;
+
+    return this.service.getStorageLocationOptions({
+      warehouse_id,
+      q,
+      is_active: isActiveFilter,
+      page,
+      limit,
+    });
+  }
+
   @Get(':id')
   @Roles(UserRole.OPERATOR, UserRole.MANAGER)
   async findOne(
@@ -155,7 +208,11 @@ export class ImportExportOrderController {
     @Req() req: { user?: AuthenticatedUser },
   ) {
     const requester = this.toRequester(req);
-    return await this.service.resolveScanCode(dto.scan_code, requester);
+    return await this.service.resolveScanCode(
+      dto.scan_code,
+      requester,
+      dto.order_type,
+    );
   }
 
   @Patch(':id')
@@ -227,7 +284,7 @@ export class ImportExportOrderController {
   }
 
   @Post(':id/confirm')
-  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async confirm(
@@ -240,7 +297,7 @@ export class ImportExportOrderController {
   }
 
   @Post(':id/reject')
-  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  @Roles(UserRole.MANAGER)
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async reject(

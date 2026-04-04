@@ -3,15 +3,20 @@ import type {
   ConfirmImportExportOrderItem,
   ConfirmImportExportOrderPayload,
   CreateImportExportOrderPayload,
+  InventoryLotOptionListResponse,
   ImportExportOrder,
   ImportExportOrderAttachment,
   ImportExportOrderItem,
   ImportExportOrderListResponse,
   ImportExportOrderQueryParams,
+  ImportExportOrderType,
+  MaterialOptionListResponse,
   RejectImportExportOrderPayload,
   ResolveImportExportOrderScanResult,
+  StorageLocationOptionListResponse,
   UpdateImportExportOrderPayload,
   UploadImportExportOrderAttachmentPayload,
+  WarehouseOptionListResponse,
 } from "../types/importExportOrder";
 import { apiClient } from "./apiClient";
 
@@ -322,6 +327,7 @@ export async function uploadImportExportOrderAttachment(
 
 export async function resolveImportExportOrderScan(
   scanCode: string,
+  orderType?: ImportExportOrderType,
 ): Promise<ResolveImportExportOrderScanResult> {
   const normalizedCode = scanCode.trim();
 
@@ -334,6 +340,7 @@ export async function resolveImportExportOrderScan(
       API_ENDPOINTS.IMPORT_EXPORT_ORDER_SCAN_RESOLVE,
       {
         scan_code: normalizedCode,
+        order_type: orderType,
       },
     );
 
@@ -347,6 +354,119 @@ export async function resolveImportExportOrderScan(
   };
 }
 
+export async function fetchMaterialOptions(params?: {
+  q?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<MaterialOptionListResponse> {
+  const { data, error } = await apiClient.get<MaterialOptionListResponse>(
+    API_ENDPOINTS.MATERIALS_OPTIONS,
+    {
+      params,
+    },
+  );
+
+  if (error || !data) {
+    throw toApiError(error, "Failed to fetch material options");
+  }
+
+  const items = Array.isArray(data.data) ? data.data : [];
+
+  return {
+    data: items,
+    total: typeof data.total === "number" ? data.total : items.length,
+    page: typeof data.page === "number" ? data.page : (params?.page ?? 1),
+    limit: typeof data.limit === "number" ? data.limit : (params?.limit ?? 20),
+  };
+}
+
+export async function fetchInventoryLotOptions(params?: {
+  q?: string;
+  material_id?: string;
+  status?: string;
+  exclude_status?: string;
+  warehouse_id?: string;
+  page?: number;
+  limit?: number;
+}): Promise<InventoryLotOptionListResponse> {
+  const { data, error } = await apiClient.get<InventoryLotOptionListResponse>(
+    API_ENDPOINTS.INVENTORY_LOTS_OPTIONS,
+    {
+      params,
+    },
+  );
+
+  if (error || !data) {
+    throw toApiError(error, "Failed to fetch inventory lot options");
+  }
+
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    items,
+    total: typeof data.total === "number" ? data.total : items.length,
+    page: typeof data.page === "number" ? data.page : (params?.page ?? 1),
+    limit: typeof data.limit === "number" ? data.limit : (params?.limit ?? 20),
+  };
+}
+
+export async function fetchWarehouseOptions(params?: {
+  q?: string;
+  is_active?: boolean;
+  page?: number;
+  limit?: number;
+}): Promise<WarehouseOptionListResponse> {
+  const { data, error } = await apiClient.get<WarehouseOptionListResponse>(
+    API_ENDPOINTS.IMPORT_EXPORT_WAREHOUSES_OPTIONS,
+    {
+      params,
+    },
+  );
+
+  if (error || !data) {
+    throw toApiError(error, "Failed to fetch warehouse options");
+  }
+
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    items,
+    total: typeof data.total === "number" ? data.total : items.length,
+    page: typeof data.page === "number" ? data.page : (params?.page ?? 1),
+    limit: typeof data.limit === "number" ? data.limit : (params?.limit ?? 20),
+  };
+}
+
+export async function fetchStorageLocationOptions(params?: {
+  warehouse_id?: string;
+  q?: string;
+  is_active?: boolean;
+  page?: number;
+  limit?: number;
+}): Promise<StorageLocationOptionListResponse> {
+  const { data, error } =
+    await apiClient.get<StorageLocationOptionListResponse>(
+      API_ENDPOINTS.IMPORT_EXPORT_STORAGE_LOCATIONS_OPTIONS,
+      {
+        params,
+      },
+    );
+
+  if (error || !data) {
+    throw toApiError(error, "Failed to fetch storage location options");
+  }
+
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    items,
+    total: typeof data.total === "number" ? data.total : items.length,
+    page: typeof data.page === "number" ? data.page : (params?.page ?? 1),
+    limit: typeof data.limit === "number" ? data.limit : (params?.limit ?? 20),
+  };
+}
+
 export const importExportOrderService = {
   createImportExportOrder,
   fetchImportExportOrders,
@@ -357,4 +477,8 @@ export const importExportOrderService = {
   rejectImportExportOrder,
   uploadImportExportOrderAttachment,
   resolveImportExportOrderScan,
+  fetchMaterialOptions,
+  fetchInventoryLotOptions,
+  fetchWarehouseOptions,
+  fetchStorageLocationOptions,
 };

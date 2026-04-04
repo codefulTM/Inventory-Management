@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ImportExportOrderType } from "../../../types/importExportOrder";
 
 interface ScanRowOption {
   value: number;
@@ -6,6 +7,7 @@ interface ScanRowOption {
 }
 
 interface ScanInputProps {
+  orderType: ImportExportOrderType;
   disabled?: boolean;
   isResolving?: boolean;
   rowOptions: ScanRowOption[];
@@ -17,6 +19,7 @@ interface ScanInputProps {
 }
 
 export default function ScanInput({
+  orderType,
   disabled = false,
   isResolving = false,
   rowOptions,
@@ -37,6 +40,11 @@ export default function ScanInput({
     await onResolve(normalized, selectedRow);
   };
 
+  const scanPlaceholder =
+    orderType === "Inbound"
+      ? "VD: MAT-001 hoặc PART-001"
+      : "VD: LOT-001 hoặc manufacturer lot";
+
   return (
     <section className="rounded-lg bg-white p-5 shadow-md">
       <div className="mb-3 flex items-center justify-between">
@@ -51,7 +59,7 @@ export default function ScanInput({
           <input
             value={scanCode}
             onChange={(event) => setScanCode(event.target.value)}
-            placeholder="VD: LOT-001 hoặc MAT-001"
+            placeholder={scanPlaceholder}
             disabled={disabled || isResolving}
             className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
           />

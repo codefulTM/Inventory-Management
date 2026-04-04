@@ -1,17 +1,25 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   createImportExportOrder,
+  fetchInventoryLotOptions,
+  fetchMaterialOptions,
+  fetchStorageLocationOptions,
+  fetchWarehouseOptions,
   resolveImportExportOrderScan,
   uploadImportExportOrderAttachment,
 } from "../../../services/importExportOrderService";
 import type {
   CreateImportExportOrderPayload,
+  InventoryLotOption,
   ImportExportAttachmentSource,
   ImportExportOrderFormValues,
   ImportExportOrderAttachment,
   ImportExportOrderItem,
   ImportExportOrderType,
+  MaterialOption,
+  StorageLocationOption,
+  WarehouseOption,
 } from "../../../types/importExportOrder";
 import AttachmentUploader, {
   type PendingAttachment,
@@ -93,6 +101,19 @@ export default function OrderForm({
   const [successDialog, setSuccessDialog] = useState<SuccessDialogState | null>(
     null,
   );
+  const [materialOptions, setMaterialOptions] = useState<MaterialOption[]>([]);
+  const [lotOptions, setLotOptions] = useState<InventoryLotOption[]>([]);
+  const [warehouseOptions, setWarehouseOptions] = useState<WarehouseOption[]>(
+    [],
+  );
+  const [locationOptions, setLocationOptions] = useState<
+    StorageLocationOption[]
+  >([]);
+  const [isOptionsLoading, setIsOptionsLoading] = useState(false);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [optionsErrorMessage, setOptionsErrorMessage] = useState<string | null>(
+    null,
+  );
 
   const {
     control,
@@ -120,11 +141,109 @@ export default function OrderForm({
   });
 
   const watchedItems = watch("items");
+  const selectedWarehouseId = watch("warehouse_id");
 
   const orderTypeLabel = useMemo(
     () => (orderType === "Inbound" ? "Phiếu nhập kho" : "Phiếu xuất kho"),
     [orderType],
   );
+
+  const lotOptionsMap = useMemo(
+    () => new Map(lotOptions.map((option) => [option.lot_id, option])),
+    [lotOptions],
+  );
+
+  const loadWarehouseOptions = useCallback(async () => {
+    try {
+      const result = await fetchWarehouseOptions({
+        is_active: true,
+        page: 1,
+        limit: 200,
+      });
+      setWarehouseOptions(result.items);
+    } catch {
+      setWarehouseOptions([]);
+    }
+  }, []);
+
+  const loadLocationOptions = useCallback(async (warehouseId: string) => {
+    const normalizedWarehouseId = warehouseId.trim();
+
+    if (!normalizedWarehouseId) {
+      setLocationOptions([]);
+      return;
+    }
+
+    setIsLocationLoading(true);
+
+    try {
+      const result = await fetchStorageLocationOptions({
+        warehouse_id: normalizedWarehouseId,
+        is_active: true,
+        page: 1,
+        limit: 200,
+      });
+      setLocationOptions(result.items);
+    } catch {
+      setLocationOptions([]);
+    } finally {
+      setIsLocationLoading(false);
+    }
+  }, []);
+
+  const loadOptionsByOrderType = useCallback(async () => {
+    setIsOptionsLoading(true);
+    setOptionsErrorMessage(null);
+
+    try {
+      if (orderType === "Inbound") {
+        const result = await fetchMaterialOptions({
+          status: "Approved",
+          page: 1,
+          limit: 200,
+        });
+        setMaterialOptions(result.data);
+        setLotOptions([]);
+      } else {
+        const result = await fetchInventoryLotOptions({
+          page: 1,
+          limit: 200,
+          status: "Accepted",
+          warehouse_id: selectedWarehouseId?.trim() || undefined,
+        });
+
+        const usableLots = result.items.filter(
+          (item) => Number(item.quantity) > 0,
+        );
+        setLotOptions(usableLots);
+        setMaterialOptions([]);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể tải dữ liệu chọn vật tư/lô.";
+      setOptionsErrorMessage(message);
+      setMaterialOptions([]);
+      setLotOptions([]);
+    } finally {
+      setIsOptionsLoading(false);
+    }
+  }, [orderType, selectedWarehouseId]);
+
+  useEffect(() => {
+    void loadOptionsByOrderType();
+  }, [loadOptionsByOrderType]);
+
+  useEffect(() => {
+    void loadWarehouseOptions();
+  }, [loadWarehouseOptions]);
+
+  useEffect(() => {
+    if (orderType === "Inbound") {
+      void loadLocationOptions(selectedWarehouseId ?? "");
+    }
+  }, [loadLocationOptions, orderType, selectedWarehouseId]);
 
   const clearFeedback = () => {
     setFeedback(null);
@@ -133,6 +252,97 @@ export default function OrderForm({
   const clearScanMessages = () => {
     setScanStatusMessage(null);
     setScanWarningMessage(null);
+  };
+
+  const onInboundMaterialChange = (rowIndex: number, materialId: string) => {
+    setValue(`items.${rowIndex}.material_id`, materialId, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    if (!materialId.trim()) {
+      setValue(`items.${rowIndex}.unit_of_measure`, "", {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      return;
+    }
+  };
+
+  const onWarehouseChange = (warehouseId: string) => {
+    setValue("warehouse_id", warehouseId, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    if (orderType !== "Inbound") {
+      return;
+    }
+
+    fields.forEach((_, index) => {
+      setValue(`items.${index}.expected_location`, "", {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    });
+  };
+
+  const onOutboundLotChange = (rowIndex: number, lotId: string) => {
+    const selectedLot = lotOptionsMap.get(lotId);
+
+    setValue(`items.${rowIndex}.lot_id`, lotId, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    if (!selectedLot) {
+      setValue(`items.${rowIndex}.material_id`, "", {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue(`items.${rowIndex}.unit_of_measure`, "", {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue(`items.${rowIndex}.expected_location`, "", {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      return;
+    }
+
+    setValue(`items.${rowIndex}.material_id`, selectedLot.material_id, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    setValue(
+      `items.${rowIndex}.unit_of_measure`,
+      selectedLot.unit_of_measure ?? "",
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+      },
+    );
+    setValue(`items.${rowIndex}.quantity`, Number(selectedLot.quantity), {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    setValue(
+      `items.${rowIndex}.expected_location`,
+      selectedLot.storage_location ?? "",
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+      },
+    );
+
+    if (selectedLot.warehouse_id?.trim()) {
+      setValue("warehouse_id", selectedLot.warehouse_id.trim(), {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
   };
 
   const addItem = () => {
@@ -180,7 +390,7 @@ export default function OrderForm({
     clearScanMessages();
 
     try {
-      const result = await resolveImportExportOrderScan(scanCode);
+      const result = await resolveImportExportOrderScan(scanCode, orderType);
 
       if (!result.resolved || !result.item) {
         setScanStatusMessage(
@@ -198,10 +408,16 @@ export default function OrderForm({
         });
       }
 
-      setValue(`items.${rowIndex}.lot_id`, item.lot_id ?? "", {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
+      if (orderType === "Outbound") {
+        setValue(`items.${rowIndex}.lot_id`, item.lot_id ?? "", {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+
+        if (item.lot_id) {
+          onOutboundLotChange(rowIndex, item.lot_id);
+        }
+      }
 
       if (item.unit_of_measure) {
         setValue(`items.${rowIndex}.unit_of_measure`, item.unit_of_measure, {
@@ -219,9 +435,22 @@ export default function OrderForm({
         },
       );
 
+      if (orderType === "Outbound" && item.warehouse_id?.trim()) {
+        setValue("warehouse_id", item.warehouse_id.trim(), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+
       setScanStatusMessage(
         `Đã điền dữ liệu vào dòng #${rowIndex + 1} (khớp theo ${result.matched_by ?? "mã"}).`,
       );
+
+      if (orderType === "Outbound" && !item.lot_id) {
+        setScanWarningMessage(
+          "Mã quét chỉ nhận diện được vật tư. Vui lòng chọn mã lô để đảm bảo xuất đúng lot.",
+        );
+      }
 
       if (result.warnings.length > 0) {
         setScanWarningMessage(result.warnings.join("; "));
@@ -335,6 +564,15 @@ export default function OrderForm({
       return;
     }
 
+    if (orderType === "Outbound" && !values.warehouse_id.trim()) {
+      setError("warehouse_id", {
+        type: "manual",
+        message:
+          "Warehouse sẽ tự động điền theo mã lô, vui lòng chọn mã lô hợp lệ.",
+      });
+      return;
+    }
+
     try {
       const payload = buildPayload(values);
       const created = await createImportExportOrder(payload);
@@ -413,13 +651,37 @@ export default function OrderForm({
 
               <label className="block text-xs font-bold uppercase tracking-wide text-gray-500">
                 Warehouse ID *
-                <input
-                  {...register("warehouse_id", {
-                    required: "Warehouse ID là bắt buộc.",
-                  })}
-                  placeholder="VD: WH-HN-01"
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
+                {orderType === "Inbound" ? (
+                  <select
+                    {...register("warehouse_id", {
+                      required: "Warehouse ID là bắt buộc.",
+                      onChange: (event) => {
+                        onWarehouseChange(event.target.value);
+                      },
+                    })}
+                    disabled={isSubmitting}
+                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                  >
+                    <option value="">Chọn Warehouse</option>
+                    {warehouseOptions.map((warehouse) => (
+                      <option
+                        key={warehouse.warehouse_id}
+                        value={warehouse.warehouse_id}
+                      >
+                        {warehouse.warehouse_id} - {warehouse.warehouse_name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    readOnly
+                    {...register("warehouse_id", {
+                      required: "Warehouse ID là bắt buộc.",
+                    })}
+                    placeholder="Tự điền theo mã lô"
+                    className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700 outline-none"
+                  />
+                )}
                 {errors.warehouse_id ? (
                   <p className="mt-1 text-xs font-semibold text-red-600">
                     {errors.warehouse_id.message}
@@ -448,20 +710,38 @@ export default function OrderForm({
           </section>
 
           <OrderItemTable
+            orderType={orderType}
             fields={fields}
             register={register}
             errors={errors}
+            materialOptions={materialOptions}
+            lotOptions={lotOptions}
+            locationOptions={locationOptions}
+            isOptionsLoading={isOptionsLoading}
+            isLocationLoading={isLocationLoading}
             disabled={isSubmitting}
             onAddItem={addItem}
             onRemoveItem={removeItem}
+            onMaterialChange={onInboundMaterialChange}
+            onLotChange={onOutboundLotChange}
           />
 
+          {optionsErrorMessage ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
+              {optionsErrorMessage}
+            </p>
+          ) : null}
+
           <ScanInput
+            orderType={orderType}
             disabled={isSubmitting}
             isResolving={isResolvingScan}
             rowOptions={fields.map((_, index) => ({
               value: index,
-              label: `Dòng #${index + 1} (${watchedItems?.[index]?.material_id?.trim() || "chưa có mã"})`,
+              label:
+                orderType === "Inbound"
+                  ? `Dòng #${index + 1} (${watchedItems?.[index]?.material_id?.trim() || "chưa có mã vật tư"})`
+                  : `Dòng #${index + 1} (${watchedItems?.[index]?.lot_id?.trim() || "chưa có mã lô"})`,
             }))}
             selectedRow={selectedScanRow}
             onSelectedRowChange={setSelectedScanRow}

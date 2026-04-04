@@ -16,6 +16,12 @@ import {
   InventoryTransaction,
   InventoryTransactionSchema,
 } from '../schemas/inventory-transaction.schema';
+import { Counter, CounterSchema } from '../schemas/counter.schema';
+import { Warehouse, WarehouseSchema } from '../schemas/warehouse.schema';
+import {
+  StorageLocation,
+  StorageLocationSchema,
+} from '../schemas/storage-location.schema';
 
 @Module({
   imports: [
@@ -24,6 +30,9 @@ import {
       { name: InventoryLot.name, schema: InventoryLotSchema },
       { name: Material.name, schema: MaterialSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
+      { name: Counter.name, schema: CounterSchema },
+      { name: Warehouse.name, schema: WarehouseSchema },
+      { name: StorageLocation.name, schema: StorageLocationSchema },
     ]),
   ],
   controllers: [ImportExportOrderController],

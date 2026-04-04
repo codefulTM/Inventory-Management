@@ -39,6 +39,10 @@ describe('ImportExportOrderService', () => {
       | 'findLotByManufacturerLot'
       | 'findMaterialByMaterialId'
       | 'findMaterialByPartNumber'
+      | 'findWarehouseById'
+      | 'findStorageLocationById'
+      | 'reserveNextLotId'
+      | 'createProvisionalInboundLot'
       | 'runInTransaction'
       | 'increaseLotQuantity'
       | 'decreaseLotQuantityIfEnough'
@@ -64,6 +68,10 @@ describe('ImportExportOrderService', () => {
       findLotByManufacturerLot: jest.fn(),
       findMaterialByMaterialId: jest.fn(),
       findMaterialByPartNumber: jest.fn(),
+      findWarehouseById: jest.fn(),
+      findStorageLocationById: jest.fn(),
+      reserveNextLotId: jest.fn(),
+      createProvisionalInboundLot: jest.fn(),
       runInTransaction: jest.fn(
         async <T>(work: (session: any) => Promise<T>): Promise<T> =>
           work({} as any),
@@ -87,11 +95,26 @@ describe('ImportExportOrderService', () => {
           material_id: 'MAT-001',
           quantity: 5,
           unit_of_measure: 'pcs',
+          expected_location: 'COLD-STORE-A1',
         },
       ],
     };
 
     repo.create.mockImplementation(async (payload) => payload as any);
+    repo.findMaterialByMaterialId.mockResolvedValue({
+      material_id: 'MAT-001',
+      material_name: 'Acetone',
+    } as any);
+    repo.findWarehouseById.mockResolvedValue({
+      warehouse_id: 'WH-01',
+      is_active: true,
+    } as any);
+    repo.findStorageLocationById.mockResolvedValue({
+      location_id: 'COLD-STORE-A1',
+      warehouse_id: 'WH-01',
+      is_active: true,
+    } as any);
+    repo.reserveNextLotId.mockResolvedValue('LOT-020');
 
     const created = await service.create(dto as any, requesterOperator);
 

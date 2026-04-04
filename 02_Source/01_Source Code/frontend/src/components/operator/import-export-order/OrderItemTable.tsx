@@ -3,15 +3,29 @@ import type {
   FieldErrors,
   UseFormRegister,
 } from "react-hook-form";
-import type { ImportExportOrderFormValues } from "../../../types/importExportOrder";
+import type {
+  ImportExportOrderFormValues,
+  ImportExportOrderType,
+  InventoryLotOption,
+  MaterialOption,
+  StorageLocationOption,
+} from "../../../types/importExportOrder";
 
 interface OrderItemTableProps {
+  orderType: ImportExportOrderType;
   fields: FieldArrayWithId<ImportExportOrderFormValues, "items", "id">[];
   register: UseFormRegister<ImportExportOrderFormValues>;
   errors: FieldErrors<ImportExportOrderFormValues>;
+  materialOptions: MaterialOption[];
+  lotOptions: InventoryLotOption[];
+  locationOptions: StorageLocationOption[];
+  isOptionsLoading?: boolean;
+  isLocationLoading?: boolean;
   disabled?: boolean;
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
+  onMaterialChange: (index: number, materialId: string) => void;
+  onLotChange: (index: number, lotId: string) => void;
 }
 
 function InputError({ message }: { message?: string }) {
@@ -23,13 +37,23 @@ function InputError({ message }: { message?: string }) {
 }
 
 export default function OrderItemTable({
+  orderType,
   fields,
   register,
   errors,
+  materialOptions,
+  lotOptions,
+  locationOptions,
+  isOptionsLoading = false,
+  isLocationLoading = false,
   disabled = false,
   onAddItem,
   onRemoveItem,
+  onMaterialChange,
+  onLotChange,
 }: OrderItemTableProps) {
+  const isInbound = orderType === "Inbound";
+
   return (
     <section className="rounded-lg bg-white p-5 shadow-md">
       <div className="mb-3 flex items-center justify-between">
@@ -72,14 +96,42 @@ export default function OrderItemTable({
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <label className="block text-xs font-semibold text-gray-600">
                   Mã vật tư *
-                  <input
-                    disabled={disabled}
-                    {...register(`items.${index}.material_id`, {
-                      required: "Material ID không được để trống.",
-                    })}
-                    placeholder="VD: MAT-001"
-                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
-                  />
+                  {isInbound ? (
+                    <select
+                      disabled={disabled || isOptionsLoading}
+                      {...register(`items.${index}.material_id`, {
+                        required: "Mã vật tư không được để trống.",
+                        onChange: (event) => {
+                          onMaterialChange(index, event.target.value);
+                        },
+                      })}
+                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                    >
+                      <option value="">
+                        {isOptionsLoading
+                          ? "Đang tải vật tư..."
+                          : "Chọn mã vật tư"}
+                      </option>
+                      {materialOptions.map((option) => (
+                        <option
+                          key={option.material_id}
+                          value={option.material_id}
+                        >
+                          {option.material_id} - {option.material_name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      readOnly
+                      disabled={disabled}
+                      {...register(`items.${index}.material_id`, {
+                        required: "Mã vật tư không được để trống.",
+                      })}
+                      placeholder="Tự điền theo mã lô"
+                      className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm outline-none transition disabled:bg-gray-100"
+                    />
+                  )}
                   <InputError
                     message={
                       rowError?.material_id?.message as string | undefined
@@ -88,12 +140,38 @@ export default function OrderItemTable({
                 </label>
 
                 <label className="block text-xs font-semibold text-gray-600">
-                  Mã lô
-                  <input
-                    disabled={disabled}
-                    {...register(`items.${index}.lot_id`)}
-                    placeholder="Tùy chọn"
-                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                  Mã lô {isInbound ? "" : "*"}
+                  {isInbound ? (
+                    <input
+                      readOnly
+                      disabled
+                      {...register(`items.${index}.lot_id`)}
+                      placeholder="Hệ thống tự sinh khi tạo phiếu"
+                      className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm outline-none transition disabled:bg-gray-100"
+                    />
+                  ) : (
+                    <select
+                      disabled={disabled || isOptionsLoading}
+                      {...register(`items.${index}.lot_id`, {
+                        required: "Mã lô không được để trống.",
+                        onChange: (event) => {
+                          onLotChange(index, event.target.value);
+                        },
+                      })}
+                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                    >
+                      <option value="">
+                        {isOptionsLoading ? "Đang tải lô..." : "Chọn mã lô"}
+                      </option>
+                      {lotOptions.map((option) => (
+                        <option key={option.lot_id} value={option.lot_id}>
+                          {option.lot_id}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <InputError
+                    message={rowError?.lot_id?.message as string | undefined}
                   />
                 </label>
 
@@ -125,12 +203,15 @@ export default function OrderItemTable({
                 <label className="block text-xs font-semibold text-gray-600">
                   Đơn vị *
                   <input
+                    readOnly={!isInbound}
                     disabled={disabled}
                     {...register(`items.${index}.unit_of_measure`, {
                       required: "Đơn vị là bắt buộc.",
                     })}
-                    placeholder="VD: kg"
-                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                    placeholder={isInbound ? "VD: kg" : "Tự điền theo mã lô"}
+                    className={`mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100 ${
+                      !isInbound ? "bg-gray-100" : "bg-white"
+                    }`}
                   />
                   <InputError
                     message={
@@ -140,12 +221,44 @@ export default function OrderItemTable({
                 </label>
 
                 <label className="block text-xs font-semibold text-gray-600">
-                  Vị trí kỳ vọng
-                  <input
-                    disabled={disabled}
-                    {...register(`items.${index}.expected_location`)}
-                    placeholder="VD: A-01"
-                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                  Vị trí kỳ vọng *
+                  {isInbound ? (
+                    <select
+                      disabled={disabled || isLocationLoading}
+                      {...register(`items.${index}.expected_location`, {
+                        required: "Vị trí kỳ vọng không được để trống.",
+                      })}
+                      className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                    >
+                      <option value="">
+                        {isLocationLoading
+                          ? "Đang tải vị trí..."
+                          : "Chọn vị trí kỳ vọng"}
+                      </option>
+                      {locationOptions.map((location) => (
+                        <option
+                          key={location.location_id}
+                          value={location.location_id}
+                        >
+                          {location.location_id} - {location.location_name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      readOnly
+                      disabled={disabled}
+                      {...register(`items.${index}.expected_location`, {
+                        required: "Vị trí kỳ vọng không được để trống.",
+                      })}
+                      placeholder="Tự điền theo mã lô"
+                      className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm outline-none transition disabled:bg-gray-100"
+                    />
+                  )}
+                  <InputError
+                    message={
+                      rowError?.expected_location?.message as string | undefined
+                    }
                   />
                 </label>
               </div>

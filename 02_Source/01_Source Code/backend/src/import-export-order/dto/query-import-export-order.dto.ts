@@ -58,4 +58,8 @@ export class ResolveImportExportOrderScanDto {
   @IsNotEmpty()
   @MaxLength(100)
   scan_code: string;
+
+  @IsEnum(ImportExportOrderType)
+  @IsOptional()
+  order_type?: ImportExportOrderType;
 }

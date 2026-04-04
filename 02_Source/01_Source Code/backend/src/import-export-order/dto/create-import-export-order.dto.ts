@@ -30,9 +30,9 @@ export enum ImportExportAttachmentSource {
 
 export class CreateImportExportOrderItemDto {
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MaxLength(36)
-  material_id: string;
+  material_id?: string;
 
   @IsString()
   @IsOptional()

@@ -1,9 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type {
   CreateInventoryAdjustmentRequest,
   InventoryAdjustmentReasonCode,
 } from "../../../types/inventoryAdjustment";
+import {
+  InventoryLotAPI,
+  type InventoryLotOptionItem,
+} from "../../../services/inventory-lot.service";
 import {
   INVENTORY_ADJUSTMENT_REASON_CODES,
   INVENTORY_ADJUSTMENT_REASON_LABELS,
@@ -34,6 +38,10 @@ export default function InventoryAdjustmentForm({
   submitting = false,
   onSubmit,
 }: InventoryAdjustmentFormProps) {
+  const [lotOptions, setLotOptions] = useState<InventoryLotOptionItem[]>([]);
+  const [isLoadingLots, setIsLoadingLots] = useState(false);
+  const [lotOptionsError, setLotOptionsError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -46,6 +54,7 @@ export default function InventoryAdjustmentForm({
   });
 
   const reasonCode = watch("reason_code");
+  const selectedLotId = watch("lot_id");
   const isOtherReason = reasonCode === "OTHER";
   const effectiveSubmitting = submitting || isSubmitting;
 
@@ -53,6 +62,36 @@ export default function InventoryAdjustmentForm({
     () => INVENTORY_ADJUSTMENT_REASON_LABELS[reasonCode] ?? reasonCode,
     [reasonCode],
   );
+
+  const selectedLot = useMemo(
+    () => lotOptions.find((lot) => lot.lot_id === selectedLotId),
+    [lotOptions, selectedLotId],
+  );
+
+  const loadLotOptions = async () => {
+    setIsLoadingLots(true);
+    setLotOptionsError(null);
+
+    const { items, error } = await InventoryLotAPI.getOptions({
+      page: 1,
+      limit: 200,
+      exclude_status: "Depleted",
+    });
+
+    if (error) {
+      setLotOptions([]);
+      setLotOptionsError("Không thể tải danh sách lô hàng. Vui lòng thử lại.");
+      setIsLoadingLots(false);
+      return;
+    }
+
+    setLotOptions(items);
+    setIsLoadingLots(false);
+  };
+
+  useEffect(() => {
+    void loadLotOptions();
+  }, []);
 
   const onValidSubmit = async (values: InventoryAdjustmentFormValues) => {
     const payload: CreateInventoryAdjustmentRequest = {
@@ -63,13 +102,16 @@ export default function InventoryAdjustmentForm({
       unit_cost_snapshot: Number(values.unit_cost_snapshot),
     };
 
-    await onSubmit(payload);
-
-    reset({
-      ...DEFAULT_VALUES,
-      reason_code: values.reason_code,
-      unit_cost_snapshot: values.unit_cost_snapshot,
-    });
+    try {
+      await onSubmit(payload);
+      reset({
+        ...DEFAULT_VALUES,
+        reason_code: values.reason_code,
+        unit_cost_snapshot: values.unit_cost_snapshot,
+      });
+    } catch {
+      // Parent page already maps and displays API errors.
+    }
   };
 
   return (
@@ -93,22 +135,59 @@ export default function InventoryAdjustmentForm({
         }}
       >
         <label className="text-xs font-bold uppercase tracking-wide text-gray-500 md:col-span-2">
-          Lot ID *
-          <input
-            type="text"
-            placeholder="Ví dụ: d9e2d622-06d0-4c77-a79d-509dbfa2b8a1"
-            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+          Mã lô *
+          <select
+            disabled={effectiveSubmitting || isLoadingLots}
+            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-gray-100"
             {...register("lot_id", {
-              required: "Lot ID là bắt buộc.",
-              maxLength: {
-                value: 36,
-                message: "Lot ID không được vượt quá 36 ký tự.",
-              },
+              required: "Mã lô là bắt buộc.",
             })}
-          />
+          >
+            <option value="">
+              {isLoadingLots ? "Đang tải..." : "-- Chọn mã lô --"}
+            </option>
+            {lotOptions.map((lot) => (
+              <option key={lot.lot_id} value={lot.lot_id}>
+                {lot.lot_id} | {lot.material_id} | {lot.quantity}{" "}
+                {lot.unit_of_measure}
+              </option>
+            ))}
+          </select>
           {errors.lot_id ? (
             <span className="mt-1 block text-xs text-red-600">
               {errors.lot_id.message}
+            </span>
+          ) : null}
+          {lotOptionsError ? (
+            <span className="mt-1 block text-xs text-amber-700">
+              {lotOptionsError}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              void loadLotOptions();
+            }}
+            disabled={effectiveSubmitting || isLoadingLots}
+            className="mt-2 inline-flex rounded-md border border-gray-300 px-2 py-1 text-[11px] font-semibold text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoadingLots ? "Đang tải..." : "Làm mới danh sách lô"}
+          </button>
+        </label>
+
+        <label className="text-xs font-bold uppercase tracking-wide text-gray-500 md:col-span-2">
+          Mã vật tư (đối soát)
+          <input
+            type="text"
+            readOnly
+            value={selectedLot?.material_id ?? ""}
+            placeholder="Tự điền theo lot"
+            className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 outline-none"
+          />
+          {selectedLot ? (
+            <span className="mt-1 block text-[11px] text-gray-500">
+              Tồn hiện tại: {selectedLot.quantity} {selectedLot.unit_of_measure}{" "}
+              | Trạng thái: {selectedLot.status}
             </span>
           ) : null}
         </label>
@@ -118,6 +197,7 @@ export default function InventoryAdjustmentForm({
           <input
             type="number"
             step="0.01"
+            placeholder="VD: 100 (tăng) hoặc -50 (giảm)"
             className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             {...register("adjustment_quantity", {
               required: "Số lượng điều chỉnh là bắt buộc.",
@@ -136,21 +216,25 @@ export default function InventoryAdjustmentForm({
         </label>
 
         <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
-          Unit Cost Snapshot *
+          Giá vốn tức thời (đ/unit) *
           <input
             type="number"
             step="0.01"
             min="0"
             className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             {...register("unit_cost_snapshot", {
-              required: "Unit cost snapshot là bắt buộc.",
+              required: "Giá vốn tức thời là bắt buộc.",
               valueAsNumber: true,
               min: {
                 value: 0,
-                message: "Unit cost snapshot không được nhỏ hơn 0.",
+                message: "Giá vốn tức thời không được nhỏ hơn 0.",
               },
             })}
+            placeholder="Nhập giá cost/unit tại thời điểm điều chỉnh"
           />
+          <span className="mt-1 block text-[11px] text-gray-600">
+            Dùng để tính giá trị tồn kho: số lượng × giá vốn tức thời
+          </span>
           {errors.unit_cost_snapshot ? (
             <span className="mt-1 block text-xs text-red-600">
               {errors.unit_cost_snapshot.message}
@@ -159,11 +243,11 @@ export default function InventoryAdjustmentForm({
         </label>
 
         <label className="text-xs font-bold uppercase tracking-wide text-gray-500 md:col-span-2">
-          Reason Code *
+          Mã lý do *
           <select
             className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             {...register("reason_code", {
-              required: "Reason code là bắt buộc.",
+              required: "Mã lý do là bắt buộc.",
             })}
           >
             {INVENTORY_ADJUSTMENT_REASON_CODES.map((code) => (
@@ -180,13 +264,13 @@ export default function InventoryAdjustmentForm({
         </label>
 
         <label className="text-xs font-bold uppercase tracking-wide text-gray-500 md:col-span-2">
-          Ghi chú lý do {isOtherReason ? "*" : "(khuyến nghị)"}
+          Ghi chú lý do {isOtherReason ? "*" : "(tùy chọn)"}
           <textarea
             rows={3}
             placeholder={
               isOtherReason
-                ? "Bắt buộc tối thiểu 10 ký tự khi chọn OTHER"
-                : "Mô tả bối cảnh điều chỉnh"
+                ? "VD: Phát hiện lỗi khi kiểm kê trong buổi thanh khoán tối ngày 15/3/2026"
+                : "VD: Điều chỉnh do chênh lệch kiểm kê"
             }
             className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             {...register("reason_note", {

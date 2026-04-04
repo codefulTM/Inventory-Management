@@ -428,6 +428,43 @@ export class InventoryLotService {
     };
   }
 
+  async getOptions(
+    options: {
+      q?: string;
+      material_id?: string;
+      status?: string;
+      exclude_statuses?: string[];
+      warehouse_id?: string;
+    },
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException('Page and limit must be >= 1');
+    }
+
+    const { data, total } = await this.inventoryLotRepository.findOptions(
+      options,
+      page,
+      Math.min(limit, 100),
+    );
+
+    return {
+      items: data.map((lot) => ({
+        lot_id: lot.lot_id,
+        material_id: lot.material_id,
+        quantity: lot.quantity,
+        unit_of_measure: lot.unit_of_measure,
+        status: lot.status,
+        warehouse_id: lot.warehouse_id,
+        storage_location: lot.storage_location,
+      })),
+      total,
+      page,
+      limit: Math.min(limit, 100),
+    };
+  }
+
   // ==================== Private Helper Methods ====================
 
   private validateStatusTransition(
@@ -481,6 +518,7 @@ export class InventoryLotService {
       status: lot.status,
       quantity: lot.quantity,
       unit_of_measure: lot.unit_of_measure,
+      warehouse_id: lot.warehouse_id,
       storage_location: lot.storage_location,
       is_sample: lot.is_sample,
       parent_lot_id: lot.parent_lot_id,
