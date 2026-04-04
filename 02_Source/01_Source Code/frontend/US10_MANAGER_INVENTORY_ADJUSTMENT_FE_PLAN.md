@@ -1,5 +1,21 @@
 # [Manager][US10] Frontend Plan - Điều chỉnh số lượng tồn kho
 
+## Cập nhật trạng thái triển khai (04/04/2026)
+
+Trạng thái thực hiện thực tế:
+
+- FE-1 (Contract type + constants): DONE
+- FE-2 (Service layer): DONE
+- FE-3 (Form tạo adjustment bằng react-hook-form): DONE
+- FE-4 (List + filter + detail): DONE
+- FE-5 (Page + route + menu wiring): DONE
+- FE-6 (Hardening + handoff): PARTIAL
+
+Ghi chú FE-6:
+
+- Đã hoàn tất build frontend và map lỗi theo status code chính.
+- Smoke manual end-to-end trên môi trường chạy thật vẫn cần người dùng xác nhận cuối.
+
 ## 1) Mục tiêu
 
 Triển khai giao diện frontend cho nghiệp vụ US10 để Manager có thể tạo, tra cứu và xem chi tiết phiếu điều chỉnh tồn kho, bám đúng contract backend đã bàn giao.

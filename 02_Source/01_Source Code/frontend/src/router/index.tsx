@@ -17,6 +17,7 @@ import DashboardManager from "../pages/manager/Dashboard";
 import MaterialManagementManager from "../pages/manager/MaterialManagement";
 import ProductManagementManager from "../pages/manager/ProductManagement";
 import ReportsManager from "../pages/manager/Reports";
+import InventoryAdjustmentManager from "../pages/manager/InventoryAdjustmentManager";
 import UserManagementManager from "../pages/manager/UserManagement";
 import InventoryTransactionListManager from "../pages/manager/InventoryTransactionListManager";
 import LabelManagement from "../pages/manager/LabelManagement";
@@ -29,7 +30,6 @@ import StockInOperator from "../pages/operator/StockIn";
 import StockOutOperator from "../pages/operator/StockOut";
 import InventoryTransactionListOperator from "../pages/operator/InventoryTransactionListOperator";
 import TransactionHistoryOperator from "../pages/operator/TransactionHistory";
-import InventoryTransactionListOperator from "../pages/operator/InventoryTransactionListOperator";
 import LabelPrintOperator from "../pages/operator/LabelPrint";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -250,6 +250,10 @@ export const router = createBrowserRouter([
       {
         path: "/manager/stock",
         element: requireManagerAuth(<StockManagement />),
+      },
+      {
+        path: "/manager/inventory-adjustments",
+        element: requireManagerAuth(<InventoryAdjustmentManager />),
       },
       {
         path: "/manager/users",

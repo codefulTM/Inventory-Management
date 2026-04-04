@@ -1,10 +1,5 @@
 import { useState, type ReactNode } from "react";
-import {
-  Link,
-  useNavigate,
-  useLocation,
-  Outlet,
-} from "react-router-dom";
+import { Link, useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -132,6 +127,11 @@ export default function Layout() {
             to: "/manager/stock",
             icon: <BarChart3 size={20} />,
             label: "Tồn kho",
+          },
+          {
+            to: "/manager/inventory-adjustments",
+            icon: <FileText size={20} />,
+            label: "Điều chỉnh tồn kho",
           },
           {
             to: "/manager/reports",

@@ -500,7 +500,7 @@ const InventoryTransactionList: React.FC<Props> = ({ title, mode = "all" }) => {
                 >
                   Đóng
                 </button>
-                {hasInvalidDateRange && (
+                {isDateRangeInvalid(draftFromDate, draftToDate) && (
                   <p className="mt-1 text-xs text-red-500">
                     Từ ngày không được lớn hơn Đến ngày.
                   </p>

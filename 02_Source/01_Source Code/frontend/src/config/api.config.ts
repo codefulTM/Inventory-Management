@@ -53,4 +53,9 @@ export const API_ENDPOINTS = {
   IMPORT_EXPORT_ORDER_ATTACHMENTS: (orderId: string) =>
     `/import-export-orders/${orderId}/attachments`,
   IMPORT_EXPORT_ORDER_SCAN_RESOLVE: "/import-export-orders/scan/resolve",
+
+  // Inventory Adjustment endpoints (US10)
+  INVENTORY_ADJUSTMENTS: "/inventory-adjustments",
+  INVENTORY_ADJUSTMENTS_DETAIL: (adjustmentId: string) =>
+    `/inventory-adjustments/${adjustmentId}`,
 };

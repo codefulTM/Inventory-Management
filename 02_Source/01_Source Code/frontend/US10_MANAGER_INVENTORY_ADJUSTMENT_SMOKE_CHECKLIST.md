@@ -70,6 +70,8 @@ Smoke test cho luồng backend điều chỉnh tồn kho của Manager:
 - Backend build: [x] PASS / [ ] FAIL
 - Unit test US10: [x] PASS / [ ] FAIL
 - E2E test US10: [x] PASS / [ ] FAIL
+- Frontend build (FE-1 -> FE-5): [x] PASS / [ ] FAIL
+- Frontend smoke manual: [ ] PASS / [ ] FAIL
 - Người test: GitHub Copilot
 - Thời điểm test: 2026-04-04
-- Ghi chú: Đã xác nhận flow create/list/detail và mapping lỗi chính.
+- Ghi chú: Đã xác nhận flow backend create/list/detail (e2e pass) và đã tích hợp frontend FE-1 đến FE-5 (form react-hook-form, list/filter/detail, route/menu). Smoke manual cần xác nhận thêm trên môi trường chạy thật.
