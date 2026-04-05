@@ -103,6 +103,36 @@ export class InventoryLotController {
     );
   }
 
+  @Get('options')
+  async getOptions(
+    @Query('q') q?: string,
+    @Query('material_id') material_id?: string,
+    @Query('status') status?: string,
+    @Query('exclude_status') exclude_status?: string,
+    @Query('warehouse_id') warehouse_id?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ) {
+    const exclude_statuses = exclude_status
+      ? exclude_status
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : undefined;
+
+    return await this.inventoryLotService.getOptions(
+      {
+        q,
+        material_id,
+        status,
+        exclude_statuses,
+        warehouse_id,
+      },
+      parseInt(page, 10),
+      parseInt(limit, 10),
+    );
+  }
+
   @Get('filter')
   async filter(
     @Query('material_id') material_id?: string,

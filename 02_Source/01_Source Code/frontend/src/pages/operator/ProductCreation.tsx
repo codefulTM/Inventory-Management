@@ -1,23 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { X, Search, Eye, FlaskConical, Package, Plus } from 'lucide-react';
-import { updateProductionBatch, fetchProductionBatches, createProductionBatch } from '../../services/productionBatchService';
-import { fetchMaterials } from '../../services/materialService';
-import { fetchInventoryLots } from '../../services/inventoryLotService';
-import { apiClient } from '../../services/apiClient';
-import type { Material } from '../../types/Material';
-import type { ProductionBatch } from '../../types/production';
-import type { InventoryLot } from '../../types/inventory';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from "react";
+import { X, Search, Eye, FlaskConical, Package, Plus } from "lucide-react";
+import {
+  updateProductionBatch,
+  fetchProductionBatches,
+  createProductionBatch,
+} from "../../services/productionBatchService";
+import { fetchMaterials } from "../../services/materialService";
+import { fetchInventoryLots } from "../../services/inventoryLotService";
+import { apiClient } from "../../services/apiClient";
+import type { Material } from "../../types/material";
+import type { ProductionBatch } from "../../types/production";
+import type { InventoryLot } from "../../types/inventory";
 
 function statusLabel(status: string) {
   switch (status) {
-    case 'On Hold':
-      return { label: 'Chờ xử lý', cls: 'bg-yellow-100 text-yellow-700' };
-    case 'In Progress':
-      return { label: 'Đang xử lý', cls: 'bg-blue-100 text-blue-700' };
-    case 'Complete':
-      return { label: 'Hoàn thành', cls: 'bg-green-100 text-green-700' };
+    case "On Hold":
+      return { label: "Chờ xử lý", cls: "bg-yellow-100 text-yellow-700" };
+    case "In Progress":
+      return { label: "Đang xử lý", cls: "bg-blue-100 text-blue-700" };
+    case "Complete":
+      return { label: "Hoàn thành", cls: "bg-green-100 text-green-700" };
     default:
-      return { label: status, cls: 'bg-gray-100 text-gray-500' };
+      return { label: status, cls: "bg-gray-100 text-gray-500" };
   }
 }
 
@@ -27,28 +32,38 @@ interface ProductionBatchDetailModalProps {
   onUpdated: () => void;
 }
 
-function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBatchDetailModalProps) {
+function ProductionBatchDetailModal({
+  batch,
+  onClose,
+  onUpdated,
+}: ProductionBatchDetailModalProps) {
   const [form, setForm] = useState<any>({ ...batch });
   const [batchComponents, setBatchComponents] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [inventoryLots, setInventoryLots] = useState<InventoryLot[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [newComponents, setNewComponents] = useState<any[]>([{ lot_id: '', planned_quantity: '' }]);
+  const [newComponents, setNewComponents] = useState<any[]>([
+    { lot_id: "", planned_quantity: "" },
+  ]);
 
-  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm((prev: any) => ({ ...prev, [key]: e.target.value }));
-  };
+  const set =
+    (key: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setForm((prev: any) => ({ ...prev, [key]: e.target.value }));
+    };
 
-  const setComponent = (idx: number, key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const updated = [...newComponents];
-    updated[idx] = { ...updated[idx], [key]: e.target.value };
-    setNewComponents(updated);
-  };
+  const setComponent =
+    (idx: number, key: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const updated = [...newComponents];
+      updated[idx] = { ...updated[idx], [key]: e.target.value };
+      setNewComponents(updated);
+    };
 
   const addComponent = () => {
-    setNewComponents((prev) => [...prev, { lot_id: '', planned_quantity: '' }]);
+    setNewComponents((prev) => [...prev, { lot_id: "", planned_quantity: "" }]);
   };
 
   const removeComponent = (idx: number) => {
@@ -64,11 +79,13 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
           fetchInventoryLots(),
           fetchMaterials(),
         ]);
-        setBatchComponents(Array.isArray(components) ? components : components.data || []);
+        setBatchComponents(
+          Array.isArray(components) ? components : components.data || [],
+        );
         setInventoryLots(lots);
         setMaterials(mats);
       } catch (e) {
-        console.error('Error loading data:', e);
+        console.error("Error loading data:", e);
       }
     };
     load();
@@ -77,21 +94,24 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setError("");
     try {
       // Update batch info
       await updateProductionBatch(form.batch_id, form);
-      
+
       // Add new components
       for (const comp of newComponents) {
         if (comp.lot_id && comp.planned_quantity) {
-          await apiClient.post(`/production-batches/${form.batch_id}/components`, {
-            lot_id: comp.lot_id,
-            planned_quantity: comp.planned_quantity,
-          });
+          await apiClient.post(
+            `/production-batches/${form.batch_id}/components`,
+            {
+              lot_id: comp.lot_id,
+              planned_quantity: comp.planned_quantity,
+            },
+          );
         }
       }
-      
+
       setIsEditing(false);
       onUpdated();
       onClose();
@@ -102,53 +122,117 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
     }
   };
 
-  const canEdit = batch.status === 'On Hold';
+  const canEdit = batch.status === "On Hold";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 my-8 p-6 relative">
-        <button onClick={onClose} className="absolute top-3 right-3 p-1 hover:bg-gray-100 rounded-lg">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1 hover:bg-gray-100 rounded-lg"
+        >
           <X size={20} />
         </button>
-        <h3 className="text-xl font-black text-gray-900 mb-4">Chi tiết Production Batch</h3>
-        <form onSubmit={handleSave} className="space-y-4 max-h-96 overflow-y-auto">
-          {error && <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm font-bold">{error}</div>}
-          
+        <h3 className="text-xl font-black text-gray-900 mb-4">
+          Chi tiết Production Batch
+        </h3>
+        <form
+          onSubmit={handleSave}
+          className="space-y-4 max-h-96 overflow-y-auto"
+        >
+          {error && (
+            <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm font-bold">
+              {error}
+            </div>
+          )}
+
           {/* Section 1: Basic Info */}
           <div className="space-y-3 border-b pb-4">
-            <h4 className="text-sm font-bold text-gray-700 uppercase">Thông tin cơ bản</h4>
+            <h4 className="text-sm font-bold text-gray-700 uppercase">
+              Thông tin cơ bản
+            </h4>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase mb-1">Batch Number</label>
-                <input value={form.batch_number} readOnly={!isEditing} onChange={set('batch_number')} className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? 'bg-gray-50' : ''}`} />
+                <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                  Batch Number
+                </label>
+                <input
+                  value={form.batch_number}
+                  readOnly={!isEditing}
+                  onChange={set("batch_number")}
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? "bg-gray-50" : ""}`}
+                />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase mb-1">Product ID</label>
-                <input value={form.product_id} readOnly={!isEditing} onChange={set('product_id')} className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? 'bg-gray-50' : ''}`} />
+                <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                  Product ID
+                </label>
+                <input
+                  value={form.product_id}
+                  readOnly={!isEditing}
+                  onChange={set("product_id")}
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? "bg-gray-50" : ""}`}
+                />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase mb-1">Batch Size</label>
-                <input value={form.batch_size} type="number" readOnly={!isEditing} onChange={set('batch_size')} className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? 'bg-gray-50' : ''}`} />
+                <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                  Batch Size
+                </label>
+                <input
+                  value={form.batch_size}
+                  type="number"
+                  readOnly={!isEditing}
+                  onChange={set("batch_size")}
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? "bg-gray-50" : ""}`}
+                />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase mb-1">Unit</label>
-                <input value={form.unit_of_measure} readOnly={!isEditing} onChange={set('unit_of_measure')} className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? 'bg-gray-50' : ''}`} />
+                <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                  Unit
+                </label>
+                <input
+                  value={form.unit_of_measure}
+                  readOnly={!isEditing}
+                  onChange={set("unit_of_measure")}
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? "bg-gray-50" : ""}`}
+                />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase mb-1">Shelf Life Value</label>
-                <input value={form.shelf_life_value} type="number" readOnly={!isEditing} onChange={set('shelf_life_value')} className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? 'bg-gray-50' : ''}`} />
+                <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                  Shelf Life Value
+                </label>
+                <input
+                  value={form.shelf_life_value}
+                  type="number"
+                  readOnly={!isEditing}
+                  onChange={set("shelf_life_value")}
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm ${!isEditing ? "bg-gray-50" : ""}`}
+                />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase mb-1">Shelf Life Unit</label>
-                <select value={form.shelf_life_unit} disabled={!isEditing} onChange={set('shelf_life_unit')} className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white ${!isEditing ? 'opacity-60' : ''}`}>
+                <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                  Shelf Life Unit
+                </label>
+                <select
+                  value={form.shelf_life_unit}
+                  disabled={!isEditing}
+                  onChange={set("shelf_life_unit")}
+                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white ${!isEditing ? "opacity-60" : ""}`}
+                >
                   <option value="day">Ngày</option>
                   <option value="month">Tháng</option>
                   <option value="year">Năm</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-500 uppercase mb-1">Status</label>
-                <input value={form.status} readOnly className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" />
+                <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                  Status
+                </label>
+                <input
+                  value={form.status}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                />
               </div>
             </div>
           </div>
@@ -156,7 +240,9 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
           {/* Section 2: Nguyên liệu sử dụng */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-gray-700 uppercase">Batch Components (Nguyên Liệu)</h4>
+              <h4 className="text-sm font-bold text-gray-700 uppercase">
+                Batch Components (Nguyên Liệu)
+              </h4>
               {isEditing && (
                 <button
                   type="button"
@@ -172,25 +258,54 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
             {/* Display existing batch components */}
             {batchComponents.length > 0 && (
               <div className="mb-4">
-                <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase">Nguyên liệu hiện tại</h5>
+                <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase">
+                  Nguyên liệu hiện tại
+                </h5>
                 <div className="space-y-2">
                   {batchComponents.map((comp: any) => {
-                    const lot = inventoryLots.find(l => l.lot_id === comp.lot_id);
-                    const mat = lot ? materials.find(m => m.material_id === lot.material_id) : null;
+                    const lot = inventoryLots.find(
+                      (l) => l.lot_id === comp.lot_id,
+                    );
+                    const mat = lot
+                      ? materials.find((m) => m.material_id === lot.material_id)
+                      : null;
                     return (
-                      <div key={comp.component_id} className="p-3 border border-gray-200 bg-gray-50 rounded-lg">
+                      <div
+                        key={comp.component_id}
+                        className="p-3 border border-gray-200 bg-gray-50 rounded-lg"
+                      >
                         <div className="grid grid-cols-3 gap-2 text-sm">
                           <div>
-                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">Nguyên Liệu</label>
-                            <input value={mat?.material_name || lot?.lot_id || comp.lot_id} readOnly className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" />
+                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                              Nguyên Liệu
+                            </label>
+                            <input
+                              value={
+                                mat?.material_name || lot?.lot_id || comp.lot_id
+                              }
+                              readOnly
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+                            />
                           </div>
                           <div>
-                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">Lô Hàng</label>
-                            <input value={lot?.manufacturer_lot || comp.lot_id} readOnly className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" />
+                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                              Lô Hàng
+                            </label>
+                            <input
+                              value={lot?.manufacturer_lot || comp.lot_id}
+                              readOnly
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+                            />
                           </div>
                           <div>
-                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">Số lượng</label>
-                            <input value={`${comp.planned_quantity} ${comp.unit_of_measure}`} readOnly className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" />
+                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                              Số lượng
+                            </label>
+                            <input
+                              value={`${comp.planned_quantity} ${comp.unit_of_measure}`}
+                              readOnly
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+                            />
                           </div>
                         </div>
                       </div>
@@ -203,34 +318,49 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
             {/* New components to add */}
             {isEditing && (
               <div>
-                <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase">Thêm nguyên liệu mới</h5>
+                <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase">
+                  Thêm nguyên liệu mới
+                </h5>
                 <div className="space-y-2">
                   {newComponents.map((comp: any, idx: number) => {
                     return (
-                      <div key={idx} className="p-3 border border-gray-300 bg-white rounded-lg">
+                      <div
+                        key={idx}
+                        className="p-3 border border-gray-300 bg-white rounded-lg"
+                      >
                         <div className="grid grid-cols-4 gap-2">
                           <div>
-                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">Lô Hàng</label>
+                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                              Lô Hàng
+                            </label>
                             <select
                               value={comp.lot_id}
-                              onChange={setComponent(idx, 'lot_id')}
+                              onChange={setComponent(idx, "lot_id")}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                             >
                               <option value="">-- Chọn --</option>
                               {inventoryLots.map((il) => (
                                 <option key={il.lot_id} value={il.lot_id}>
-                                  {materials.find(m => m.material_id === il.material_id)?.material_name} - {il.manufacturer_lot} ({il.quantity} {il.unit_of_measure})
+                                  {
+                                    materials.find(
+                                      (m) => m.material_id === il.material_id,
+                                    )?.material_name
+                                  }{" "}
+                                  - {il.manufacturer_lot} ({il.quantity}{" "}
+                                  {il.unit_of_measure})
                                 </option>
                               ))}
                             </select>
                           </div>
 
                           <div>
-                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">Số lượng</label>
+                            <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                              Số lượng
+                            </label>
                             <input
                               value={comp.planned_quantity}
                               type="number"
-                              onChange={setComponent(idx, 'planned_quantity')}
+                              onChange={setComponent(idx, "planned_quantity")}
                               placeholder="0"
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                             />
@@ -260,11 +390,19 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
           {!isEditing ? (
             <>
               {canEdit && (
-                <button type="button" onClick={() => setIsEditing(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
+                >
                   ✏️ Chỉnh sửa
                 </button>
               )}
-              <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50"
+              >
                 Đóng
               </button>
             </>
@@ -275,14 +413,19 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
                 onClick={() => {
                   setIsEditing(false);
                   setForm({ ...batch });
-                  setNewComponents([{ lot_id: '', planned_quantity: '' }]);
+                  setNewComponents([{ lot_id: "", planned_quantity: "" }]);
                 }}
                 className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50"
               >
                 Hủy
               </button>
-              <button type="submit" disabled={saving} onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50">
-                {saving ? 'Lưu...' : '✓ Lưu'}
+              <button
+                type="submit"
+                disabled={saving}
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? "Lưu..." : "✓ Lưu"}
               </button>
             </>
           )}
@@ -292,17 +435,23 @@ function ProductionBatchDetailModal({ batch, onClose, onUpdated }: ProductionBat
   );
 }
 
-function TabLoThanhPham({ materials, refresh }: { materials: Material[]; refresh: number }) {
+function TabLoThanhPham({
+  materials,
+  refresh,
+}: {
+  materials: Material[];
+  refresh: number;
+}) {
   const [batches, setBatches] = useState<ProductionBatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [detailBatch, setDetailBatch] = useState<ProductionBatch | null>(null);
 
   const load = async () => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const result = await fetchProductionBatches(1, 100);
       setBatches(result.data);
@@ -319,18 +468,26 @@ function TabLoThanhPham({ materials, refresh }: { materials: Material[]; refresh
 
   const filtered = batches.filter((b) => {
     if (statusFilter && b.status !== statusFilter) return false;
-    if (search && !b.batch_number.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !b.batch_number.toLowerCase().includes(search.toLowerCase()))
+      return false;
     return true;
   });
 
   return (
     <div>
       {detailBatch && (
-        <ProductionBatchDetailModal batch={detailBatch} onClose={() => setDetailBatch(null)} onUpdated={load} />
+        <ProductionBatchDetailModal
+          batch={detailBatch}
+          onClose={() => setDetailBatch(null)}
+          onUpdated={load}
+        />
       )}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -350,8 +507,14 @@ function TabLoThanhPham({ materials, refresh }: { materials: Material[]; refresh
         </select>
       </div>
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        {error && <div className="p-3 bg-red-50 text-red-700 text-sm">{error}</div>}
-        {loading && <div className="p-8 text-center text-gray-400 text-sm">Đang tải...</div>}
+        {error && (
+          <div className="p-3 bg-red-50 text-red-700 text-sm">{error}</div>
+        )}
+        {loading && (
+          <div className="p-8 text-center text-gray-400 text-sm">
+            Đang tải...
+          </div>
+        )}
         {!loading && filtered.length === 0 && (
           <div className="p-8 text-center text-gray-300">
             <p className="text-sm">Chưa có batch nào</p>
@@ -361,31 +524,58 @@ function TabLoThanhPham({ materials, refresh }: { materials: Material[]; refresh
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-2 text-left font-black text-gray-600">Batch Number</th>
-                <th className="px-4 py-2 text-left font-black text-gray-600">Product</th>
-                <th className="px-4 py-2 text-left font-black text-gray-600">Size</th>
-                <th className="px-4 py-2 text-left font-black text-gray-600">Status</th>
-                <th className="px-4 py-2 text-left font-black text-gray-600">Action</th>
+                <th className="px-4 py-2 text-left font-black text-gray-600">
+                  Batch Number
+                </th>
+                <th className="px-4 py-2 text-left font-black text-gray-600">
+                  Product
+                </th>
+                <th className="px-4 py-2 text-left font-black text-gray-600">
+                  Size
+                </th>
+                <th className="px-4 py-2 text-left font-black text-gray-600">
+                  Status
+                </th>
+                <th className="px-4 py-2 text-left font-black text-gray-600">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((b) => {
-                const mat = materials.find((m) => m.material_id === b.product_id);
+                const mat = materials.find(
+                  (m) => m.material_id === b.product_id,
+                );
                 const status = statusLabel(b.status);
                 return (
-                  <tr key={b.batch_id} className="border-t border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-2 font-bold text-blue-600 cursor-pointer" onClick={() => setDetailBatch(b)}>
+                  <tr
+                    key={b.batch_id}
+                    className="border-t border-gray-200 hover:bg-gray-50"
+                  >
+                    <td
+                      className="px-4 py-2 font-bold text-blue-600 cursor-pointer"
+                      onClick={() => setDetailBatch(b)}
+                    >
                       {b.batch_number}
                     </td>
-                    <td className="px-4 py-2">{mat?.material_name || b.product_id}</td>
+                    <td className="px-4 py-2">
+                      {mat?.material_name || b.product_id}
+                    </td>
                     <td className="px-4 py-2">
                       {b.batch_size} {b.unit_of_measure}
                     </td>
                     <td className="px-4 py-2">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${status.cls}`}>{status.label}</span>
+                      <span
+                        className={`inline-block px-2 py-1 rounded text-xs font-bold ${status.cls}`}
+                      >
+                        {status.label}
+                      </span>
                     </td>
                     <td className="px-4 py-2">
-                      <button onClick={() => setDetailBatch(b)} className="p-1 hover:bg-gray-200 rounded">
+                      <button
+                        onClick={() => setDetailBatch(b)}
+                        className="p-1 hover:bg-gray-200 rounded"
+                      >
                         <Eye size={16} />
                       </button>
                     </td>
@@ -400,34 +590,46 @@ function TabLoThanhPham({ materials, refresh }: { materials: Material[]; refresh
   );
 }
 
-function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated: () => void }) {
+function TabBaoCao({
+  materials,
+  onCreated,
+}: {
+  materials: Material[];
+  onCreated: () => void;
+}) {
   const [form, setForm] = useState({
-    batch_number: '',
-    product_id: '',
-    batch_size: '',
-    unit_of_measure: 'kg',
-    shelf_life_value: '',
-    shelf_life_unit: 'day',
-    status: 'On Hold',
+    batch_number: "",
+    product_id: "",
+    batch_size: "",
+    unit_of_measure: "kg",
+    shelf_life_value: "",
+    shelf_life_unit: "day",
+    status: "On Hold",
   });
-  const [components, setComponents] = useState([{ lot_id: '', planned_quantity: '' }]);
+  const [components, setComponents] = useState([
+    { lot_id: "", planned_quantity: "" },
+  ]);
   const [inventoryLots, setInventoryLots] = useState<InventoryLot[]>([]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
-  };
+  const set =
+    (key: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    };
 
-  const setComponent = (idx: number, key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const updated = [...components];
-    updated[idx] = { ...updated[idx], [key]: e.target.value };
-    setComponents(updated);
-  };
+  const setComponent =
+    (idx: number, key: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const updated = [...components];
+      updated[idx] = { ...updated[idx], [key]: e.target.value };
+      setComponents(updated);
+    };
 
   const addComponent = () => {
-    setComponents((prev) => [...prev, { lot_id: '', planned_quantity: '' }]);
+    setComponents((prev) => [...prev, { lot_id: "", planned_quantity: "" }]);
   };
 
   const removeComponent = (idx: number) => {
@@ -441,7 +643,7 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
         const lots = await fetchInventoryLots();
         setInventoryLots(lots);
       } catch (e) {
-        console.error('Error loading inventory lots:', e);
+        console.error("Error loading inventory lots:", e);
       }
     };
     load();
@@ -450,20 +652,28 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
     try {
-      if (!form.batch_number || !form.product_id || !form.batch_size || !form.shelf_life_value) {
-        throw new Error('Vui lòng điền đầy đủ thông tin');
+      if (
+        !form.batch_number ||
+        !form.product_id ||
+        !form.batch_size ||
+        !form.shelf_life_value
+      ) {
+        throw new Error("Vui lòng điền đầy đủ thông tin");
       }
-      
-      console.log('📋 Components before validation:', components);
-      console.log('✅ Valid components:', components.filter(c => c.lot_id && c.planned_quantity));
-      
-      if (!components.some(comp => comp.lot_id && comp.planned_quantity)) {
-        throw new Error('Vui lòng thêm ít nhất 1 nguyên liệu');
+
+      console.log("📋 Components before validation:", components);
+      console.log(
+        "✅ Valid components:",
+        components.filter((c) => c.lot_id && c.planned_quantity),
+      );
+
+      if (!components.some((comp) => comp.lot_id && comp.planned_quantity)) {
+        throw new Error("Vui lòng thêm ít nhất 1 nguyên liệu");
       }
-      
+
       // Create batch
       const result = await createProductionBatch({
         batch_id: form.batch_number,
@@ -475,46 +685,63 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
         shelf_life_unit: form.shelf_life_unit,
         status: form.status,
       } as any);
-      console.log('🔍 CREATE BATCH RESPONSE:', result);
-      
+      console.log("🔍 CREATE BATCH RESPONSE:", result);
+
       // Get batch_id from response
       const batchId = (result as any).batch_id || form.batch_number;
-      console.log('✅ Batch created with ID:', batchId);
-      console.log('📦 Components to add:', components);
-      console.log('🚀 Starting component loop with', components.length, 'items');
-      
+      console.log("✅ Batch created with ID:", batchId);
+      console.log("📦 Components to add:", components);
+      console.log(
+        "🚀 Starting component loop with",
+        components.length,
+        "items",
+      );
+
       // Add components
       for (const comp of components) {
-        console.log(`Loop iteration - comp:`, comp, `lot_id:${comp.lot_id}, quantity:${comp.planned_quantity}`);
+        console.log(
+          `Loop iteration - comp:`,
+          comp,
+          `lot_id:${comp.lot_id}, quantity:${comp.planned_quantity}`,
+        );
         if (comp.lot_id && comp.planned_quantity) {
-          console.log(`Posting component: lot_id=${comp.lot_id}, quantity=${comp.planned_quantity}`);
+          console.log(
+            `Posting component: lot_id=${comp.lot_id}, quantity=${comp.planned_quantity}`,
+          );
           try {
-            const componentResult = await apiClient.post(`/production-batches/${batchId}/components`, {
-              lot_id: comp.lot_id,
-              planned_quantity: comp.planned_quantity,
-            });
+            const componentResult = await apiClient.post(
+              `/production-batches/${batchId}/components`,
+              {
+                lot_id: comp.lot_id,
+                planned_quantity: comp.planned_quantity,
+              },
+            );
             console.log(`✅ Component added:`, componentResult);
           } catch (compError: any) {
-            console.error(`❌ Error adding component:`, compError.message, compError);
+            console.error(
+              `❌ Error adding component:`,
+              compError.message,
+              compError,
+            );
             throw compError;
           }
         } else {
           console.warn(`⚠️ Skipping component with missing data:`, comp);
         }
       }
-      console.log('✅ All components added successfully');
-      
-      setSuccess('Tạo batch thành công!');
+      console.log("✅ All components added successfully");
+
+      setSuccess("Tạo batch thành công!");
       setForm({
-        batch_number: '',
-        product_id: '',
-        batch_size: '',
-        unit_of_measure: 'kg',
-        shelf_life_value: '',
-        shelf_life_unit: 'day',
-        status: 'On Hold',
+        batch_number: "",
+        product_id: "",
+        batch_size: "",
+        unit_of_measure: "kg",
+        shelf_life_value: "",
+        shelf_life_unit: "day",
+        status: "On Hold",
       });
-      setComponents([{ lot_id: '', planned_quantity: '' }]);
+      setComponents([{ lot_id: "", planned_quantity: "" }]);
       setTimeout(() => {
         onCreated();
       }, 800);
@@ -532,8 +759,12 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
         <div className="flex items-center gap-3 mb-2">
           <FlaskConical size={24} className="text-white" />
           <div>
-            <h2 className="text-lg font-black text-white">KHỞI TẠO PRODUCTION BATCH</h2>
-            <p className="text-xs text-blue-100">Khai báo thành phẩm & sử dụng nguyên liệu</p>
+            <h2 className="text-lg font-black text-white">
+              KHỞI TẠO PRODUCTION BATCH
+            </h2>
+            <p className="text-xs text-blue-100">
+              Khai báo thành phẩm & sử dụng nguyên liệu
+            </p>
           </div>
         </div>
       </div>
@@ -542,7 +773,9 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
       <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-bold">{error}</div>
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-bold">
+              {error}
+            </div>
           )}
           {success && (
             <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm font-bold">
@@ -558,19 +791,23 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
             </h3>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-black text-gray-600 uppercase mb-2">Mã Lô Sản Xuất *</label>
+                <label className="block text-xs font-black text-gray-600 uppercase mb-2">
+                  Mã Lô Sản Xuất *
+                </label>
                 <input
                   value={form.batch_number}
-                  onChange={set('batch_number')}
+                  onChange={set("batch_number")}
                   placeholder="VD: PB-2026-XXX"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-600 uppercase mb-2">Sản Phẩm Hoàn Thành *</label>
+                <label className="block text-xs font-black text-gray-600 uppercase mb-2">
+                  Sản Phẩm Hoàn Thành *
+                </label>
                 <select
                   value={form.product_id}
-                  onChange={set('product_id')}
+                  onChange={set("product_id")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">-- Chọn sản phẩm --</option>
@@ -582,18 +819,20 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-600 uppercase mb-2">Số Lượng Thu Được *</label>
+                <label className="block text-xs font-black text-gray-600 uppercase mb-2">
+                  Số Lượng Thu Được *
+                </label>
                 <div className="flex gap-2">
                   <input
                     value={form.batch_size}
-                    onChange={set('batch_size')}
+                    onChange={set("batch_size")}
                     type="number"
                     placeholder="0.000"
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <select
                     value={form.unit_of_measure}
-                    onChange={set('unit_of_measure')}
+                    onChange={set("unit_of_measure")}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                   >
                     <option value="kg">kg</option>
@@ -607,18 +846,20 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
             {/* Shelf Life & Status */}
             <div className="grid grid-cols-3 gap-4 mt-4">
               <div>
-                <label className="block text-xs font-black text-gray-600 uppercase mb-2">Thời Hạn *</label>
+                <label className="block text-xs font-black text-gray-600 uppercase mb-2">
+                  Thời Hạn *
+                </label>
                 <div className="flex gap-1">
                   <input
                     value={form.shelf_life_value}
-                    onChange={set('shelf_life_value')}
+                    onChange={set("shelf_life_value")}
                     type="number"
                     placeholder="0"
                     className="w-16 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <select
                     value={form.shelf_life_unit}
-                    onChange={set('shelf_life_unit')}
+                    onChange={set("shelf_life_unit")}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                   >
                     <option value="day">Ngày</option>
@@ -628,7 +869,9 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-600 uppercase mb-2">Trạng Thái</label>
+                <label className="block text-xs font-black text-gray-600 uppercase mb-2">
+                  Trạng Thái
+                </label>
                 <input
                   value={form.status}
                   type="text"
@@ -658,22 +901,30 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
 
             <div className="space-y-3">
               {components.map((comp, idx) => (
-                <div key={idx} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div
+                  key={idx}
+                  className="p-3 border border-gray-200 rounded-lg bg-gray-50"
+                >
                   <div className="grid grid-cols-3 gap-2">
                     {/* Lot dropdown */}
                     <div>
-                      <label className="block text-xs font-black text-gray-500 uppercase mb-1">Lô Hàng *</label>
+                      <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                        Lô Hàng *
+                      </label>
                       <select
                         value={comp.lot_id}
-                        onChange={setComponent(idx, 'lot_id')}
+                        onChange={setComponent(idx, "lot_id")}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                       >
                         <option value="">-- Chọn lô hàng --</option>
                         {inventoryLots.map((il) => {
-                          const mat = materials.find(m => m.material_id === il.material_id);
+                          const mat = materials.find(
+                            (m) => m.material_id === il.material_id,
+                          );
                           return (
                             <option key={il.lot_id} value={il.lot_id}>
-                              {mat?.material_name} - {il.manufacturer_lot} ({il.quantity} {il.unit_of_measure})
+                              {mat?.material_name} - {il.manufacturer_lot} (
+                              {il.quantity} {il.unit_of_measure})
                             </option>
                           );
                         })}
@@ -682,10 +933,12 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
 
                     {/* Quantity input */}
                     <div>
-                      <label className="block text-xs font-black text-gray-500 uppercase mb-1">Số Lượng *</label>
+                      <label className="block text-xs font-black text-gray-500 uppercase mb-1">
+                        Số Lượng *
+                      </label>
                       <input
                         value={comp.planned_quantity}
-                        onChange={setComponent(idx, 'planned_quantity')}
+                        onChange={setComponent(idx, "planned_quantity")}
                         type="number"
                         placeholder="0"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -716,7 +969,7 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
             disabled={saving}
             className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
-            {saving ? '⏳ Đang xử lý...' : '✓ Tạo Production Batch'}
+            {saving ? "⏳ Đang xử lý..." : "✓ Tạo Production Batch"}
           </button>
         </form>
       </div>
@@ -725,7 +978,7 @@ function TabBaoCao({ materials, onCreated }: { materials: Material[]; onCreated:
 }
 
 export default function ProductCreation() {
-  const [tab, setTab] = useState<'create' | 'list'>('list');
+  const [tab, setTab] = useState<"create" | "list">("list");
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
@@ -736,7 +989,7 @@ export default function ProductCreation() {
         const mat = await fetchMaterials();
         setMaterials(mat);
       } catch (e) {
-        console.error('Error loading materials:', e);
+        console.error("Error loading materials:", e);
       } finally {
         setLoading(false);
       }
@@ -745,13 +998,17 @@ export default function ProductCreation() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-400 text-sm">Đang tải...</div>;
+    return (
+      <div className="p-8 text-center text-gray-400 text-sm">Đang tải...</div>
+    );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black text-gray-900">Quản lý thành phẩm</h1>
+        <h1 className="text-2xl font-black text-gray-900">
+          Quản lý thành phẩm
+        </h1>
         <div className="flex items-center gap-1 text-xs font-bold text-green-600">
           <span className="w-2 h-2 rounded-full bg-green-500" />
           ONLINE
@@ -759,28 +1016,33 @@ export default function ProductCreation() {
       </div>
       <div className="flex gap-2">
         <button
-          onClick={() => setTab('list')}
+          onClick={() => setTab("list")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition ${
-            tab === 'list' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+            tab === "list"
+              ? "bg-blue-600 text-white"
+              : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300"
           }`}
         >
           <Package size={14} />
           Batch List
         </button>
         <button
-          onClick={() => setTab('create')}
+          onClick={() => setTab("create")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition ${
-            tab === 'create'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+            tab === "create"
+              ? "bg-blue-600 text-white"
+              : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300"
           }`}
         >
           <FlaskConical size={14} />
           Tạo Batch
         </button>
       </div>
-      {tab === 'create' ? (
-        <TabBaoCao materials={materials} onCreated={() => setRefresh(r => r + 1)} />
+      {tab === "create" ? (
+        <TabBaoCao
+          materials={materials}
+          onCreated={() => setRefresh((r) => r + 1)}
+        />
       ) : (
         <TabLoThanhPham materials={materials} refresh={refresh} />
       )}

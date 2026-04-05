@@ -1,17 +1,19 @@
-import { apiClient } from './apiClient';
-import type { Material } from '../types/Material'
+import { apiClient } from "./apiClient";
+import type { Material } from "../types/material";
 
 function normalize(m: any): Material {
   return {
     ...m,
     material_id: m.material_id || m._id,
     _id: m._id || m.material_id,
-    created_date: m.created_date ? new Date(m.created_date).toISOString() : new Date().toISOString(),
-  }
+    created_date: m.created_date
+      ? new Date(m.created_date).toISOString()
+      : new Date().toISOString(),
+  };
 }
 
 export async function fetchMaterials(): Promise<Material[]> {
-  const { data, error } = await apiClient.get<any[]>('/materials');
+  const { data, error } = await apiClient.get<any[]>("/materials");
   if (error) throw error;
   return Array.isArray(data) ? data.map(normalize) : [];
 }
@@ -23,7 +25,7 @@ export async function fetchMaterial(id: string): Promise<Material> {
 }
 
 export async function createMaterial(payload: Partial<Material>) {
-  const { data, error } = await apiClient.post<any>('/materials', payload);
+  const { data, error } = await apiClient.post<any>("/materials", payload);
   if (error) throw error;
   return normalize(data);
 }
@@ -46,4 +48,4 @@ export default {
   createMaterial,
   updateMaterial,
   removeMaterial,
-}
+};

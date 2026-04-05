@@ -1,10 +1,8 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MaterialForm } from "../../../components/material/components/MaterialForm";
-import {
-  fetchMaterial,
-} from "../../../services/materialService";
-import { type Material } from "../../../types/Material";
+import { fetchMaterial } from "../../../services/materialService";
+import { type Material } from "../../../types/material";
 
 const Page: React.FC = () => {
   const navigate = useNavigate();

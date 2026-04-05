@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect } from "react";
-import type { Material, MaterialType } from "../../../types/Material";
+import type { Material, MaterialType } from "../../../types/material";
 import { useMaterialForm } from "../../../hooks";
 
 interface MaterialFormProps {

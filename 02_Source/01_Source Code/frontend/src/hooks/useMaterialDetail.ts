@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import type { Material } from "../types/Material";
+import type { Material } from "../types/material";
 import { materialService } from "../services/material.service";
 
 interface UseMaterialDetailReturn {

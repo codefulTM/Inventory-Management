@@ -9,7 +9,7 @@ import type {
   UpdateMaterialRequest,
   PaginatedMaterialResponse,
   MaterialType,
-} from "../types/Material";
+} from "../types/material";
 import { API_ENDPOINTS } from "../config/api.config";
 import { apiClient } from "./apiClient";
 

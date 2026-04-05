@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { materialService } from "../../../../services/material.service";
-import type { Material } from "../../../../types/Material";
+import type { Material } from "../../../../types/material";
 
 export function useMaterials() {
   const [materials, setMaterials] = useState<Material[]>([]);

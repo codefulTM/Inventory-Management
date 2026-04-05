@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import type { Material } from "../../../types/Material";
+import type { Material } from "../../../types/material";
 import { useMaterialDetail } from "../../../hooks";
 
 interface MaterialDetailProps {

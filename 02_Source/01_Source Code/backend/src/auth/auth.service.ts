@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   Logger,
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  HttpException,
   BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -49,9 +51,10 @@ export class AuthService {
       if (existingUser && !existingUser.is_active) {
         const lockType = (existingUser as any).lock_type ?? 'deactivated';
         const lockReason = (existingUser as any).lock_reason ?? '';
-        const msg = lockType === 'locked'
-          ? `ACCOUNT_LOCKED:${lockReason}`
-          : `ACCOUNT_DEACTIVATED:${lockReason}`;
+        const msg =
+          lockType === 'locked'
+            ? `ACCOUNT_LOCKED:${lockReason}`
+            : `ACCOUNT_DEACTIVATED:${lockReason}`;
         throw new UnauthorizedException(msg);
       }
 
@@ -105,9 +108,10 @@ export class AuthService {
       if (!user.is_active) {
         const lockType = (user as any).lock_type ?? 'deactivated';
         const lockReason = (user as any).lock_reason ?? '';
-        const msg = lockType === 'locked'
-          ? `ACCOUNT_LOCKED:${lockReason}`
-          : `ACCOUNT_DEACTIVATED:${lockReason}`;
+        const msg =
+          lockType === 'locked'
+            ? `ACCOUNT_LOCKED:${lockReason}`
+            : `ACCOUNT_DEACTIVATED:${lockReason}`;
         throw new UnauthorizedException(msg);
       }
 
@@ -115,7 +119,13 @@ export class AuthService {
       await this.userService.updateLastLogin(user.user_id);
 
       this.logger.log(`User logged in: ${dto.username}`);
-      await this.auditLogService.log(dto.username, AuditAction.LOGIN_SUCCESS, ctx, undefined, user.user_id);
+      await this.auditLogService.log(
+        dto.username,
+        AuditAction.LOGIN_SUCCESS,
+        ctx,
+        undefined,
+        user.user_id,
+      );
 
       return {
         access_token: tokenSet.access_token,
@@ -134,12 +144,24 @@ export class AuthService {
       this.logger.warn(
         `Login failed for username: ${dto.username} - ${error.message}`,
       );
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       const msg: string = error.message || '';
-      await this.auditLogService.log(dto.username, AuditAction.LOGIN_FAILED, ctx, { reason: msg }).catch(() => {});
-      if (msg.startsWith('ACCOUNT_LOCKED:') || msg.startsWith('ACCOUNT_DEACTIVATED:')) {
+      await this.auditLogService
+        .log(dto.username, AuditAction.LOGIN_FAILED, ctx, { reason: msg })
+        .catch(() => {});
+      if (
+        msg.startsWith('ACCOUNT_LOCKED:') ||
+        msg.startsWith('ACCOUNT_DEACTIVATED:')
+      ) {
         throw new UnauthorizedException(msg);
       }
-      throw new UnauthorizedException('Đăng nhập thất bại: Tên đăng nhập hoặc mật khẩu không đúng');
+      throw new UnauthorizedException(
+        'Đăng nhập thất bại: Tên đăng nhập hoặc mật khẩu không đúng',
+      );
     }
   }
 
@@ -166,39 +188,43 @@ export class AuthService {
     ctx: LogContext = {},
   ): Promise<{ message: string }> {
     try {
-      console.log('[AuthService] logout called with:', { username, userId, ctx });
+      console.log('[AuthService] logout called with:', {
+        username,
+        userId,
+        ctx,
+      });
       await this.keycloakService.logoutUser(refreshToken);
-      
+
       // Ghi audit log khi logout thành công
       if (username) {
         this.logger.log(`User logged out: ${username}`);
         console.log('[AuthService] Logging LOGOUT_SUCCESS for:', username);
-        await this.auditLogService.log(
-          username,
-          AuditAction.LOGOUT_SUCCESS,
-          ctx,
-          undefined,
-          userId,
-        ).catch((err) => {
-          console.error('[AuthService] Failed to log LOGOUT_SUCCESS:', err);
-        });
+        await this.auditLogService
+          .log(username, AuditAction.LOGOUT_SUCCESS, ctx, undefined, userId)
+          .catch((err) => {
+            console.error('[AuthService] Failed to log LOGOUT_SUCCESS:', err);
+          });
       } else {
         console.warn('[AuthService] logout called without username');
       }
-      
+
       return { message: 'Đăng xuất thành công' };
     } catch (error) {
       // Ghi audit log khi logout thất bại
       if (username) {
-        this.logger.warn(`Logout failed for username: ${username} - ${error.message}`);
+        this.logger.warn(
+          `Logout failed for username: ${username} - ${error.message}`,
+        );
         console.log('[AuthService] Logging LOGOUT_FAILED for:', username);
-        await this.auditLogService.log(
-          username,
-          AuditAction.LOGOUT_FAILED,
-          ctx,
-          { reason: error.message },
-          userId,
-        ).catch(() => {});
+        await this.auditLogService
+          .log(
+            username,
+            AuditAction.LOGOUT_FAILED,
+            ctx,
+            { reason: error.message },
+            userId,
+          )
+          .catch(() => {});
       }
       throw error;
     }
@@ -267,7 +293,9 @@ export class AuthService {
     const user = await this.userService.findByEmail(email);
     // Trả về cùng message dù email có tồn tại hay không (tránh lộ thông tin)
     if (!user || !user.keycloak_id) {
-      return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
+      return {
+        message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi',
+      };
     }
 
     const token = uuidv4();
@@ -282,7 +310,11 @@ export class AuthService {
     });
 
     const resetLink = `${process.env.FRONTEND_URL || 'https://inventory-system.cloud'}/auth/reset-password?token=${token}`;
-    await this.mailService.sendResetPasswordEmail(user.email, user.username, resetLink);
+    await this.mailService.sendResetPasswordEmail(
+      user.email,
+      user.username,
+      resetLink,
+    );
 
     this.logger.log(`Password reset requested for: ${user.email}`);
     return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
@@ -291,15 +323,20 @@ export class AuthService {
   /**
    * Đặt lại mật khẩu bằng token
    */
-  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
     const record = await this.resetTokenModel.findOne({ token });
 
     if (!record) throw new BadRequestException('Token không hợp lệ');
     if (record.used) throw new BadRequestException('Token đã được sử dụng');
-    if (record.expires_at < new Date()) throw new BadRequestException('Token đã hết hạn');
+    if (record.expires_at < new Date())
+      throw new BadRequestException('Token đã hết hạn');
 
     const user = await this.userService.findByEmail(record.email);
-    if (!user || !user.keycloak_id) throw new NotFoundException('Không tìm thấy tài khoản');
+    if (!user || !user.keycloak_id)
+      throw new NotFoundException('Không tìm thấy tài khoản');
 
     await this.keycloakService.resetPassword(user.keycloak_id, newPassword);
 
