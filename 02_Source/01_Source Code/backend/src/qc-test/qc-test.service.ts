@@ -213,6 +213,16 @@ export class QCTestService {
   ): Promise<InventoryLotResponseDto> {
     await this.inventoryLotService.findById(lot_id); // validate lot exists
 
+    if (!['extend', 'discard'].includes(action)) {
+      throw new BadRequestException(
+        'action không hợp lệ. Chỉ chấp nhận: extend hoặc discard',
+      );
+    }
+
+    if (!dto.performed_by?.trim()) {
+      throw new BadRequestException('performed_by is required');
+    }
+
     if (action === 'extend') {
       if (!dto.new_expiry_date) {
         throw new BadRequestException(
@@ -220,11 +230,22 @@ export class QCTestService {
         );
       }
 
-      // Chỉ update status, không update các trường khác để tránh lỗi type
-      const lot = await this.inventoryLotService.updateStatus(
-        lot_id,
-        InventoryLotStatus.ACCEPTED,
-      );
+      const parsedNewExpiryDate = new Date(dto.new_expiry_date);
+      if (Number.isNaN(parsedNewExpiryDate.getTime())) {
+        throw new BadRequestException(
+          'new_expiry_date phải là ngày hợp lệ theo chuẩn ISO 8601',
+        );
+      }
+      if (parsedNewExpiryDate.getTime() <= Date.now()) {
+        throw new BadRequestException(
+          'new_expiry_date phải lớn hơn thời điểm hiện tại',
+        );
+      }
+
+      const lot = await this.inventoryLotService.update(lot_id, {
+        expiration_date: parsedNewExpiryDate,
+        status: InventoryLotStatus.ACCEPTED,
+      });
 
       await this.repository.create({
         test_id: uuidv4(),

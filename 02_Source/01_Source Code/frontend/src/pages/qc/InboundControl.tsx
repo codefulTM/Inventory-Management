@@ -59,11 +59,14 @@ const DEFAULT_FORM: InspectionForm = {
   label: '',
 };
 
+const PAGE_SIZE = 10;
+
 export default function InboundControl() {
   const [lots, setLots] = useState<InventoryLot[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('Quarantine');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
   const [form, setForm] = useState<InspectionForm>(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -92,6 +95,19 @@ export default function InboundControl() {
         lot.material_name?.toLowerCase().includes(searchQuery.trim().toLowerCase())
       )
     : lots;
+
+  const totalItems = displayedLots.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const paginatedLots = displayedLots.slice(pageStart, pageStart + PAGE_SIZE);
+  const displayFrom = totalItems === 0 ? 0 : pageStart + 1;
+  const displayTo = Math.min(currentPage * PAGE_SIZE, totalItems);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   function openModal(lot: InventoryLot) {
     setSelectedLot(lot);
@@ -174,7 +190,10 @@ export default function InboundControl() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Tìm theo tên sản phẩm..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -184,6 +203,7 @@ export default function InboundControl() {
           onChange={(e) => {
             setFilterStatus(e.target.value as StatusFilter);
             setSearchQuery('');
+            setCurrentPage(1);
           }}
           className="border border-gray-300 rounded-lg px-4 py-2 text-sm font-semibold text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
@@ -208,48 +228,75 @@ export default function InboundControl() {
             {searchQuery ? `Không tìm thấy sản phẩm "${searchQuery}"` : 'Không có lô hàng nào'}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                <tr>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Số lượng</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Hạn sử dụng</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Trạng thái</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {displayedLots.map((lot) => (
-                  <tr key={lot.lot_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.supplier_name}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.quantity} {lot.unit_of_measure ?? ''}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-500">
-                      {lot.expiration_date ? new Date(lot.expiration_date).toLocaleDateString('vi-VN') : '—'}
-                    </td>
-                    <td className="px-6 py-4">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_BADGE[lot.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {lot.status === 'Quarantine' ? 'Chờ kiểm định' : lot.status === 'Accepted' ? 'Chấp nhận' : lot.status === 'Rejected' ? 'Từ chối' : lot.status === 'Hold' ? 'Tạm giữ' : lot.status === 'Depleted' ? 'Đã hết' : lot.status}
-                        </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {lot.status === 'Quarantine' && (
-                        <button
-                          onClick={() => openModal(lot)}
-                          className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
-                        >
-                          Tiến hành kiểm định
-                        </button>
-                      )}
-                    </td>
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Số lượng</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Hạn sử dụng</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paginatedLots.map((lot) => (
+                    <tr key={lot.lot_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.supplier_name}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.quantity} {lot.unit_of_measure ?? ''}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-500">
+                        {lot.expiration_date ? new Date(lot.expiration_date).toLocaleDateString('vi-VN') : '—'}
+                      </td>
+                      <td className="px-6 py-4">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_BADGE[lot.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {lot.status === 'Quarantine' ? 'Chờ kiểm định' : lot.status === 'Accepted' ? 'Chấp nhận' : lot.status === 'Rejected' ? 'Từ chối' : lot.status === 'Hold' ? 'Tạm giữ' : lot.status === 'Depleted' ? 'Đã hết' : lot.status}
+                          </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {lot.status === 'Quarantine' && (
+                          <button
+                            onClick={() => openModal(lot)}
+                            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                          >
+                            Tiến hành kiểm định
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Hiển thị {displayFrom}-{displayTo} / {totalItems} lô hàng
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Trước
+                </button>
+                <span className="text-xs text-gray-500">
+                  Trang {currentPage}/{totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

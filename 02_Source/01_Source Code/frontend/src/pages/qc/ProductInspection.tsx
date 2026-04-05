@@ -1,11 +1,11 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, X } from 'lucide-react';
 import Toast from '../../components/Toast';
 import { createQCTest, submitLotDecision } from '../../services/qcServices';
 import { fetchProductionBatches } from '../../services/productionBatchService';
 import type { CreateQCTestDto, LotDecisionDto } from '../../types/qc';
-import type { ProductionBatch } from '../../types/production';
+import type { PaginatedProductionBatch, ProductionBatch } from '../../types/production';
 
 
 type DecisionValue = 'approved' | 'rejected' | 'hold';
@@ -32,25 +32,43 @@ const DEFAULT_FORM: InspectionForm = {
   productLabel: '',
 };
 
+const PAGE_SIZE = 10;
+
 export default function ProductInspection() {
   const [batches, setBatches] = useState<ProductionBatch[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginatedProductionBatch['pagination']>({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
   const [selectedBatch, setSelectedBatch] = useState<ProductionBatch | null>(null);
   const [form, setForm] = useState<InspectionForm>(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  useEffect(() => {
-    async function loadBatches() {
-      try {
-        const response = await fetchProductionBatches();
-        setBatches(response.data);
-      } catch {
-        setToast({ message: 'Không thể tải danh sách lô sản xuất', type: 'error' });
-      }
+  const loadBatches = useCallback(async (page: number) => {
+    setLoadingBatches(true);
+    try {
+      const response = await fetchProductionBatches(page, PAGE_SIZE);
+      setBatches(response.data);
+      setPagination(response.pagination);
+    } catch {
+      setToast({ message: 'Không thể tải danh sách lô sản xuất', type: 'error' });
+    } finally {
+      setLoadingBatches(false);
     }
-    loadBatches();
   }, []);
+
+  useEffect(() => {
+    void loadBatches(currentPage);
+  }, [currentPage, loadBatches]);
+
+  const displayFrom = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
+  const displayTo = Math.min(pagination.page * pagination.limit, pagination.total);
 
   function openModal(batch: ProductionBatch) {
     setSelectedBatch(batch);
@@ -102,7 +120,7 @@ export default function ProductInspection() {
       await submitLotDecision(selectedBatch.batch_number, decisionDto);
 
       setToast({ message: `Đã xử lý lô ${selectedBatch.batch_number} thành công`, type: 'success' });
-      setBatches(batches.filter((b) => b.batch_number !== selectedBatch.batch_number));
+      await loadBatches(currentPage);
       closeModal();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : 'Lỗi khi gửi kết quả');
@@ -119,41 +137,74 @@ export default function ProductInspection() {
       </div>
 
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-        {batches.length === 0 ? (
+        {loadingBatches ? (
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : batches.length === 0 ? (
           <p className="p-10 text-center text-gray-400">Không có lô thành phẩm nào cần kiểm định.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                <tr>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô hàng</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Mã sản phẩm</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Ngày sản xuất</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Số lượng</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Dây chuyền</th>
-                  <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {batches.map((batch) => (
-                  <tr key={batch.batch_number} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-mono font-medium text-gray-800">{batch.batch_number}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-700">{batch.product_id}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-500">{new Date(batch.created_date).toLocaleDateString('vi-VN')}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-700">{batch.batch_size} {batch.unit_of_measure}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-500">{batch.status}</td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => openModal(batch)}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
-                      >
-                        Tiến hành kiểm định
-                      </button>
-                    </td>
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô hàng</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Mã sản phẩm</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Ngày sản xuất</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Số lượng</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Dây chuyền</th>
+                    <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {batches.map((batch) => (
+                    <tr key={batch.batch_number} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 font-mono font-medium text-gray-800">{batch.batch_number}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{batch.product_id}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-500">{new Date(batch.created_date).toLocaleDateString('vi-VN')}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{batch.batch_size} {batch.unit_of_measure}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-500">{batch.status}</td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => openModal(batch)}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                        >
+                          Tiến hành kiểm định
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Hiển thị {displayFrom}-{displayTo} / {pagination.total} lô sản xuất
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Trước
+                </button>
+                <span className="text-xs text-gray-500">
+                  Trang {pagination.page}/{pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

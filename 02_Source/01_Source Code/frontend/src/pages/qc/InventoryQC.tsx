@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Lock, X, MapPin } from 'lucide-react';
 import Toast from '../../components/Toast';
 import { getInventoryLots, submitRetest, bulkQuarantine } from '../../services/qcServices';
+import { useAuth } from '../../hooks/useAuth';
 import type { InventoryLot } from '../../types/qc';
 
 type Tab = 'alert' | 'quarantine';
@@ -21,7 +22,10 @@ const STATUS_BADGE: Record<string, string> = {
   Depleted: 'bg-gray-100 text-gray-500',
 };
 
+const PAGE_SIZE = 10;
+
 export default function InventoryQC() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('alert');
   const [lots, setLots] = useState<InventoryLot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +35,8 @@ export default function InventoryQC() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [searchLocation, setSearchLocation] = useState('');
+  const [alertPage, setAlertPage] = useState(1);
+  const [quarantinePage, setQuarantinePage] = useState(1);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const loadLots = useCallback(async () => {
@@ -71,6 +77,51 @@ export default function InventoryQC() {
       )
     : quarantinableLots;
 
+  const alertTotalItems = filteredAlertLots.length;
+  const alertTotalPages = Math.max(1, Math.ceil(alertTotalItems / PAGE_SIZE));
+  const alertStart = (alertPage - 1) * PAGE_SIZE;
+  const paginatedAlertLots = filteredAlertLots.slice(
+    alertStart,
+    alertStart + PAGE_SIZE,
+  );
+  const alertDisplayFrom = alertTotalItems === 0 ? 0 : alertStart + 1;
+  const alertDisplayTo = Math.min(alertPage * PAGE_SIZE, alertTotalItems);
+
+  const quarantineTotalItems = filteredQuarantinableLots.length;
+  const quarantineTotalPages = Math.max(
+    1,
+    Math.ceil(quarantineTotalItems / PAGE_SIZE),
+  );
+  const quarantineStart = (quarantinePage - 1) * PAGE_SIZE;
+  const paginatedQuarantinableLots = filteredQuarantinableLots.slice(
+    quarantineStart,
+    quarantineStart + PAGE_SIZE,
+  );
+  const quarantineDisplayFrom = quarantineTotalItems === 0 ? 0 : quarantineStart + 1;
+  const quarantineDisplayTo = Math.min(
+    quarantinePage * PAGE_SIZE,
+    quarantineTotalItems,
+  );
+
+  const currentQuarantinePageLotIds = paginatedQuarantinableLots.map(
+    (lot) => lot.lot_id,
+  );
+  const isCurrentQuarantinePageFullySelected =
+    currentQuarantinePageLotIds.length > 0 &&
+    currentQuarantinePageLotIds.every((id) => selectedItems.includes(id));
+
+  useEffect(() => {
+    if (alertPage > alertTotalPages) {
+      setAlertPage(alertTotalPages);
+    }
+  }, [alertPage, alertTotalPages]);
+
+  useEffect(() => {
+    if (quarantinePage > quarantineTotalPages) {
+      setQuarantinePage(quarantineTotalPages);
+    }
+  }, [quarantinePage, quarantineTotalPages]);
+
   function openRetestModal(lot: InventoryLot) {
     setRetestLot(lot);
     setRetestAction(null);
@@ -93,7 +144,7 @@ export default function InventoryQC() {
     try {
       await submitRetest(retestLot.lot_id, {
         action: retestAction,
-        performed_by: 'qc_user',
+        performed_by: user?.username ?? 'unknown_user',
         new_expiry_date: retestAction === 'extend' ? newExpiryDate : undefined,
       });
       setToast({
@@ -147,7 +198,12 @@ export default function InventoryQC() {
           <input
             type="text"
             value={searchLocation}
-            onChange={(e) => setSearchLocation(e.target.value)}
+            onChange={(e) => {
+              setSearchLocation(e.target.value);
+              setAlertPage(1);
+              setQuarantinePage(1);
+              setSelectedItems([]);
+            }}
             placeholder="Tìm theo vị trí kho..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -157,7 +213,12 @@ export default function InventoryQC() {
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         <button
-          onClick={() => { setActiveTab('alert'); setSearchLocation(''); }}
+          onClick={() => {
+            setActiveTab('alert');
+            setSearchLocation('');
+            setAlertPage(1);
+            setSelectedItems([]);
+          }}
           className={`m-2 px-5 py-3 text-sm font-semibold transition border-b-2 -mb-px ${
             activeTab === 'alert' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
@@ -170,7 +231,11 @@ export default function InventoryQC() {
           )}
         </button>
         <button
-          onClick={() => { setActiveTab('quarantine'); setSearchLocation(''); }}
+          onClick={() => {
+            setActiveTab('quarantine');
+            setSearchLocation('');
+            setQuarantinePage(1);
+          }}
           className={`m-2 px-5 py-3 text-sm font-semibold transition border-b-2 -mb-px ${
             activeTab === 'quarantine' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
@@ -195,56 +260,83 @@ export default function InventoryQC() {
                 : 'Không có lô hàng nào sắp hết hạn trong 30 ngày tới.'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                  <tr>
-                    <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
-                    <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
-                    <th className="px-6 py-4 text-left font-bold tracking-wider">Vị trí</th>
-                    <th className="px-6 py-4 text-left font-bold tracking-wider">Hạn sử dụng</th>
-                    <th className="px-6 py-4 text-left font-bold tracking-wider">Cảnh báo</th>
-                    <th className="px-6 py-4 text-left font-bold tracking-wider">Trạng thái</th>
-                    <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredAlertLots.map((lot) => {
-                    const days = getDaysUntilExpiry(lot.expiration_date);
-                    const isNearExpiry = days !== null && days <= 7;
-                    return (
-                      <tr key={lot.lot_id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.storage_location ?? '—'}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-700">
-                          {lot.expiration_date ? new Date(lot.expiration_date).toLocaleDateString('vi-VN') : '—'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            isNearExpiry ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {isNearExpiry ? `Hết hạn sau (${days ?? 0} ngày)` : `Cần kiểm tra (${days ?? 0} ngày)`}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_BADGE[lot.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {lot.status === 'Quarantine' ? 'Cách ly' : lot.status === 'Accepted' ? 'Chấp nhận' : lot.status === 'Rejected' ? 'Từ chối' : lot.status === 'Hold' ? 'Tạm giữ' : lot.status === 'Depleted' ? 'Đã hết' : lot.status}
+            <div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                      <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
+                      <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
+                      <th className="px-6 py-4 text-left font-bold tracking-wider">Vị trí</th>
+                      <th className="px-6 py-4 text-left font-bold tracking-wider">Hạn sử dụng</th>
+                      <th className="px-6 py-4 text-left font-bold tracking-wider">Cảnh báo</th>
+                      <th className="px-6 py-4 text-left font-bold tracking-wider">Trạng thái</th>
+                      <th className="px-6 py-4 text-left font-bold tracking-wider">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {paginatedAlertLots.map((lot) => {
+                      const days = getDaysUntilExpiry(lot.expiration_date);
+                      const isNearExpiry = days !== null && days <= 7;
+                      return (
+                        <tr key={lot.lot_id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.storage_location ?? '—'}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-700">
+                            {lot.expiration_date ? new Date(lot.expiration_date).toLocaleDateString('vi-VN') : '—'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              isNearExpiry ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {isNearExpiry ? `Hết hạn sau (${days ?? 0} ngày)` : `Cần kiểm tra (${days ?? 0} ngày)`}
                             </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => openRetestModal(lot)}
-                            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
-                          >
-                            Kiểm tra lại
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="px-6 py-4">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_BADGE[lot.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {lot.status === 'Quarantine' ? 'Cách ly' : lot.status === 'Accepted' ? 'Chấp nhận' : lot.status === 'Rejected' ? 'Từ chối' : lot.status === 'Hold' ? 'Tạm giữ' : lot.status === 'Depleted' ? 'Đã hết' : lot.status}
+                              </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => openRetestModal(lot)}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                            >
+                              Kiểm tra lại
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  Hiển thị {alertDisplayFrom}-{alertDisplayTo} / {alertTotalItems} lô hàng
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAlertPage((prev) => Math.max(1, prev - 1))}
+                    disabled={alertPage === 1}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Trước
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    Trang {alertPage}/{alertTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setAlertPage((prev) => Math.min(alertTotalPages, prev + 1))}
+                    disabled={alertPage === alertTotalPages}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -287,51 +379,92 @@ export default function InventoryQC() {
                   : 'Không có lô hàng nào có thể cách ly.'}
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                      <th className="px-6 py-4 text-left">
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.length === filteredQuarantinableLots.length && filteredQuarantinableLots.length > 0}
-                          onChange={(e) =>
-                            setSelectedItems(e.target.checked ? filteredQuarantinableLots.map((l) => l.lot_id) : [])
-                          }
-                          className="rounded"
-                        />
-                      </th>
-                      <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
-                      <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
-                      <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
-                      <th className="px-6 py-4 text-left font-bold tracking-wider">Vị trí</th>
-                      <th className="px-6 py-4 text-left font-bold tracking-wider">Trạng thái hiện tại</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredQuarantinableLots.map((lot) => (
-                      <tr key={lot.lot_id} className={`hover:bg-gray-50 ${selectedItems.includes(lot.lot_id) ? 'bg-red-50/30' : ''}`}>
-                        <td className="px-6 py-4">
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                      <tr>
+                        <th className="px-6 py-4 text-left">
                           <input
                             type="checkbox"
-                            checked={selectedItems.includes(lot.lot_id)}
-                            onChange={() => toggleSelect(lot.lot_id)}
+                            checked={isCurrentQuarantinePageFullySelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedItems((prev) => [
+                                  ...prev,
+                                  ...currentQuarantinePageLotIds.filter(
+                                    (id) => !prev.includes(id),
+                                  ),
+                                ]);
+                                return;
+                              }
+
+                              setSelectedItems((prev) =>
+                                prev.filter(
+                                  (id) => !currentQuarantinePageLotIds.includes(id),
+                                ),
+                              );
+                            }}
                             className="rounded"
                           />
-                        </td>
-                        <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.supplier_name}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.storage_location ?? '—'}</td>
-                        <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_BADGE[lot.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {lot.status === 'Quarantine' ? 'Chờ kiểm định' : lot.status === 'Accepted' ? 'Chấp nhận' : lot.status === 'Rejected' ? 'Từ chối' : lot.status === 'Hold' ? 'Tạm giữ' : lot.status === 'Depleted' ? 'Đã hết' : lot.status}
-                            </span>
-                        </td>
+                        </th>
+                        <th className="px-6 py-4 text-left font-bold tracking-wider">Mã lô</th>
+                        <th className="px-6 py-4 text-left font-bold tracking-wider">Tên sản phẩm</th>
+                        <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
+                        <th className="px-6 py-4 text-left font-bold tracking-wider">Vị trí</th>
+                        <th className="px-6 py-4 text-left font-bold tracking-wider">Trạng thái hiện tại</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {paginatedQuarantinableLots.map((lot) => (
+                        <tr key={lot.lot_id} className={`hover:bg-gray-50 ${selectedItems.includes(lot.lot_id) ? 'bg-red-50/30' : ''}`}>
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedItems.includes(lot.lot_id)}
+                              onChange={() => toggleSelect(lot.lot_id)}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="px-6 py-4 font-mono font-medium text-gray-800">{lot.lot_id}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-700">{lot.material_name}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.supplier_name}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-500">{lot.storage_location ?? '—'}</td>
+                          <td className="px-6 py-4">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_BADGE[lot.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {lot.status === 'Quarantine' ? 'Chờ kiểm định' : lot.status === 'Accepted' ? 'Chấp nhận' : lot.status === 'Rejected' ? 'Từ chối' : lot.status === 'Hold' ? 'Tạm giữ' : lot.status === 'Depleted' ? 'Đã hết' : lot.status}
+                              </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    Hiển thị {quarantineDisplayFrom}-{quarantineDisplayTo} / {quarantineTotalItems} lô hàng
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setQuarantinePage((prev) => Math.max(1, prev - 1))}
+                      disabled={quarantinePage === 1}
+                      className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Trước
+                    </button>
+                    <span className="text-xs text-gray-500">
+                      Trang {quarantinePage}/{quarantineTotalPages}
+                    </span>
+                    <button
+                      onClick={() => setQuarantinePage((prev) => Math.min(quarantineTotalPages, prev + 1))}
+                      disabled={quarantinePage === quarantineTotalPages}
+                      className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 import type {
   DashboardKPI,
   InventoryLot,
+  PaginatedInventoryLots,
   QCTest,
   SupplierPerformance,
   SupplierAnalysisResponse,
@@ -21,6 +22,21 @@ type RawInventoryLot = Omit<InventoryLot, 'material_name'> & {
   };
 };
 
+type RawInventoryLotsPayload =
+  | RawInventoryLot[]
+  | {
+      data: RawInventoryLot[];
+      total?: number;
+      page?: number;
+      limit?: number;
+    };
+
+interface GetInventoryLotsOptions {
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
 function requireData<T>(
   data: T | null,
   error: { message?: string } | null,
@@ -37,16 +53,98 @@ function requireData<T>(
   return data;
 }
 
-function normalizeListPayload<T>(payload: T[] | { data: T[] }): T[] {
+function normalizeInventoryLotsPayload(
+  payload: RawInventoryLotsPayload,
+  fallbackPage: number,
+  fallbackLimit: number,
+): { data: RawInventoryLot[]; page: number; limit: number; total: number } {
   if (Array.isArray(payload)) {
-    return payload;
+    return {
+      data: payload,
+      page: fallbackPage,
+      limit: fallbackLimit,
+      total: payload.length,
+    };
   }
 
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    return payload.data;
+  return {
+    data: Array.isArray(payload.data) ? payload.data : [],
+    page: typeof payload.page === 'number' ? payload.page : fallbackPage,
+    limit: typeof payload.limit === 'number' ? payload.limit : fallbackLimit,
+    total:
+      typeof payload.total === 'number'
+        ? payload.total
+        : Array.isArray(payload.data)
+          ? payload.data.length
+          : 0,
+  };
+}
+
+async function buildMaterialNameMap(): Promise<Map<string, string>> {
+  let materialNameById = new Map<string, string>();
+  try {
+    const materials = await fetchMaterials();
+    materialNameById = new Map(
+      materials
+        .filter((material) => Boolean(material.material_id && material.material_name))
+        .map((material) => [material.material_id, material.material_name]),
+    );
+  } catch {
+    // Do not block lot listing when material catalog cannot be loaded.
   }
 
-  return [];
+  return materialNameById;
+}
+
+function enrichInventoryLots(
+  lots: RawInventoryLot[],
+  materialNameById: Map<string, string>,
+): InventoryLot[] {
+  return lots.map((lot) => {
+    const materialId = lot.material_id ?? lot.material?.material_id;
+    const resolvedMaterialName =
+      lot.material_name ??
+      lot.material?.material_name ??
+      (materialId ? materialNameById.get(materialId) : undefined) ??
+      '';
+
+    return {
+      ...lot,
+      material_name: resolvedMaterialName,
+    };
+  });
+}
+
+async function fetchInventoryLotsPage(
+  options: GetInventoryLotsOptions,
+  materialNameById: Map<string, string>,
+): Promise<PaginatedInventoryLots> {
+  const page = options.page ?? 1;
+  const limit = options.limit ?? 10;
+
+  const params: Record<string, string | number> = { page, limit };
+  if (options.status) {
+    params.status = options.status;
+  }
+
+  const { data, error } = await apiClient.get<RawInventoryLotsPayload>(
+    '/inventory-lots',
+    { params },
+  );
+
+  const payload = requireData(data, error, 'Unable to fetch inventory lots');
+  const normalized = normalizeInventoryLotsPayload(payload, page, limit);
+  const normalizedLimit = Math.max(normalized.limit, 1);
+
+  return {
+    data: enrichInventoryLots(normalized.data, materialNameById),
+    pagination: {
+      page: normalized.page,
+      limit: normalized.limit,
+      total: normalized.total,
+      totalPages: Math.max(1, Math.ceil(normalized.total / normalizedLimit)),
+    },
+  };
 }
 
 export async function getDashboardKPI(): Promise<DashboardKPI> {
@@ -56,43 +154,38 @@ export async function getDashboardKPI(): Promise<DashboardKPI> {
   });
 }
 
+export async function getInventoryLotsPaginated(
+  options: GetInventoryLotsOptions = {},
+): Promise<PaginatedInventoryLots> {
+  return safeApiCall('qcServices.getInventoryLotsPaginated', async () => {
+    const materialNameById = await buildMaterialNameMap();
+    return fetchInventoryLotsPage(options, materialNameById);
+  });
+}
+
 export async function getInventoryLots(status?: string): Promise<InventoryLot[]> {
   return safeApiCall('qcServices.getInventoryLots', async () => {
-    const { data, error } = await apiClient.get<RawInventoryLot[] | { data: RawInventoryLot[] }>(
-      '/inventory-lots',
-      {
-        params: status ? { status } : undefined,
-      },
+    const materialNameById = await buildMaterialNameMap();
+    const pageSize = 100;
+    const firstPage = await fetchInventoryLotsPage(
+      { status, page: 1, limit: pageSize },
+      materialNameById,
     );
 
-    const payload = requireData(data, error, 'Unable to fetch inventory lots');
-    const lots = normalizeListPayload(payload);
-
-    let materialNameById = new Map<string, string>();
-    try {
-      const materials = await fetchMaterials();
-      materialNameById = new Map(
-        materials
-          .filter((material) => Boolean(material.material_id && material.material_name))
-          .map((material) => [material.material_id, material.material_name]),
-      );
-    } catch {
-      // Do not block lot listing when material catalog cannot be loaded.
+    if (firstPage.pagination.totalPages <= 1) {
+      return firstPage.data;
     }
 
-    return lots.map((lot) => {
-      const materialId = lot.material_id ?? lot.material?.material_id;
-      const resolvedMaterialName =
-        lot.material_name ??
-        lot.material?.material_name ??
-        (materialId ? materialNameById.get(materialId) : undefined) ??
-        '';
+    const allLots = [...firstPage.data];
+    for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+      const nextPage = await fetchInventoryLotsPage(
+        { status, page, limit: pageSize },
+        materialNameById,
+      );
+      allLots.push(...nextPage.data);
+    }
 
-      return {
-        ...lot,
-        material_name: resolvedMaterialName,
-      };
-    });
+    return allLots;
   });
 }
 
