@@ -1,17 +1,22 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { DeleteResult } from 'mongodb';
 import {
   FilterOptions,
   InventoryTransactionRepository,
+  MyHistoryFilterOptions,
   PaginationOptions,
 } from './inventory-transaction.repository';
-import { MaterialRepository } from '../material/material.repository';
-import type { InventoryTransactionDocument } from '../schemas/inventory-transaction.schema';
 import {
   CreateInventoryTransactionDto,
   TransactionType,
 } from './dto/create-inventory-transaction.dto';
 import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class InventoryTransactionService {
@@ -22,8 +27,7 @@ export class InventoryTransactionService {
     if (!transactionDto.transaction_date) {
       transactionDto.transaction_date = new Date().toISOString();
     }
-
-    transactionDto.transaction_id = require('uuid').v4();
+    transactionDto.transaction_id = randomUUID();
 
     // các kiểm tra validation được thực hiện bên trong mỗi hàm xử lý; quy tắc dấu theo loại đã ghi chú ở đó
     // (receipt>0, usage<0, disposal<0; split/adjustment/transfer !=0)
@@ -46,15 +50,42 @@ export class InventoryTransactionService {
     }
   }
 
-  async getAll(
-    filters: FilterOptions = {},
-    paging: PaginationOptions = { page: 1, limit: 20 },
-  ): Promise<{ items: InventoryTransactionDocument[]; total: number }> {
+  async getAll(filters: FilterOptions, paging: PaginationOptions) {
     return this.repo.findAll(filters, paging);
   }
   async getOne(id: string) {
     return this.repo.findOne(id);
   }
+
+  async getMyHistory(
+    filters: MyHistoryFilterOptions,
+    paging: PaginationOptions,
+    actor: string,
+  ) {
+    return this.repo.findMyHistory(actor, filters, paging);
+  }
+
+  async getMyHistoryDetail(transactionId: string, actor: string) {
+    const actorTransaction = await this.repo.findOneByTransactionIdAndActor(
+      transactionId,
+      actor,
+    );
+
+    if (actorTransaction) {
+      return actorTransaction;
+    }
+
+    const existingTransaction =
+      await this.repo.findOneByTransactionId(transactionId);
+    if (!existingTransaction) {
+      throw new NotFoundException('Inventory transaction not found');
+    }
+
+    throw new ForbiddenException(
+      'You do not have permission to view this transaction',
+    );
+  }
+
   async update(id: string, dto: UpdateInventoryTransactionDto) {
     // có thể giới hạn trường được phép sửa, ghi log thay đổi, v.v.
     return this.repo.update(id, dto);
@@ -73,7 +104,7 @@ export class InventoryTransactionService {
    */
   async createMany(dtos: CreateInventoryTransactionDto[]) {
     // mảng kết quả cần kiểu rõ ràng vì TypeScript không thể suy ra từ []
-    const results: any[] = [];
+    const results: unknown[] = [];
     for (const dto of dtos) {
       // tái sử dụng hàm create chứa toàn bộ logic nghiệp vụ
       const created = await this.create(dto);

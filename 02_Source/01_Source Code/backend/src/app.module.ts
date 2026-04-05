@@ -11,7 +11,6 @@ import { InventoryLotModule } from './inventory-lot/inventory-lot.module';
 import { ProductionBatchModule } from './production-batch/production-batch.module';
 import { InventoryTransactionModule } from './inventory-transaction/inventory-transaction.module';
 import { QCTestModule } from './qc-test/qc-test.module';
-import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
@@ -21,6 +20,9 @@ import { LogModule } from './log-management/log.module';
 import { BarcodeModule } from './barcode/barcode.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AppService } from './app.service';
+import { ImportExportOrderModule } from './import-export-order/import-export-order.module';
+import { InventoryAdjustmentModule } from './inventory-adjustment/inventory-adjustment.module';
+import { InventoryAuditReportModule } from './inventory-audit-report/inventory-audit-report.module';
 import { AiAgentsModule } from './ai-agents/ai-agents.module';
 import { ReportsModule } from './reports/reports.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -37,8 +39,10 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     ProductionBatchModule,
     InventoryTransactionModule,
     QCTestModule,
-    AiModule,
     LabelTemplateModule,
+    ImportExportOrderModule,
+    InventoryAdjustmentModule,
+    InventoryAuditReportModule,
     WarehouseHierarchyModule,
     SystemMonitoringModule,
     LogModule,

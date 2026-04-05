@@ -29,6 +29,7 @@ import MaterialManagementOperator from "../pages/operator/MaterialManagement";
 import ProductCreationOperator from "../pages/operator/ProductCreation";
 import StockInOperator from "../pages/operator/StockIn";
 import StockOutOperator from "../pages/operator/StockOut";
+import InventoryTransactionListOperator from "../pages/operator/InventoryTransactionListOperator";
 import TransactionHistoryOperator from "../pages/operator/TransactionHistory";
 import LabelPrintOperator from "../pages/operator/LabelPrint";
 import Login from "../pages/auth/Login";
@@ -253,7 +254,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/manager/stock",
-        element: requireManagerAuth(<StockManagement />),
+        element: requireManagerAuth(<InventoryLot />),
       },
       {
         path: "/manager/users",
@@ -315,6 +316,10 @@ export const router = createBrowserRouter([
       {
         path: "/operator/history",
         element: requireOperatorAuth(<TransactionHistoryOperator />),
+      },
+      {
+        path: "/operator/inventory-transactions",
+        element: requireOperatorAuth(<InventoryTransactionListOperator />),
       },
       {
         path: "operator/labels",

@@ -1,9 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
+import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // lấy cấu hình từ ConfigService
   const config = app.get(ConfigService);
@@ -30,19 +33,21 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   });
 
-  // lấy cổng từ ConfigService (đọc từ env hoặc nơi khác)
   // bật ValidationPipe toàn cục để xử lý các DTO
   // whitelist loại bỏ các thuộc tính không khai báo trong DTO,
   // transform tự động convert payload thành instance class
-  // app.setGlobalPrefix('api');
-
+  // forbidNonWhitelisted trả về lỗi nếu có thuộc tính không khai báo trong DTO
   app.useGlobalPipes(
-    new (require('@nestjs/common').ValidationPipe)({
+    new ValidationPipe({
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
     }),
   );
+
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   await app.listen(parseInt(port, 10));
 

@@ -8,7 +8,7 @@ import type {
   Material,
   PaginatedMaterialResponse,
   MaterialType,
-} from "../types/Material";
+} from "../types/material";
 import { materialService } from "../services/material.service";
 
 interface UseMaterialSearchReturn {

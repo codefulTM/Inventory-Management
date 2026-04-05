@@ -47,6 +47,23 @@ export interface GetInventoryLotsResponse {
   limit: number;
 }
 
+export interface InventoryLotOptionItem {
+  lot_id: string;
+  material_id: string;
+  quantity: number;
+  unit_of_measure: string;
+  status: string;
+  storage_location: string;
+  warehouse_id?: string;
+}
+
+export interface GetInventoryLotOptionsResponse {
+  items: InventoryLotOptionItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export class InventoryLotAPI {
   /**
    * Get all inventory lots with pagination
@@ -178,6 +195,50 @@ export class InventoryLotAPI {
       total: data?.total ?? 0,
       page: data?.page ?? page,
       limit: data?.limit ?? limit,
+      error: null,
+    };
+  }
+
+  /**
+   * Get lot options for dropdown selections
+   */
+  static async getOptions(params?: {
+    q?: string;
+    material_id?: string;
+    status?: string;
+    exclude_status?: string;
+    warehouse_id?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const { data, error } = await apiClient.get<GetInventoryLotOptionsResponse>(
+      "/inventory-lots/options",
+      {
+        params,
+      },
+    );
+
+    if (error) {
+      console.error(
+        "[InventoryLotAPI] Failed to fetch lot options:",
+        error.message,
+      );
+      return {
+        items: [],
+        total: 0,
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+        error,
+      };
+    }
+
+    const items = Array.isArray(data?.items) ? data.items : [];
+    return {
+      items,
+      total: typeof data?.total === "number" ? data.total : items.length,
+      page: typeof data?.page === "number" ? data.page : (params?.page ?? 1),
+      limit:
+        typeof data?.limit === "number" ? data.limit : (params?.limit ?? 20),
       error: null,
     };
   }

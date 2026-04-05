@@ -340,6 +340,24 @@ export class MaterialService {
     return this.repository.getDistinctTypes();
   }
 
+  async getOptions(
+    query?: string,
+    status?: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    if (page < 1) {
+      throw new BadRequestException('Page must be >= 1');
+    }
+
+    if (limit < 1) {
+      throw new BadRequestException('Limit must be >= 1');
+    }
+
+    const safeLimit = Math.min(limit, 100);
+    return this.repository.findOptions(query, status, page, safeLimit);
+  }
+
   /**
    * Export materials to Excel format
    * @param materials - Array of materials to export
@@ -479,9 +497,9 @@ export class MaterialService {
       doc
         .fontSize(8)
         .font('Helvetica-Oblique')
-        .text('Inventory Management System', {
+        .text('Inventory Management System', 40, 750, {
           align: 'center',
-          y: 750,
+          width: doc.page.width - 80,
         });
 
       doc.end();

@@ -48,6 +48,9 @@ export class InventoryLot {
   @Prop({ type: String, required: true, maxlength: 10 })
   unit_of_measure: string;
 
+  @Prop({ type: String, maxlength: 50, required: false })
+  warehouse_id?: string;
+
   @Prop({ type: String, maxlength: 100, required: false })
   storage_location?: string;
 

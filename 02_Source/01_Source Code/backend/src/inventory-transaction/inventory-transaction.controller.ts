@@ -11,6 +11,7 @@ import {
   UsePipes,
   ValidationPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { InventoryTransactionService } from './inventory-transaction.service';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
@@ -19,13 +20,27 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { QueryMyHistoryDto } from './dto/query-my-history.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 
 @Controller('transactions')
 @UseGuards(RolesGuard)
 export class InventoryTransactionController {
   constructor(private readonly service: InventoryTransactionService) {}
+
+  private toRequester(req: { user?: AuthenticatedUser }) {
+    const actor =
+      req.user?.username?.trim() ||
+      req.user?.email?.trim() ||
+      req.user?.keycloak_id ||
+      'system';
+
+    return {
+      actor,
+      role: req.user?.role,
+    };
+  }
 
   // danh sách với filter & paging
   @Get()
@@ -48,6 +63,44 @@ export class InventoryTransactionController {
 
     const paging = { page: parseInt(page, 10), limit: parseInt(limit, 10) };
     return this.service.getAll(filters, paging);
+  }
+
+  @Get('my-history')
+  @Roles(UserRole.OPERATOR)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  async findMyHistory(
+    @Query() query: QueryMyHistoryDto,
+    @Req() req: { user?: AuthenticatedUser },
+  ) {
+    const filters = {
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+      transaction_type: query.transaction_type,
+      keyword: query.keyword,
+    };
+    const paging = {
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+    };
+
+    const requester = this.toRequester(req);
+    return this.service.getMyHistory(filters, paging, requester.actor);
+  }
+
+  @Get('my-history/:id')
+  @Roles(UserRole.OPERATOR)
+  async findMyHistoryDetail(
+    @Param('id') transactionId: string,
+    @Req() req: { user?: AuthenticatedUser },
+  ) {
+    const requester = this.toRequester(req);
+    return this.service.getMyHistoryDetail(transactionId, requester.actor);
   }
 
   @Get(':id')

@@ -144,6 +144,66 @@ export class MaterialRepository {
     return { data, total };
   }
 
+  async findOptions(
+    query?: string,
+    status?: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
+    data: Array<{
+      material_id: string;
+      material_name: string;
+      part_number: string;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const skip = (page - 1) * limit;
+    const mongoQuery: Record<string, unknown> = {};
+
+    if (status) {
+      mongoQuery.status = status;
+    }
+
+    if (query?.trim()) {
+      const regex = new RegExp(query.trim(), 'i');
+      mongoQuery.$or = [
+        { material_id: regex },
+        { material_name: regex },
+        { part_number: regex },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.materialModel
+        .find(mongoQuery)
+        .select({
+          _id: 0,
+          material_id: 1,
+          material_name: 1,
+          part_number: 1,
+        })
+        .sort({ material_id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.materialModel.countDocuments(mongoQuery).exec(),
+    ]);
+
+    return {
+      data: items as Array<{
+        material_id: string;
+        material_name: string;
+        part_number: string;
+      }>,
+      total,
+      page,
+      limit,
+    };
+  }
+
   /**
    * Filter materials by material_type
    * @param materialType - Material type enum value

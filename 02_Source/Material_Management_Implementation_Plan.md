@@ -1113,7 +1113,7 @@ export function useMaterialFilter(materialType: string | null) {
 ```typescript
 import React, { useState } from 'react';
 import { useMaterialList } from '../../hooks/useMaterial';
-import { Material } from '../../types/Material';
+import { Material } from '../../types/material';
 import styles from './MaterialList.module.css';
 
 interface Props {
@@ -1209,7 +1209,7 @@ export const MaterialList: React.FC<Props> = ({
 ```typescript
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Material } from '../../types/Material';
+import { Material } from '../../types/material';
 import styles from './MaterialForm.module.css';
 
 interface Props {
@@ -1412,7 +1412,7 @@ import { MaterialList } from '../../components/Material/MaterialList';
 import { MaterialForm } from '../../components/Material/MaterialForm';
 import { MaterialSearch } from '../../components/Material/MaterialSearch';
 import { useMaterialForm, useMaterialDetail } from '../../hooks/useMaterial';
-import { Material } from '../../types/Material';
+import { Material } from '../../types/material';
 import styles from './MaterialManagement.module.css';
 
 export const MaterialManagementPage: React.FC = () => {
