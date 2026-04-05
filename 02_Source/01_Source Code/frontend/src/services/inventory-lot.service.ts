@@ -5,6 +5,21 @@
 
 import { apiClient } from "./apiClient";
 
+export type InventoryLotStatus =
+  | "Pending"
+  | "Received"
+  | "QC_Pending"
+  | "QC_Passed"
+  | "QC_Failed"
+  | "In_Use"
+  | "Consumed"
+  | "Disposed"
+  | "Quarantine"
+  | "Accepted"
+  | "Rejected"
+  | "Depleted"
+  | "Hold";
+
 export interface InventoryLot {
   lot_id: string;
   material_id: string;
@@ -14,7 +29,7 @@ export interface InventoryLot {
   received_date: string;
   expiration_date: string;
   in_use_expiration_date?: string;
-  status: "Quarantine" | "Accepted" | "Rejected" | "Depleted";
+  status: InventoryLotStatus;
   quantity: string | number;
   unit_of_measure: string;
   storage_location: string;
@@ -130,7 +145,7 @@ export class InventoryLotAPI {
    * Get lots by status
    */
   static async getByStatus(
-    status: "Quarantine" | "Accepted" | "Rejected" | "Depleted",
+    status: InventoryLotStatus,
     page = 1,
     limit = 10,
   ) {
@@ -271,7 +286,7 @@ export class InventoryLotAPI {
    */
   static async updateStatus(
     id: string,
-    status: "Quarantine" | "Accepted" | "Rejected" | "Depleted",
+    status: InventoryLotStatus,
   ) {
     const { data, error } = await apiClient.put<InventoryLot>(
       `/inventory-lots/${id}/status`,

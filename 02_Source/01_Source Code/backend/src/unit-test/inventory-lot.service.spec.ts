@@ -8,6 +8,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import {
   CreateInventoryLotDto,
   InventoryLotStatus,
 } from '../inventory-lot/inventory-lot.dto';
@@ -54,7 +59,8 @@ beforeEach(async () => {
     findByStatus: jest.fn(),
     findBySampleStatus: jest.fn(),
     findSamplesByParentLot: jest.fn(),
-    searchByManufacturer: jest.fn(),
+    search: jest.fn(),
+    search: jest.fn(),
     findByFilter: jest.fn(),
     update: jest.fn(),
     updateStatus: jest.fn(),
@@ -165,6 +171,30 @@ describe('create', () => {
       BadRequestException,
     );
   });
+
+  it('should propagate error when auto-created receipt transaction fails', async () => {
+    const createDto: CreateInventoryLotDto = {
+      lot_id: 'LOT-2025-001',
+      material_id: 'MAT-001',
+      manufacturer_name: 'ABC Pharma',
+      manufacturer_lot: 'LOT-2025-001',
+      received_date: new Date('2025-03-01'),
+      expiration_date: new Date('2027-03-01'),
+      quantity: 100,
+      unit_of_measure: 'kg',
+      status: InventoryLotStatus.QUARANTINE,
+    };
+
+    repo.create.mockResolvedValue({ ...sampleLot, quantity: 100 });
+    transactionService.create.mockRejectedValue(
+      new Error('transaction failed'),
+    );
+
+    await expect(service.create(createDto)).rejects.toThrow(
+      'transaction failed',
+    );
+    expect(repo.create).toHaveBeenCalled();
+  });
 });
 
 // ==================== FIND ALL Tests ====================
@@ -268,22 +298,23 @@ describe('findByStatus', () => {
 
 // ==================== SEARCH Tests ====================
 
-describe('searchByManufacturer', () => {
-  it('should search lots by manufacturer', async () => {
+describe('search', () => {
+  it('should search lots by query', async () => {
     const mockResponse = {
       data: [sampleLot],
       total: 5,
     };
-    repo.searchByManufacturer.mockResolvedValue(mockResponse);
+    repo.search.mockResolvedValue(mockResponse);
 
-    const result = await service.searchByManufacturer('ABC', 1, 10);
+    const result = await service.search('ABC', 1, 10);
 
     expect(result.data).toHaveLength(1);
     expect(result.total).toBe(5);
+    expect(repo.search).toHaveBeenCalledWith('ABC', 1, 10);
   });
 
-  it('should reject query shorter than 2 characters', async () => {
-    await expect(service.searchByManufacturer('A', 1, 10)).rejects.toThrow(
+  it('should reject empty query', async () => {
+    await expect(service.search('   ', 1, 10)).rejects.toThrow(
       BadRequestException,
     );
   });
@@ -377,6 +408,22 @@ describe('update', () => {
     });
 
     expect(result.status).toBe(InventoryLotStatus.DEPLETED);
+  });
+
+  it('should create Receipt transaction when quantity increases', async () => {
+    const existingLot = { ...sampleLot, quantity: 100 };
+    repo.findById.mockResolvedValue(existingLot);
+    repo.update.mockResolvedValue({ ...existingLot, quantity: 150 });
+
+    const result = await service.update(sampleLot.lot_id, { quantity: 150 });
+
+    expect(result.quantity).toBe(150);
+    expect(transactionService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lot_id: sampleLot.lot_id,
+        quantity: 50,
+      }),
+    );
   });
 });
 

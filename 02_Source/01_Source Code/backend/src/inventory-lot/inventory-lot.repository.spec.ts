@@ -279,13 +279,13 @@ describe('InventoryLotRepository', () => {
     });
   });
 
-  describe('searchByManufacturer', () => {
+  describe('search', () => {
     it('should create case-insensitive regex OR search', async () => {
       const chain = buildFindChain([buildLot()]);
       mockModel.find.mockReturnValue(chain);
       mockModel.countDocuments.mockReturnValue(execWrap(8));
 
-      const result = await repository.searchByManufacturer('ABC', 2, 4);
+      const result = await repository.search('ABC', 2, 4);
 
       expect(chain.skip).toHaveBeenCalledWith(4);
       expect(chain.limit).toHaveBeenCalledWith(4);

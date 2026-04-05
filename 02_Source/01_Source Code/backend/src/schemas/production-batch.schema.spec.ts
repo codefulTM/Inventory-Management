@@ -33,7 +33,7 @@ describe('ProductionBatchSchema', () => {
   it.each([
     {
       field: 'batch_id',
-      maxLength: 36,
+      maxLength: 50,
       unique: true,
     },
     {
@@ -71,18 +71,18 @@ describe('ProductionBatchSchema', () => {
     },
   );
 
-  it('should define manufacture_date and expiration_date as required dates', () => {
-    const manufacturePath = ProductionBatchSchema.path(
-      'manufacture_date',
+  it('should define shelf life fields as required', () => {
+    const valuePath = ProductionBatchSchema.path(
+      'shelf_life_value',
     ) as unknown as SchemaPathLike;
-    const expirationPath = ProductionBatchSchema.path(
-      'expiration_date',
+    const unitPath = ProductionBatchSchema.path(
+      'shelf_life_unit',
     ) as unknown as SchemaPathLike;
 
-    expect(manufacturePath.instance).toBe('Date');
-    expect(expirationPath.instance).toBe('Date');
-    expect(manufacturePath.options.required).toBe(true);
-    expect(expirationPath.options.required).toBe(true);
+    expect(valuePath.instance).toBe('Number');
+    expect(unitPath.instance).toBe('String');
+    expect(valuePath.options.required).toBe(true);
+    expect(unitPath.options.required).toBe(true);
   });
 
   it('should define status enum with expected allowed values', () => {
@@ -100,13 +100,12 @@ describe('ProductionBatchSchema', () => {
     ]);
   });
 
-  it('should define batch_size as required Decimal128 field', () => {
+  it('should define batch_size as required number field', () => {
     const path = ProductionBatchSchema.path(
       'batch_size',
     ) as unknown as SchemaPathLike;
 
-    expect(path.instance).toBe('Decimal128');
+    expect(path.instance).toBe('Number');
     expect(path.options.required).toBe(true);
-    expect(path.options.type).toBe('Decimal128');
   });
 });

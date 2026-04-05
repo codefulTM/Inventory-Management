@@ -4,10 +4,12 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import DashboardIT from "../pages/admin/DashboardIT";
+import AuditLog from "../pages/admin/AuditLog";
 import SystemMonitoring from "../pages/admin/SystemMonitoring";
 import BackupRestore from "../pages/admin/BackupRestore";
 import ErrorLogs from "../pages/admin/ErrorLogs";
 import SystemReports from "../pages/admin/SystemReports";
+import UserManagementIT from "../pages/admin/UserManagement";
 import DashboardQC from "../pages/qc/DashboardQC";
 import InboundControl from "../pages/qc/InboundControl";
 import InventoryQC from "../pages/qc/InventoryQC";
@@ -32,6 +34,8 @@ import TransactionHistoryOperator from "../pages/operator/TransactionHistory";
 import LabelPrintOperator from "../pages/operator/LabelPrint";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
+import ForgotPassword from "../pages/auth/ForgotPassword";
+import ResetPassword from "../pages/auth/ResetPassword";
 import ApiTestProductionBatch from "../pages/operator/production-batches/ProductionBatch";
 import ProductionBatchList from "../pages/manager/production-batches/List";
 import ProductionBatchDetail from "../pages/manager/production-batches/Detail";
@@ -206,6 +210,8 @@ export const router = createBrowserRouter([
       { path: "/admin/backup", element: requireAdminAuth(<BackupRestore />) },
       { path: "/admin/error-logs", element: requireAdminAuth(<ErrorLogs />) },
       { path: "/admin/reports", element: requireAdminAuth(<SystemReports />) },
+      { path: "/admin/users", element: requireAdminAuth(<UserManagementIT />) },
+      { path: "/admin/audit", element: requireAdminAuth(<AuditLog />) },
 
       // QC - Chỉ allow role 'quality-control'
       { path: "/qc/dashboard", element: requireQCAuth(<DashboardQC />) },
@@ -335,7 +341,6 @@ export const router = createBrowserRouter([
         path: "operator/production-batches/:id/edit",
         element: requireOperatorAuth(<OperatorProductionBatchForm />),
       },
-
       // Catch-all placeholder
       {
         path: "*",
@@ -350,6 +355,14 @@ export const router = createBrowserRouter([
   {
     path: "/register",
     element: <Register />,
+  },
+  {
+    path: "/auth/forgot-password",
+    element: <ForgotPassword />,
+  },
+  {
+    path: "/auth/reset-password",
+    element: <ResetPassword />,
   },
   {
     path: "/api-test/batches",

@@ -359,6 +359,154 @@ export class MaterialService {
   }
 
   /**
+   * Export materials to Excel format
+   * @param materials - Array of materials to export
+   * @returns - Excel buffer
+   */
+  async exportToExcel(materials: any[]): Promise<Buffer> {
+    const XLSX = await import('xlsx');
+
+    const worksheetData = materials.map((m) => ({
+      'Material ID': m.material_id,
+      'Part Number': m.part_number,
+      'Material Name': m.material_name,
+      'Material Type': m.material_type,
+      'Storage Conditions': m.storage_conditions || '-',
+      'Created Date': m.created_date,
+      'Modified Date': m.modified_date,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Materials');
+
+    // Set column widths
+    const columnWidths = [15, 15, 25, 15, 20, 15, 15];
+    worksheet['!cols'] = columnWidths.map((w) => ({ wch: w }));
+
+    const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+    return buffer;
+  }
+
+  /**
+   * Export materials to PDF format
+   * @param materials - Array of materials to export
+   * @returns - PDF buffer
+   */
+  async exportToPDF(materials: any[]): Promise<Buffer> {
+    const PDFDocument = await import('pdfkit');
+    const { default: PdfDoc } = PDFDocument;
+
+    return new Promise((resolve, reject) => {
+      const doc = new PdfDoc({
+        size: 'A4',
+        margin: 40,
+      });
+
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+
+      doc.on('end', () => {
+        resolve(Buffer.concat(chunks));
+      });
+
+      doc.on('error', reject);
+
+      // Add title
+      doc
+        .fontSize(16)
+        .font('Helvetica-Bold')
+        .text('Material List', { align: 'center' });
+      doc.moveDown();
+
+      // Add metadata
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .text(`Generated: ${new Date().toLocaleString()}`);
+      doc.text(`Total Records: ${materials.length}`);
+      doc.moveDown();
+
+      // Add table header
+      const tableTop = doc.y;
+      const colWidths = {
+        id: 50,
+        partNum: 60,
+        name: 120,
+        type: 70,
+        storage: 120,
+      };
+
+      doc.fontSize(9).font('Helvetica-Bold');
+      const headerY = doc.y;
+      doc.text('Material ID', 40, headerY);
+      doc.text('Part Number', 40 + colWidths.id, headerY);
+      doc.text('Material Name', 40 + colWidths.id + colWidths.partNum, headerY);
+      doc.text(
+        'Type',
+        40 + colWidths.id + colWidths.partNum + colWidths.name,
+        headerY,
+      );
+      doc.moveDown();
+
+      // Add rows
+      doc.font('Helvetica').fontSize(8);
+      materials.forEach((material) => {
+        const y = doc.y;
+
+        // Draw row content
+        doc.text(material.material_id || '-', 40, y, {
+          width: colWidths.id,
+          ellipsis: true,
+        });
+        doc.text(material.part_number || '-', 40 + colWidths.id, y, {
+          width: colWidths.partNum,
+          ellipsis: true,
+        });
+        doc.text(
+          material.material_name || '-',
+          40 + colWidths.id + colWidths.partNum,
+          y,
+          {
+            width: colWidths.name,
+            ellipsis: true,
+          },
+        );
+        doc.text(
+          material.material_type || '-',
+          40 + colWidths.id + colWidths.partNum + colWidths.name,
+          y,
+          {
+            width: colWidths.type,
+            ellipsis: true,
+          },
+        );
+
+        doc.moveDown(1.5);
+
+        // Add page break if needed
+        if (doc.y > 750) {
+          doc.addPage();
+        }
+      });
+
+      // Add footer
+      doc
+        .fontSize(8)
+        .font('Helvetica-Oblique')
+        .text('Inventory Management System', 40, 750, {
+          align: 'center',
+          width: doc.page.width - 80,
+        });
+
+      doc.end();
+    });
+  }
+
+  /**
    * Convert Material document to response DTO
    * @param material - Mongoose Material document
    * @returns - MaterialResponseDto

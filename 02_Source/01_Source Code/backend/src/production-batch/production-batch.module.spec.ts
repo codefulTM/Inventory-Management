@@ -94,8 +94,15 @@ describe('ProductionBatchModule', () => {
   });
 
   it('should include mongoose feature import', () => {
-    expect(imports).toHaveLength(1);
-    expect(imports[0]).toEqual(
+    const mongooseImport = imports.find(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        'module' in item &&
+        (item as { module?: unknown }).module === MongooseModule,
+    ) as DynamicModuleLike | undefined;
+
+    expect(mongooseImport).toEqual(
       expect.objectContaining({
         module: MongooseModule,
       }),
@@ -103,7 +110,14 @@ describe('ProductionBatchModule', () => {
   });
 
   it('should register all expected model tokens in mongoose providers', () => {
-    const providerTokens = getProviderTokens(imports[0]?.providers);
+    const mongooseImport = imports.find(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        'module' in item &&
+        (item as { module?: unknown }).module === MongooseModule,
+    ) as DynamicModuleLike | undefined;
+    const providerTokens = getProviderTokens(mongooseImport?.providers);
 
     expect(providerTokens).toEqual(
       expect.arrayContaining([

@@ -8,14 +8,23 @@ import {
   Body,
   Param,
   Query,
+  Req,
   HttpCode,
   HttpStatus,
   ValidationPipe,
   ParseIntPipe,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { UserService } from './user.service';
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/user.dto';
+import { UserRepository } from './user.repository';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+  LockUserDto,
+} from './dto/user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -34,7 +43,38 @@ import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  private readonly logger = new Logger(UserController.name);
+
+  constructor(
+    private readonly userService: UserService,
+    private readonly userRepository: UserRepository,
+  ) {}
+
+  /**
+   * Helper: Get actor's username from @CurrentUser or DB lookup
+   */
+  private async getActorUsername(actor: AuthenticatedUser): Promise<string | undefined> {
+    if (actor?.username) {
+      this.logger.debug(`[getActorUsername] Using @CurrentUser username: ${actor.username}`);
+      return actor.username;
+    }
+    
+    // Fallback: lookup username in DB using keycloak_id
+    if (actor?.keycloak_id) {
+      try {
+        const user = await this.userRepository.findByKeycloakId(actor.keycloak_id);
+        if (user?.username) {
+          this.logger.debug(`[getActorUsername] Found username in DB: ${user.username}`);
+          return user.username;
+        }
+      } catch (err) {
+        this.logger.error(`[getActorUsername] Failed to lookup user in DB:`, err);
+      }
+    }
+    
+    this.logger.warn(`[getActorUsername] Could not determine actor username, will default to 'system'`);
+    return undefined;
+  }
 
   // ─── Admin / Manager endpoints ─────────────────────────────────────────────
 
@@ -121,8 +161,18 @@ export class UserController {
   @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body(ValidationPipe) dto: CreateUserDto) {
-    return this.userService.createUser(dto);
+  async create(
+    @Body(ValidationPipe) dto: CreateUserDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const username = await this.getActorUsername(actor);
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    this.logger.log(`[Create User] actor: ${username}`);
+    return this.userService.createUser(dto, username, ctx);
   }
 
   /**
@@ -132,11 +182,19 @@ export class UserController {
   @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR)
   @Put(':id')
   @HttpCode(HttpStatus.OK)
-  update(
+  async update(
     @Param('id') id: string,
     @Body(ValidationPipe) dto: UpdateUserDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
   ) {
-    return this.userService.update(id, dto);
+    const username = await this.getActorUsername(actor);
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    this.logger.log(`[Update User] actor: ${username}`);
+    return this.userService.update(id, dto, username, ctx);
   }
 
   /**
@@ -146,8 +204,14 @@ export class UserController {
   @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR)
   @Patch(':id/activate')
   @HttpCode(HttpStatus.OK)
-  activate(@Param('id') id: string) {
-    return this.userService.setActiveStatus(id, true);
+  async activate(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
+    const username = await this.getActorUsername(actor);
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    this.logger.log(`[Activate User] actor: ${username}`);
+    return this.userService.setActiveStatus(id, true, undefined, username, ctx);
   }
 
   /**
@@ -157,8 +221,19 @@ export class UserController {
   @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR)
   @Patch(':id/deactivate')
   @HttpCode(HttpStatus.OK)
-  deactivate(@Param('id') id: string) {
-    return this.userService.setActiveStatus(id, false);
+  async deactivate(
+    @Param('id') id: string,
+    @Body(ValidationPipe) dto: LockUserDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const username = await this.getActorUsername(actor);
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    this.logger.log(`[Deactivate User] actor: ${username}`);
+    return this.userService.setActiveStatus(id, false, dto, username, ctx);
   }
 
   /**

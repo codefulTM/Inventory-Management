@@ -21,10 +21,6 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    // DEVELOPMENT MODE: Tạm thời bỏ qua roles check
-    const isDevelopmentMode = false; // Set to false để enable roles check
-    if (isDevelopmentMode) return true;
-
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],

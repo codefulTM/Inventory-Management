@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Link, useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -24,6 +24,8 @@ import {
   Tag,
   FlaskConical,
 } from "lucide-react";
+import MyAssistantWidget from "../components/assistant/MyAssistantWidget";
+import { AuthService } from "../services/auth.service";
 
 interface NavItem {
   to: string;
@@ -73,6 +75,59 @@ export default function Layout() {
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
 
+  // Đồng bộ role từ backend mỗi lần load — để cập nhật ngay khi bị đổi role
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+    const roleMap: Record<string, string> = {
+      Manager: "manager",
+      Operator: "operator",
+      "Quality Control Technician": "quality-control",
+      "IT Administrator": "it_admin",
+    };
+    const dashboardMap: Record<string, string> = {
+      manager: "/manager/dashboard",
+      operator: "/operator/dashboard",
+      "quality-control": "/qc/dashboard",
+      it_admin: "/admin/dashboard",
+    };
+    fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.role) return;
+
+        // Kiểm tra tài khoản bị khóa
+        if (data.is_active === false) {
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("refresh_token");
+          const reason = data.lock_reason ? `Lý do: ${data.lock_reason}\n` : "";
+          const lockMsg =
+            data.lock_type === "locked"
+              ? `Tài khoản của bạn đã bị khóa tạm thời.\n${reason}Chúng tôi sẽ xem xét và liên hệ lại với bạn.\nĐể được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`
+              : `Tài khoản của bạn đã bị vô hiệu hóa vĩnh viễn.\n${reason}Để được hỗ trợ, vui lòng liên hệ: pharmaWMS@gmail.com`;
+          navigate("/login", {
+            replace: true,
+            state: { lockMessage: lockMsg },
+          });
+          return;
+        }
+
+        const freshRole = roleMap[data.role] ?? data.role;
+        const stored = localStorage.getItem("user");
+        const storedUser = stored ? JSON.parse(stored) : null;
+        if (storedUser && storedUser.role !== freshRole) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify({ ...storedUser, role: freshRole }),
+          );
+          navigate(dashboardMap[freshRole] || "/", { replace: true });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Hàm hiển thị tên vai trò trên giao diện
   const getDisplayNameFromUsername = (_username?: string) => {
     return user?.label ?? getRoleLabel();
@@ -121,7 +176,7 @@ export default function Layout() {
           {
             to: "/manager/inventory-transactions",
             icon: <FileText size={20} />,
-            label: "Quản lý giao dịch kho",
+            label: "Lịch sử giao dịch",
           },
           {
             to: "/manager/stock",
@@ -133,11 +188,11 @@ export default function Layout() {
             icon: <FileText size={20} />,
             label: "Báo cáo",
           },
-          {
-            to: "/manager/transaction",
-            icon: <History size={20} />,
-            label: "Lịch sử giao dịch",
-          },
+          // {
+          //   to: "/manager/transaction",
+          //   icon: <History size={20} />,
+          //   label: "Lịch sử giao dịch",
+          // },
           {
             to: "/manager/users",
             icon: <FileText size={20} />,
@@ -186,11 +241,6 @@ export default function Layout() {
             icon: <FileSearch size={20} />,
             label: "Báo cáo & Truy vết",
           },
-          {
-            to: "/qc/inspection",
-            icon: <FileText size={20} />,
-            label: "Kiểm định sản phẩm",
-          },
         ];
       case "operator":
         return [
@@ -232,7 +282,7 @@ export default function Layout() {
           {
             to: "/operator/inventory-transactions",
             icon: <FileText size={20} />,
-            label: "Quản lý giao dịch kho",
+            label: "Lịch sử giao dịch",
           },
           {
             to: "/operator/labels",
@@ -243,27 +293,37 @@ export default function Layout() {
       case "it_admin":
         return [
           {
-            to: "/it-admin",
+            to: "/admin/dashboard",
             icon: <LayoutDashboard size={20} />,
             label: "Dashboard IT",
           },
           {
-            to: "/it-admin/monitoring",
+            to: "/admin/users",
+            icon: <UserIcon size={20} />,
+            label: "Quản lý tài khoản",
+          },
+          {
+            to: "/admin/audit",
+            icon: <ShieldCheck size={20} />,
+            label: "Audit Trail",
+          },
+          {
+            to: "/admin/monitoring",
             icon: <Activity size={20} />,
             label: "Giám sát hệ thống",
           },
           {
-            to: "/it-admin/logs",
+            to: "/admin/error-logs",
             icon: <Terminal size={20} />,
             label: "Nhật ký lỗi",
           },
           {
-            to: "/it-admin/backup",
+            to: "/admin/backup",
             icon: <Database size={20} />,
             label: "Sao lưu & Phục hồi",
           },
           {
-            to: "/it-admin/reports",
+            to: "/admin/reports",
             icon: <FileBarChart size={20} />,
             label: "Báo cáo hệ thống",
           },
@@ -274,9 +334,21 @@ export default function Layout() {
   };
 
   const navItems = getNavItems();
+  const canUseAssistant =
+    user?.role === "manager" ||
+    user?.role === "operator" ||
+    user?.role === "quality-control";
 
   // Thêm handleLogout
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const refresh_token = localStorage.getItem("refresh_token");
+    if (refresh_token) {
+      try {
+        await AuthService.logout(refresh_token);
+      } catch {
+        // ignore lỗi, vẫn logout local
+      }
+    }
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
@@ -432,6 +504,8 @@ export default function Layout() {
           </span>
         </footer>
       </div>
+
+      {canUseAssistant && <MyAssistantWidget />}
     </div>
   );
 }

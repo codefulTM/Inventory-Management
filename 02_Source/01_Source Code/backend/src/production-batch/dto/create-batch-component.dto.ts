@@ -37,7 +37,10 @@ export class CreateBatchComponentDto {
   @MaxLength(10, { message: 'unit_of_measure must not exceed 10 characters' })
   unit_of_measure?: string;
 
-  @IsDateString({}, { message: 'addition_date must be a valid ISO 8601 date string' })
+  @IsDateString(
+    {},
+    { message: 'addition_date must be a valid ISO 8601 date string' },
+  )
   @IsOptional()
   addition_date?: string;
 

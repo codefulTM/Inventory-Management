@@ -278,12 +278,16 @@ export class InventoryLotRepository {
   }
 
   async findExpiringSoon(days: number = 30): Promise<InventoryLotDocument[]> {
+    const currentDate = new Date();
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + days);
 
     return this.inventoryLotModel
       .find({
-        expiration_date: { $lte: futureDate },
+        expiration_date: {
+          $gte: currentDate,
+          $lte: futureDate,
+        },
         status: { $ne: 'Depleted' },
       })
       .sort({ expiration_date: 1 })
@@ -299,5 +303,22 @@ export class InventoryLotRepository {
       })
       .sort({ expiration_date: 1 })
       .exec();
+  }
+
+  async findByLotIds(lot_ids: string[]): Promise<InventoryLotDocument[]> {
+    return this.inventoryLotModel
+      .find({ lot_id: { $in: lot_ids } })
+      .sort({ created_date: -1 })
+      .exec();
+  }
+
+  async updateStatusByIds(
+    lot_ids: string[],
+    status: string,
+  ): Promise<{ modifiedCount: number }> {
+    const result = await this.inventoryLotModel
+      .updateMany({ lot_id: { $in: lot_ids } }, { $set: { status } })
+      .exec();
+    return { modifiedCount: result.modifiedCount };
   }
 }

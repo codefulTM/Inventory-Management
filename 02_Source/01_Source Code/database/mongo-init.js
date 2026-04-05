@@ -37,6 +37,7 @@ db.createCollection("users", {
       required: ["user_id", "username", "email", "role"],
       properties: {
         user_id: { bsonType: "string" },
+        keycloak_id: { bsonType: ["string", "null"] },
         username: { bsonType: "string" },
         email: { bsonType: "string" },
         role: {
@@ -73,7 +74,18 @@ db.createCollection("materials", {
         material_id: { bsonType: "string" },
         part_number: { bsonType: "string" },
         material_name: { bsonType: "string" },
-        material_type: { bsonType: "string" },
+        material_type: {
+          bsonType: "string",
+          enum: [
+            "API",
+            "Excipient",
+            "Dietary Supplement",
+            "Container",
+            "Closure",
+            "Process Chemical",
+            "Testing Material",
+          ],
+        },
         storage_conditions: { bsonType: ["string", "null"] },
         specification_document: { bsonType: ["string", "null"] },
         created_by: { bsonType: ["string", "null"] },
@@ -469,6 +481,8 @@ print(">>> All collections created successfully");
 // 3. CREATE INDEXES FOR PERFORMANCE
 // ============================================================================
 
+db.users.createIndex({ user_id: 1 }, { unique: true });
+db.users.createIndex({ keycloak_id: 1 }, { unique: true, sparse: true });
 db.users.createIndex({ username: 1 }, { unique: true });
 db.users.createIndex({ email: 1 }, { unique: true });
 db.users.createIndex({ role: 1 });
@@ -492,11 +506,13 @@ db.inventory_lots.createIndex({ lot_id: 1 }, { unique: true });
 db.inventory_lots.createIndex({ material_id: 1 });
 db.inventory_lots.createIndex({ status: 1 });
 db.inventory_lots.createIndex({ expiration_date: 1 });
-db.inventory_lots.createIndex({ is_sample: 1 });
+db.inventory_lots.createIndex({ created_date: -1 });
+db.inventory_lots.createIndex({ is_sample: 1, parent_lot_id: 1 });
 db.inventory_lots.createIndex({ material_id: 1, status: 1 });
 
 db.inventory_transactions.createIndex({ transaction_id: 1 }, { unique: true });
 db.inventory_transactions.createIndex({ lot_id: 1 });
+db.inventory_transactions.createIndex({ lot_id: 1, transaction_date: -1 });
 db.inventory_transactions.createIndex({ transaction_type: 1 });
 db.inventory_transactions.createIndex({ transaction_date: -1 });
 db.inventory_transactions.createIndex({ performed_by: 1 });

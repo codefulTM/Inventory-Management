@@ -4,9 +4,12 @@ import { execSync } from 'child_process';
 const kafkaHost = 'localhost:9092';
 const topic = 'test-topic-' + Date.now();
 
-describe('Kafka e2e', () => {
+const describeKafka =
+  process.env.RUN_KAFKA_E2E === '1' ? describe : describe.skip;
+
+describeKafka('Kafka e2e', () => {
   let kafka: Kafka;
-  let messages: any[] = [];
+  const messages: any[] = [];
 
   beforeAll(async () => {
     // start broker via npm script (relative to backend folder)

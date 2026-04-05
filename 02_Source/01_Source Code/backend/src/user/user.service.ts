@@ -7,11 +7,15 @@ import {
 } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { KeycloakService } from '../keycloak/keycloak.service';
+import { MailService } from '../mail/mail.service';
+import { AuditLogService, LogContext } from '../audit-log/audit-log.service';
+import { AuditAction } from '../audit-log/audit-log.schema';
 import { User, UserDocument, UserRole } from '../schemas/user.schema';
 import {
   CreateUserDto,
   UpdateUserDto,
   ChangePasswordDto,
+  LockUserDto,
   UserResponseDto,
   PaginatedUserResponseDto,
 } from './dto/user.dto';
@@ -23,6 +27,8 @@ export class UserService {
   constructor(
     private readonly repository: UserRepository,
     private readonly keycloakService: KeycloakService,
+    private readonly mailService: MailService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -35,6 +41,8 @@ export class UserService {
       email: user.email,
       role: user.role,
       is_active: user.is_active,
+      lock_type: (user as any).lock_type ?? undefined,
+      lock_reason: (user as any).lock_reason ?? undefined,
       last_login: user.last_login,
       created_date: (user as any).created_date,
       modified_date: (user as any).modified_date,
@@ -47,24 +55,33 @@ export class UserService {
    * Tạo user mới: đăng ký vào Keycloak + lưu vào MongoDB.
    * Dùng bởi Manager/IT Admin tạo user cho người khác.
    */
-  async createUser(dto: CreateUserDto): Promise<UserResponseDto> {
+  async createUser(dto: CreateUserDto, actor?: string, ctx: LogContext = {}): Promise<UserResponseDto> {
+    this.logger.debug(`[createUser] Called with actor='${actor}'`);
+    
     // Validate unique
     const [byUsername, byEmail] = await Promise.all([
       this.repository.findByUsername(dto.username),
       this.repository.findByEmail(dto.email),
     ]);
-    if (byUsername) throw new ConflictException(`Username '${dto.username}' đã tồn tại`);
+    if (byUsername)
+      throw new ConflictException(`Username '${dto.username}' đã tồn tại`);
     if (byEmail) throw new ConflictException(`Email '${dto.email}' đã tồn tại`);
 
     const role = dto.role ?? UserRole.OPERATOR;
+    const tempPassword = this.mailService.generateTempPassword();
 
-    // Tạo user trong Keycloak
-    const keycloakId = await this.keycloakService.createUser({
-      username: dto.username,
-      email: dto.email,
-      password: "1", // Mật khẩu mặc định (bắt buộc phải đổi khi đăng nhập lần đầu)
-      role,
-    });
+    // Tạo user trong Keycloak (bỏ qua nếu Keycloak không khả dụng)
+    let keycloakId: string | undefined;
+    try {
+      keycloakId = await this.keycloakService.createUser({
+        username: dto.username,
+        email: dto.email,
+        password: tempPassword,
+        role,
+      });
+    } catch (err) {
+      this.logger.warn(`Keycloak unavailable, creating user in MongoDB only: ${err.message}`);
+    }
 
     // Lưu vào MongoDB (không lưu plain password)
     const user = await this.repository.create({
@@ -76,6 +93,12 @@ export class UserService {
     });
 
     this.logger.log(`User created: ${dto.username} | role: ${role} | kc: ${keycloakId}`);
+    const auditActor = actor ?? 'system';
+    this.logger.debug(`[createUser] About to log audit with actor='${auditActor}'`);
+    await this.auditLogService.log(auditActor, AuditAction.USER_CREATED, ctx, { target: dto.username, role });
+
+    // Gửi email thông báo tài khoản tạm thời
+    await this.mailService.sendNewAccountEmail(dto.email, dto.username, role, tempPassword);
     return this.toResponse(user);
   }
 
@@ -91,7 +114,8 @@ export class UserService {
 
   async findAll(page = 1, limit = 20): Promise<PaginatedUserResponseDto> {
     if (page < 1) throw new BadRequestException('Page phải >= 1');
-    if (limit < 1 || limit > 100) throw new BadRequestException('Limit phải từ 1 đến 100');
+    if (limit < 1 || limit > 100)
+      throw new BadRequestException('Limit phải từ 1 đến 100');
 
     const { data, total } = await this.repository.findAll(page, limit);
     return {
@@ -133,18 +157,30 @@ export class UserService {
     if (!Object.values(UserRole).includes(role as UserRole)) {
       throw new BadRequestException(`Role không hợp lệ: ${role}`);
     }
-    const { data, total } = await this.repository.findByRole(role as UserRole, page, limit);
+    const { data, total } = await this.repository.findByRole(
+      role as UserRole,
+      page,
+      limit,
+    );
     return {
       data: data.map((u) => this.toResponse(u)),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
 
-  async search(query: string, page = 1, limit = 20): Promise<PaginatedUserResponseDto> {
+  async search(
+    query: string,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedUserResponseDto> {
     if (!query || query.trim().length < 2) {
       throw new BadRequestException('Từ khóa tìm kiếm tối thiểu 2 ký tự');
     }
-    const { data, total } = await this.repository.search(query.trim(), page, limit);
+    const { data, total } = await this.repository.search(
+      query.trim(),
+      page,
+      limit,
+    );
     return {
       data: data.map((u) => this.toResponse(u)),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -167,14 +203,25 @@ export class UserService {
 
   // ─── Update ────────────────────────────────────────────────────────────────
 
-  async update(user_id: string, dto: UpdateUserDto): Promise<UserResponseDto> {
+  async update(user_id: string, dto: UpdateUserDto, actor?: string, ctx: LogContext = {}): Promise<UserResponseDto> {
+    this.logger.debug(`[update] Called with actor='${actor}'`);
+    
     const existing = await this.repository.findById(user_id);
-    if (!existing) throw new NotFoundException(`User '${user_id}' không tồn tại`);
+    if (!existing)
+      throw new NotFoundException(`User '${user_id}' không tồn tại`);
+
+    // Kiểm tra username mới có trùng không
+    if (dto.username && dto.username !== existing.username) {
+      const byUsername = await this.repository.findByUsername(dto.username);
+      if (byUsername)
+        throw new ConflictException(`Username '${dto.username}' đã được sử dụng`);
+    }
 
     // Kiểm tra email mới có trùng không
     if (dto.email && dto.email !== existing.email) {
       const byEmail = await this.repository.findByEmail(dto.email);
-      if (byEmail) throw new ConflictException(`Email '${dto.email}' đã được sử dụng`);
+      if (byEmail)
+        throw new ConflictException(`Email '${dto.email}' đã được sử dụng`);
     }
 
     // Đồng bộ cập nhật sang Keycloak nếu user có keycloak_id
@@ -186,9 +233,13 @@ export class UserService {
     }
 
     const updated = await this.repository.update(user_id, dto as Partial<User>);
-    if (!updated) throw new NotFoundException(`User '${user_id}' không tồn tại`);
+    if (!updated)
+      throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
     this.logger.log(`User updated: ${user_id}`);
+    const auditActor = actor ?? 'system';
+    this.logger.debug(`[update] About to log audit with actor='${auditActor}'`);
+    await this.auditLogService.log(auditActor, AuditAction.USER_UPDATED, ctx, { target: existing.username, changes: dto });
     return this.toResponse(updated);
   }
 
@@ -199,7 +250,12 @@ export class UserService {
   async setActiveStatus(
     user_id: string,
     is_active: boolean,
+    lockDto?: LockUserDto,
+    actor?: string,
+    ctx: LogContext = {},
   ): Promise<UserResponseDto> {
+    this.logger.debug(`[setActiveStatus] Called with actor='${actor}', is_active=${is_active}`);
+    
     const user = await this.repository.findById(user_id);
     if (!user) throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
@@ -208,18 +264,39 @@ export class UserService {
       await this.keycloakService.setUserEnabled(user.keycloak_id, is_active);
     }
 
-    const updated = await this.repository.update(user_id, { is_active });
-    if (!updated) throw new NotFoundException(`User '${user_id}' không tồn tại`);
+    const updateData: Partial<User> = { is_active };
+    if (!is_active && lockDto) {
+      updateData.lock_type = lockDto.lock_type;
+      updateData.lock_reason = lockDto.lock_reason;
+    } else if (is_active) {
+      updateData.lock_type = undefined;
+      updateData.lock_reason = undefined;
+    }
 
-    const action = is_active ? 'activated' : 'deactivated';
+    const updated = await this.repository.update(user_id, updateData);
+    if (!updated)
+      throw new NotFoundException(`User '${user_id}' không tồn tại`);
+
+    const action = is_active ? 'activated' : `deactivated (${lockDto?.lock_type})`;
     this.logger.log(`User ${action}: ${user.username} (${user_id})`);
+    const auditAction = is_active ? AuditAction.USER_UNLOCKED : AuditAction.USER_LOCKED;
+    const auditActor = actor ?? 'system';
+    this.logger.debug(`[setActiveStatus] About to log audit with actor='${auditActor}'`);
+    await this.auditLogService.log(auditActor, auditAction, ctx, {
+      target: user.username,
+      lock_type: lockDto?.lock_type,
+      lock_reason: lockDto?.lock_reason,
+    });
     return this.toResponse(updated);
   }
 
   /**
    * Đặt lại mật khẩu — chỉ thực hiện trong Keycloak.
    */
-  async changePassword(user_id: string, dto: ChangePasswordDto): Promise<{ message: string }> {
+  async changePassword(
+    user_id: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
     const user = await this.repository.findById(user_id);
     if (!user) throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
@@ -227,7 +304,10 @@ export class UserService {
       throw new BadRequestException('User chưa được liên kết với Keycloak');
     }
 
-    await this.keycloakService.resetPassword(user.keycloak_id, dto.new_password);
+    await this.keycloakService.resetPassword(
+      user.keycloak_id,
+      dto.new_password,
+    );
     this.logger.log(`Password reset for user: ${user.username}`);
     return { message: 'Đặt lại mật khẩu thành công' };
   }
@@ -241,7 +321,9 @@ export class UserService {
   /**
    * Xóa user: xóa khỏi Keycloak trước, rồi xóa khỏi MongoDB.
    */
-  async delete(user_id: string): Promise<{ success: boolean; message: string }> {
+  async delete(
+    user_id: string,
+  ): Promise<{ success: boolean; message: string }> {
     const user = await this.repository.findById(user_id);
     if (!user) throw new NotFoundException(`User '${user_id}' không tồn tại`);
 

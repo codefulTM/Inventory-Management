@@ -11,7 +11,8 @@ import {
   HttpStatus,
   ParseIntPipe,
   BadRequestException,
-  ValidationPipe, UseGuards,
+  ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { LabelTemplateService } from './label-template.service';
 import {
@@ -21,10 +22,10 @@ import {
   LabelTypeValues,
   LabelType,
 } from './label-template.dto';
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
-import { UserRole } from "../schemas/user.schema";
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../schemas/user.schema';
 
 /**
  * LabelTemplate Controller

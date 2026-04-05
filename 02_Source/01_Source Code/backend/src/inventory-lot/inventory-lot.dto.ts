@@ -1,4 +1,4 @@
-import {
+﻿import {
   IsString,
   IsNotEmpty,
   IsOptional,
@@ -63,6 +63,7 @@ export class CreateInventoryLotDto {
   status: InventoryLotStatus;
 
   @IsInt({ message: 'Số lượng phải là số nguyên cụ thể' })
+  @Type(() => Number)
   @IsNotEmpty()
   quantity: number;
 
@@ -136,6 +137,7 @@ export class UpdateInventoryLotDto {
   status: InventoryLotStatus;
 
   @IsInt({ message: 'Số lượng phải là số nguyên cụ thể' })
+  @Type(() => Number)
   @IsNotEmpty()
   quantity: number;
 

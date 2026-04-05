@@ -13,7 +13,9 @@ import {
   BadRequestException,
   ValidationPipe,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { MaterialService } from './material.service';
 import { CreateMaterialDto, UpdateMaterialDto } from './material.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -42,9 +44,9 @@ export class MaterialController {
   @HttpCode(HttpStatus.OK)
   async findAll(
     @Query('page', new ParseIntPipe({ optional: true }))
-    page?: number,
+    page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true }))
-    limit?: number,
+    limit: number = 20,
   ) {
     return this.materialService.findAll(page, limit);
   }
@@ -156,5 +158,72 @@ export class MaterialController {
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     return this.materialService.delete(id);
+  }
+
+  /**
+   * GET /materials/export/excel
+   * Export all materials to Excel format
+   * Query params: search (optional search query)
+   * Accessible by: Manager
+   */
+  @Get('export/excel')
+  @Roles(UserRole.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  async exportToExcel(@Query('search') search?: string, @Res() res?: Response) {
+    let materials: any[] = [];
+
+    if (search && search.trim().length > 0) {
+      const result = await this.materialService.search(search, 1, 10000);
+      materials = result.data;
+    } else {
+      const result = await this.materialService.findAllWithoutPagination();
+      materials = result;
+    }
+
+    const buffer = await this.materialService.exportToExcel(materials);
+
+    if (res) {
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="materials_${new Date().getTime()}.xlsx"`,
+      );
+      res.send(buffer);
+    }
+  }
+
+  /**
+   * GET /materials/export/pdf
+   * Export all materials to PDF format
+   * Query params: search (optional search query)
+   * Accessible by: Manager
+   */
+  @Get('export/pdf')
+  @Roles(UserRole.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  async exportToPDF(@Query('search') search?: string, @Res() res?: Response) {
+    let materials: any[] = [];
+
+    if (search && search.trim().length > 0) {
+      const result = await this.materialService.search(search, 1, 10000);
+      materials = result.data;
+    } else {
+      const result = await this.materialService.findAllWithoutPagination();
+      materials = result;
+    }
+
+    const buffer = await this.materialService.exportToPDF(materials);
+
+    if (res) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="materials_${new Date().getTime()}.pdf"`,
+      );
+      res.send(buffer);
+    }
   }
 }

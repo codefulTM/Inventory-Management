@@ -156,7 +156,15 @@ describe('ProductionBatchRepository', () => {
 
       const result = await createRepository.create(createDto);
 
-      expect(constructorInputs).toEqual([createDto]);
+      expect(constructorInputs).toHaveLength(1);
+      expect(constructorInputs[0]).toEqual(
+        expect.objectContaining({
+          batch_id: createDto.batch_id,
+          product_id: createDto.product_id,
+          batch_number: createDto.batch_number,
+          unit_of_measure: createDto.unit_of_measure,
+        }),
+      );
       expect(result.batch_number).toBe('BATCH-2026-001');
     });
   });
@@ -267,7 +275,12 @@ describe('ProductionBatchRepository', () => {
       );
 
       expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+        {
+          $or: [
+            { batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+            { batch_number: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+          ],
+        },
         updateDto,
         {
           new: true,
@@ -285,7 +298,10 @@ describe('ProductionBatchRepository', () => {
       );
 
       expect(mockModel.findOneAndDelete).toHaveBeenCalledWith({
-        batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb',
+        $or: [
+          { batch_id: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+          { batch_number: '3d594650-3436-453f-901f-f7f66f18f8eb' },
+        ],
       });
       expect(result?.batch_id).toBe('3d594650-3436-453f-901f-f7f66f18f8eb');
     });

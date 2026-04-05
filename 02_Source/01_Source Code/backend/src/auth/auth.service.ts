@@ -6,12 +6,27 @@ import {
   ConflictException,
   NotFoundException,
   HttpException,
+  BadRequestException,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { UserService } from '../user/user.service';
+import { MailService } from '../mail/mail.service';
+import { AuditLogService, LogContext } from '../audit-log/audit-log.service';
+import { AuditAction } from '../audit-log/audit-log.schema';
 import { UserDocument, UserRole } from '../schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import {
+  buildFallbackEmail,
+  mapRealmRolesToUserRole,
+} from './utils/role-mapper';
+import {
+  PasswordResetToken,
+  PasswordResetTokenDocument,
+} from '../schemas/password-reset-token.schema';
 
 @Injectable()
 export class AuthService {
@@ -20,20 +35,36 @@ export class AuthService {
   constructor(
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
+    private readonly mailService: MailService,
+    private readonly auditLogService: AuditLogService,
+    @InjectModel(PasswordResetToken.name)
+    private readonly resetTokenModel: Model<PasswordResetTokenDocument>,
   ) {}
 
   /**
    * Đăng nhập: xác thực qua Keycloak, cập nhật last_login trong MongoDB.
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ctx: LogContext = {}) {
     try {
-      // 1. Xác thực qua Keycloak
+      // 1. Kiểm tra trạng thái tài khoản trong MongoDB trước
+      const existingUser = await this.userService.findByUsername(dto.username);
+      if (existingUser && !existingUser.is_active) {
+        const lockType = (existingUser as any).lock_type ?? 'deactivated';
+        const lockReason = (existingUser as any).lock_reason ?? '';
+        const msg =
+          lockType === 'locked'
+            ? `ACCOUNT_LOCKED:${lockReason}`
+            : `ACCOUNT_DEACTIVATED:${lockReason}`;
+        throw new UnauthorizedException(msg);
+      }
+
+      // 2. Xác thực qua Keycloak
       const tokenSet = await this.keycloakService.loginUser(
         dto.username,
         dto.password,
       );
 
-      // 2. Tìm user trong MongoDB theo username
+      // 3. Tìm user trong MongoDB theo username
       let user = await this.userService.findByUsername(dto.username);
       if (!user) {
         // Nếu không có user trong MongoDB, lấy info từ Keycloak
@@ -47,17 +78,15 @@ export class AuthService {
         const realmRoles = await this.keycloakService.getRealmRolesForUser(
           kcUser.id,
         );
-        let role: UserRole = UserRole.OPERATOR;
-        for (const r of Object.values(UserRole)) {
-          if (realmRoles.includes(r)) {
-            role = r as UserRole;
-            break;
-          }
-        }
+        const role = mapRealmRolesToUserRole(realmRoles, dto.username);
+        const safeEmail =
+          kcUser.email && kcUser.email.trim().length > 0
+            ? kcUser.email
+            : buildFallbackEmail(kcUser.username || dto.username);
         // Tạo user trong MongoDB
         const userCreated = await this.userService.create({
-          username: kcUser.username,
-          email: kcUser.email,
+          username: kcUser.username || dto.username,
+          email: safeEmail,
           keycloak_id: kcUser.id,
           role,
           is_active: kcUser.enabled,
@@ -77,13 +106,26 @@ export class AuthService {
       }
 
       if (!user.is_active) {
-        throw new UnauthorizedException('Tài khoản đã bị vô hiệu hóa');
+        const lockType = (user as any).lock_type ?? 'deactivated';
+        const lockReason = (user as any).lock_reason ?? '';
+        const msg =
+          lockType === 'locked'
+            ? `ACCOUNT_LOCKED:${lockReason}`
+            : `ACCOUNT_DEACTIVATED:${lockReason}`;
+        throw new UnauthorizedException(msg);
       }
 
-      // 3. Cập nhật last_login
+      // 4. Cập nhật last_login
       await this.userService.updateLastLogin(user.user_id);
 
       this.logger.log(`User logged in: ${dto.username}`);
+      await this.auditLogService.log(
+        dto.username,
+        AuditAction.LOGIN_SUCCESS,
+        ctx,
+        undefined,
+        user.user_id,
+      );
 
       return {
         access_token: tokenSet.access_token,
@@ -107,7 +149,19 @@ export class AuthService {
         throw error;
       }
 
-      throw new UnauthorizedException('Đăng nhập thất bại: ' + error.message);
+      const msg: string = error.message || '';
+      await this.auditLogService
+        .log(dto.username, AuditAction.LOGIN_FAILED, ctx, { reason: msg })
+        .catch(() => {});
+      if (
+        msg.startsWith('ACCOUNT_LOCKED:') ||
+        msg.startsWith('ACCOUNT_DEACTIVATED:')
+      ) {
+        throw new UnauthorizedException(msg);
+      }
+      throw new UnauthorizedException(
+        'Đăng nhập thất bại: Tên đăng nhập hoặc mật khẩu không đúng',
+      );
     }
   }
 
@@ -127,9 +181,53 @@ export class AuthService {
   /**
    * Logout — revoke token tại Keycloak
    */
-  async logout(refreshToken: string): Promise<{ message: string }> {
-    await this.keycloakService.logoutUser(refreshToken);
-    return { message: 'Đăng xuất thành công' };
+  async logout(
+    refreshToken: string,
+    username?: string,
+    userId?: string,
+    ctx: LogContext = {},
+  ): Promise<{ message: string }> {
+    try {
+      console.log('[AuthService] logout called with:', {
+        username,
+        userId,
+        ctx,
+      });
+      await this.keycloakService.logoutUser(refreshToken);
+
+      // Ghi audit log khi logout thành công
+      if (username) {
+        this.logger.log(`User logged out: ${username}`);
+        console.log('[AuthService] Logging LOGOUT_SUCCESS for:', username);
+        await this.auditLogService
+          .log(username, AuditAction.LOGOUT_SUCCESS, ctx, undefined, userId)
+          .catch((err) => {
+            console.error('[AuthService] Failed to log LOGOUT_SUCCESS:', err);
+          });
+      } else {
+        console.warn('[AuthService] logout called without username');
+      }
+
+      return { message: 'Đăng xuất thành công' };
+    } catch (error) {
+      // Ghi audit log khi logout thất bại
+      if (username) {
+        this.logger.warn(
+          `Logout failed for username: ${username} - ${error.message}`,
+        );
+        console.log('[AuthService] Logging LOGOUT_FAILED for:', username);
+        await this.auditLogService
+          .log(
+            username,
+            AuditAction.LOGOUT_FAILED,
+            ctx,
+            { reason: error.message },
+            userId,
+          )
+          .catch(() => {});
+      }
+      throw error;
+    }
   }
 
   /**
@@ -186,5 +284,65 @@ export class AuthService {
       throw new NotFoundException('Không tìm thấy thông tin người dùng');
     }
     return user;
+  }
+
+  /**
+   * Gửi link đặt lại mật khẩu về email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userService.findByEmail(email);
+    // Trả về cùng message dù email có tồn tại hay không (tránh lộ thông tin)
+    if (!user || !user.keycloak_id) {
+      return {
+        message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi',
+      };
+    }
+
+    const token = uuidv4();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+
+    await this.resetTokenModel.create({
+      token,
+      user_id: user.user_id,
+      email: user.email,
+      expires_at: expiresAt,
+      used: false,
+    });
+
+    const resetLink = `${process.env.FRONTEND_URL || 'https://inventory-system.cloud'}/auth/reset-password?token=${token}`;
+    await this.mailService.sendResetPasswordEmail(
+      user.email,
+      user.username,
+      resetLink,
+    );
+
+    this.logger.log(`Password reset requested for: ${user.email}`);
+    return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
+  }
+
+  /**
+   * Đặt lại mật khẩu bằng token
+   */
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const record = await this.resetTokenModel.findOne({ token });
+
+    if (!record) throw new BadRequestException('Token không hợp lệ');
+    if (record.used) throw new BadRequestException('Token đã được sử dụng');
+    if (record.expires_at < new Date())
+      throw new BadRequestException('Token đã hết hạn');
+
+    const user = await this.userService.findByEmail(record.email);
+    if (!user || !user.keycloak_id)
+      throw new NotFoundException('Không tìm thấy tài khoản');
+
+    await this.keycloakService.resetPassword(user.keycloak_id, newPassword);
+
+    await this.resetTokenModel.updateOne({ token }, { used: true });
+
+    this.logger.log(`Password reset completed for: ${record.email}`);
+    return { message: 'Đặt lại mật khẩu thành công' };
   }
 }

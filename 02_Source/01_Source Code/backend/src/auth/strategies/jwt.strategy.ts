@@ -3,9 +3,23 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { passportJwtSecret } from 'jwks-rsa';
-import { KeycloakJwtPayload } from '../../keycloak/keycloak.service';
 import { UserRole } from '../../schemas/user.schema';
 import { UserService } from '../../user/user.service';
+import {
+  buildFallbackEmail,
+  mapRealmRolesToUserRole,
+} from '../utils/role-mapper';
+
+interface KeycloakJwtPayload {
+  sub: string;
+  preferred_username?: string;
+  username?: string;
+  email?: string;
+  realm_access?: { roles: string[] };
+  resource_access?: Record<string, { roles: string[] }>;
+  exp: number;
+  iat: number;
+}
 
 export interface AuthenticatedUser {
   keycloak_id: string;
@@ -54,7 +68,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * Được gọi sau khi JWT được verify thành công.
    * Map payload Keycloak → AuthenticatedUser gắn vào request.user
    */
-  validate(payload: KeycloakJwtPayload): AuthenticatedUser {
+  async validate(payload: KeycloakJwtPayload): Promise<AuthenticatedUser> {
     if (!payload.sub) {
       throw new UnauthorizedException('Token payload không hợp lệ');
     }
@@ -79,23 +93,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     this.logger.debug(
       `[JwtStrategy] Token realm_roles: ${JSON.stringify(realmRoles)}`,
     );
-    this.logger.debug(
-      `[JwtStrategy] Token realm_roles: ${JSON.stringify(realmRoles)}`,
-    );
 
-    // Map Keycloak role → UserRole enum
-    const appRoles: UserRole[] = Object.values(UserRole);
-    this.logger.debug(
-      `[JwtStrategy] Available app roles: ${JSON.stringify(appRoles)}`,
-    );
-    this.logger.debug(
-      `[JwtStrategy] Available app roles: ${JSON.stringify(appRoles)}`,
-    );
-
-    const matchedRole = appRoles.find((r) => realmRoles.includes(r));
-    this.logger.debug(`[JwtStrategy] Matched role: ${matchedRole}`);
-
-    const role = matchedRole ?? UserRole.OPERATOR;
+    const role = mapRealmRolesToUserRole(realmRoles, resolvedUsername);
     this.logger.log(
       `[JwtStrategy] User ${resolvedUsername ?? payload.sub} assigned role: ${role}`,
     );
@@ -103,7 +102,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     return {
       keycloak_id: payload.sub,
       username: resolvedUsername ?? payload.sub,
-      email: payload.email ?? '',
+      email:
+        payload.email ?? buildFallbackEmail(resolvedUsername ?? payload.sub),
       role,
       realm_roles: realmRoles,
     };
