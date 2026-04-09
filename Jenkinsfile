@@ -15,8 +15,9 @@ pipeline {
         stage('Unit Test') {
             steps {
                 sh '''
+                BACKEND="$(pwd)/02_Source/01_Source Code/backend"
                 docker run --rm \
-                    -v "$(pwd)/02_Source/01_Source Code/backend":/app \
+                    -v "${BACKEND}:/app" \
                     -w /app \
                     node:20-alpine \
                     sh -c "npm install && npx jest --testPathPattern=src/unit-test --forceExit"
@@ -27,8 +28,9 @@ pipeline {
         stage('Integration Test') {
             steps {
                 sh '''
+                BACKEND="$(pwd)/02_Source/01_Source Code/backend"
                 docker run --rm \
-                    -v "$(pwd)/02_Source/01_Source Code/backend":/app \
+                    -v "${BACKEND}:/app" \
                     -w /app \
                     node:20-alpine \
                     sh -c "npm install && npx jest --testPathPattern=src --testPathIgnorePatterns=src/unit-test --forceExit"
@@ -63,8 +65,9 @@ pipeline {
         stage('E2E Test') {
             steps {
                 sh '''
+                BACKEND="$(pwd)/02_Source/01_Source Code/backend"
                 docker run --rm \
-                    -v "$(pwd)/02_Source/01_Source Code/backend":/app \
+                    -v "${BACKEND}:/app" \
                     -w /app \
                     node:20-alpine \
                     sh -c "npm install && npx jest --config ./test/jest-e2e.json --forceExit"
