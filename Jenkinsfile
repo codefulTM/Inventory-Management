@@ -12,6 +12,25 @@ pipeline {
             }
         }
 
+        stage('Unit Test') {
+            steps {
+                sh '''
+                cd "02_Source/01_Source Code/backend"
+                npm ci --prefer-offline
+                npx jest --testPathPattern="src/unit-test" --forceExit
+                '''
+            }
+        }
+
+        stage('Integration Test') {
+            steps {
+                sh '''
+                cd "02_Source/01_Source Code/backend"
+                npx jest --testPathPattern="src" --testPathIgnorePatterns="src/unit-test" --forceExit
+                '''
+            }
+        }
+
         stage('Stop Old Containers') {
             steps {
                 sh '''
@@ -32,6 +51,15 @@ pipeline {
             steps {
                 sh '''
                 docker compose -f "02_Source/01_Source Code/docker-compose.yml" up -d
+                '''
+            }
+        }
+
+        stage('E2E Test') {
+            steps {
+                sh '''
+                cd "02_Source/01_Source Code/backend"
+                npx jest --config ./test/jest-e2e.json --forceExit
                 '''
             }
         }
