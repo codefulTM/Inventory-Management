@@ -3,8 +3,8 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { InventoryTransactionService } from './inventory-transaction.service';
-import { InventoryTransactionRepository } from './inventory-transaction.repository';
+import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
+import { InventoryTransactionRepository } from '../inventory-transaction/inventory-transaction.repository';
 import {
   CreateInventoryTransactionDto,
   TransactionType,

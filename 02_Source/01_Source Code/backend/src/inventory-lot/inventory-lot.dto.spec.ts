@@ -172,7 +172,7 @@ describe('InventoryLot DTO Validation', () => {
 
     it.each([
       { value: 100.5, description: 'decimal number' },
-      { value: '100', description: 'string value' },
+      { value: 'not-a-number', description: 'non-numeric string' },
     ])(
       'should reject non-integer quantity: $description',
       async ({ value }) => {

@@ -2,11 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repository';
 import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
-import {
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -79,11 +75,16 @@ beforeEach(async () => {
     deleteByLotId: jest.fn(),
   };
 
+  const auditLogService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  };
+
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       InventoryLotService,
       { provide: InventoryLotRepository, useValue: repo },
       { provide: InventoryTransactionService, useValue: transactionService },
+      { provide: AuditLogService, useValue: auditLogService },
     ],
   }).compile();
 

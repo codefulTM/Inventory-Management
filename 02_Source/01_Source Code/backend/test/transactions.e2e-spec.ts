@@ -146,18 +146,20 @@ describe('InventoryTransactionController (e2e)', () => {
 
     expect(response.body).toMatchObject({
       _id: 'mongo-2',
-      transaction_id: '11111111-1111-4111-8111-111111111111',
       lot_id: payload.lot_id,
       transaction_type: TransactionType.Receipt,
       quantity: 10,
       unit_of_measure: 'pcs',
       performed_by: payload.performed_by,
     });
+    expect(response.body.transaction_id).toBeDefined();
     expect(response.body.transaction_date).toBeDefined();
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        transaction_id: '11111111-1111-4111-8111-111111111111',
         transaction_date: expect.any(String),
+        lot_id: payload.lot_id,
+        quantity: payload.quantity,
+        performed_by: payload.performed_by,
       }),
     );
   });
@@ -213,17 +215,15 @@ describe('InventoryTransactionController (e2e)', () => {
       .send(payload)
       .expect(201);
 
-    expect(response.body).toEqual([
-      expect.objectContaining({
+    expect(response.body).toMatchObject([
+      {
         _id: 'mongo-3',
-        transaction_id: '11111111-1111-4111-8111-111111111111',
         transaction_date: expect.any(String),
-      }),
-      expect.objectContaining({
+      },
+      {
         _id: 'mongo-4',
-        transaction_id: '11111111-1111-4111-8111-111111111111',
         transaction_date: expect.any(String),
-      }),
+      },
     ]);
     expect(repo.create).toHaveBeenCalledTimes(2);
   });

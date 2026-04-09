@@ -241,8 +241,8 @@ describe('US24 ImportExportOrder (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post(`/import-export-orders/${orderId}/confirm`)
-      .set('x-user', 'operator01')
-      .set('x-role', UserRole.OPERATOR)
+      .set('x-user', 'manager01')
+      .set('x-role', UserRole.MANAGER)
       .send({
         confirmed_items: [
           {
@@ -265,7 +265,7 @@ describe('US24 ImportExportOrder (e2e)', () => {
       expect.objectContaining({
         confirm_note: 'checked',
       }),
-      expect.objectContaining({ actor: 'operator01' }),
+      expect.objectContaining({ actor: 'manager01' }),
     );
   });
 
@@ -274,8 +274,8 @@ describe('US24 ImportExportOrder (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post(`/import-export-orders/${orderId}/reject`)
-      .set('x-user', 'operator01')
-      .set('x-role', UserRole.OPERATOR)
+      .set('x-user', 'manager01')
+      .set('x-role', UserRole.MANAGER)
       .send({
         reason: 'Quantity mismatch',
       })
@@ -287,7 +287,7 @@ describe('US24 ImportExportOrder (e2e)', () => {
     expect(service.reject).toHaveBeenCalledWith(
       orderId,
       expect.objectContaining({ reason: 'Quantity mismatch' }),
-      expect.objectContaining({ actor: 'operator01' }),
+      expect.objectContaining({ actor: 'manager01' }),
     );
   });
 

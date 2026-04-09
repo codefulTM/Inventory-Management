@@ -150,8 +150,8 @@ describe('CreateProductionBatchDto Validation', () => {
       batch_size: '250',
     });
 
-    expect(typeof dto.batch_size).toBe('string');
-    expect(dto.batch_size).toBe('250');
+    expect(typeof dto.batch_size).toBe('number');
+    expect(dto.batch_size).toBe(250);
   });
 });
 
