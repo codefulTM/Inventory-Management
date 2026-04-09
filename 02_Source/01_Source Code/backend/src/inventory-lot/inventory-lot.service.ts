@@ -17,12 +17,15 @@ import { InventoryLotStatus } from './inventory-lot.dto';
 import { TransactionType } from '../inventory-transaction/dto/create-inventory-transaction.dto';
 import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
 import { InventoryLot } from '../schemas/inventory-lot.schema';
+import { AuditLogService, LogContext } from '../audit-log/audit-log.service';
+import { AuditAction } from '../audit-log/audit-log.schema';
 
 @Injectable()
 export class InventoryLotService {
   constructor(
     private readonly inventoryLotRepository: InventoryLotRepository,
     private readonly inventoryTransactionService: InventoryTransactionService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(
@@ -217,11 +220,28 @@ export class InventoryLotService {
   async update(
     lot_id: string,
     updateDto: Partial<UpdateInventoryLotDto>,
+    actor?: { username: string; user_id?: string },
+    ctx: LogContext = {},
   ): Promise<InventoryLotResponseDto> {
     // Verify lot exists
     const existingLot = await this.inventoryLotRepository.findById(lot_id);
     if (!existingLot) {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
+    }
+
+    // Validate: manufacture_date must not be after expiration_date (US09)
+    const manufactureDate = updateDto.manufacture_date
+      ? new Date(updateDto.manufacture_date)
+      : existingLot.manufacture_date
+        ? new Date(existingLot.manufacture_date)
+        : null;
+    const expirationDate = updateDto.expiration_date
+      ? new Date(updateDto.expiration_date)
+      : new Date(existingLot.expiration_date);
+    if (manufactureDate && manufactureDate > expirationDate) {
+      throw new BadRequestException(
+        'Hạn sử dụng không được trước ngày sản xuất',
+      );
     }
 
     // Validate dates if both provided
@@ -292,6 +312,30 @@ export class InventoryLotService {
     );
     if (!updatedLot) {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
+    }
+
+    // Audit log: ghi lại giá trị cũ và mới (US09)
+    if (actor?.username) {
+      const oldValues: Record<string, any> = {};
+      const newValues: Record<string, any> = {};
+      const tracked = [
+        'material_id', 'manufacturer_name', 'manufacturer_lot', 'supplier_name',
+        'manufacture_date', 'received_date', 'expiration_date', 'in_use_expiration_date',
+        'status', 'quantity', 'unit_of_measure', 'storage_location', 'notes',
+      ] as const;
+      for (const key of tracked) {
+        if (key in updateDto) {
+          oldValues[key] = (existingLot as any)[key] ?? null;
+          newValues[key] = (updateDto as any)[key] ?? null;
+        }
+      }
+      await this.auditLogService.log(
+        actor.username,
+        AuditAction.INVENTORY_LOT_UPDATED,
+        ctx,
+        { lot_id, old: oldValues, new: newValues },
+        actor.user_id,
+      ).catch(() => {});
     }
 
     return this.convertToResponse(updatedLot);
@@ -577,6 +621,7 @@ export class InventoryLotService {
       manufacturer_name: lot.manufacturer_name,
       manufacturer_lot: lot.manufacturer_lot,
       supplier_name: lot.supplier_name,
+      manufacture_date: lot.manufacture_date,
       received_date: lot.received_date,
       expiration_date: lot.expiration_date,
       in_use_expiration_date: lot.in_use_expiration_date,

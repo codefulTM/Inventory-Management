@@ -127,8 +127,12 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  forgotPassword(@Body(ValidationPipe) dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto.email);
+  forgotPassword(@Body(ValidationPipe) dto: ForgotPasswordDto, @Req() req: Request) {
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    return this.authService.forgotPassword(dto.email, ctx);
   }
 
   /**
@@ -138,8 +142,12 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  resetPassword(@Body(ValidationPipe) dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.token, dto.new_password);
+  resetPassword(@Body(ValidationPipe) dto: ResetPasswordDto, @Req() req: Request) {
+    const ctx = {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '',
+      userAgent: req.headers['user-agent'] || '',
+    };
+    return this.authService.resetPassword(dto.token, dto.new_password, ctx);
   }
 
   /**

@@ -289,7 +289,7 @@ export class AuthService {
   /**
    * Gửi link đặt lại mật khẩu về email
    */
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(email: string, ctx: LogContext = {}): Promise<{ message: string }> {
     const user = await this.userService.findByEmail(email);
     // Trả về cùng message dù email có tồn tại hay không (tránh lộ thông tin)
     if (!user || !user.keycloak_id) {
@@ -317,16 +317,14 @@ export class AuthService {
     );
 
     this.logger.log(`Password reset requested for: ${user.email}`);
+    await this.auditLogService.log(user.username, AuditAction.PASSWORD_RESET_REQUESTED, ctx, { email: user.email }, user.user_id).catch(() => {});
     return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
   }
 
   /**
    * Đặt lại mật khẩu bằng token
    */
-  async resetPassword(
-    token: string,
-    newPassword: string,
-  ): Promise<{ message: string }> {
+  async resetPassword(token: string, newPassword: string, ctx: LogContext = {}): Promise<{ message: string }> {
     const record = await this.resetTokenModel.findOne({ token });
 
     if (!record) throw new BadRequestException('Token không hợp lệ');
@@ -343,6 +341,7 @@ export class AuthService {
     await this.resetTokenModel.updateOne({ token }, { used: true });
 
     this.logger.log(`Password reset completed for: ${record.email}`);
+    await this.auditLogService.log(user.username, AuditAction.PASSWORD_RESET_COMPLETED, ctx, { email: user.email }, user.user_id).catch(() => {});
     return { message: 'Đặt lại mật khẩu thành công' };
   }
 }

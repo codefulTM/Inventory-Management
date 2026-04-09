@@ -17,6 +17,7 @@ import {
   type InventoryAdjustmentItem,
 } from "../../../types/inventoryAdjustment";
 import { handleApiError, logApiError } from "../../../utils/error-handler";
+import { getCurrentUser } from "../../../services/apiClient";
 import {
   SearchAndFilters,
   InventoryLotTable,
@@ -66,6 +67,10 @@ function toAdjustmentErrorMessage(error: unknown): string {
 export default function InventoryLot() {
   const location = useLocation();
   const isStockRoute = location.pathname.startsWith("/manager/stock");
+  const currentUser = getCurrentUser();
+  const isManager = currentUser?.role === "Manager";
+
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInventoryLot, setSelectedInventoryLot] =
     useState<InventoryLot | null>(null);
@@ -177,6 +182,7 @@ export default function InventoryLot() {
       manufacturer_name: values.manufacturer_name,
       manufacturer_lot: values.manufacturer_lot,
       supplier_name: values.supplier_name,
+      ...(values.manufacture_date ? { manufacture_date: values.manufacture_date } : {}),
       received_date: values.received_date,
       expiration_date: values.expiration_date,
       ...(values.in_use_expiration_date
@@ -212,6 +218,7 @@ export default function InventoryLot() {
       manufacturer_name: values.manufacturer_name,
       manufacturer_lot: values.manufacturer_lot,
       supplier_name: values.supplier_name,
+      ...(values.manufacture_date ? { manufacture_date: values.manufacture_date } : {}),
       received_date: values.received_date,
       expiration_date: values.expiration_date,
       ...(values.in_use_expiration_date
@@ -443,7 +450,7 @@ export default function InventoryLot() {
         isOpen={showDetailModal}
         selectedLot={selectedInventoryLot}
         onClose={() => setShowDetailModal(false)}
-        onEdit={handleEditClick}
+        onEdit={isManager ? handleEditClick : undefined}
       />
 
       <AddModal

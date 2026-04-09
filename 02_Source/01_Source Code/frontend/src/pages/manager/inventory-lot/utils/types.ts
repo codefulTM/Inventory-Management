@@ -5,6 +5,7 @@ export type EditFormValues = {
   manufacturer_name: string;
   manufacturer_lot: string;
   supplier_name: string;
+  manufacture_date: string;
   received_date: string;
   expiration_date: string;
   in_use_expiration_date: string;

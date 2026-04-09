@@ -12,6 +12,7 @@ const ACTION_LABELS: Record<string, string> = {
   USER_UNLOCKED: "Mở khóa tài khoản",
   PASSWORD_RESET_REQUESTED: "Yêu cầu đặt lại mật khẩu",
   PASSWORD_RESET_COMPLETED: "Đặt lại mật khẩu thành công",
+  INVENTORY_LOT_UPDATED: "Cập nhật lô hàng",
 };
 
 const ACTION_BADGE: Record<string, string> = {
@@ -25,6 +26,7 @@ const ACTION_BADGE: Record<string, string> = {
   USER_UNLOCKED: "bg-teal-100 text-teal-700",
   PASSWORD_RESET_REQUESTED: "bg-purple-100 text-purple-700",
   PASSWORD_RESET_COMPLETED: "bg-purple-100 text-purple-700",
+  INVENTORY_LOT_UPDATED: "bg-yellow-100 text-yellow-700",
 };
 
 const ALL_ACTIONS = Object.keys(ACTION_LABELS);

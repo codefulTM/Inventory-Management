@@ -8,6 +8,7 @@ import { InventoryLotController } from './inventory-lot.controller';
 import { InventoryLotService } from './inventory-lot.service';
 import { InventoryLotRepository } from './inventory-lot.repository';
 import { InventoryTransactionModule } from '../inventory-transaction/inventory-transaction.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { InventoryTransactionModule } from '../inventory-transaction/inventory-t
       { name: InventoryLot.name, schema: InventoryLotSchema },
     ]),
     InventoryTransactionModule,
+    AuditLogModule,
   ],
   controllers: [InventoryLotController],
   providers: [InventoryLotService, InventoryLotRepository],
