@@ -13,29 +13,34 @@ pipeline {
         }
 
         stage('Unit Test') {
+            agent {
+                docker {
+                    image 'node:20-alpine'
+                }
+            }
             steps {
-                sh '''
-                BACKEND_SRC="$(pwd)/02_Source/01_Source Code/backend"
-                rm -rf /tmp/inv_backend
-                cp -r "${BACKEND_SRC}" /tmp/inv_backend
-                docker run --rm \
-                    -v /tmp/inv_backend:/app \
-                    -w /app \
-                    node:20-alpine \
-                    sh -c 'npm install && npx jest --testPathPattern=src/unit-test --forceExit'
-                '''
+                dir('02_Source/01_Source Code/backend') {
+                    sh '''
+                    npm install
+                    npx jest --testPathPattern=src/unit-test --forceExit
+                    '''
+                }
             }
         }
 
         stage('Integration Test') {
+            agent {
+                docker {
+                    image 'node:20-alpine'
+                }
+            }
             steps {
-                sh '''
-                docker run --rm \
-                    -v /tmp/inv_backend:/app \
-                    -w /app \
-                    node:20-alpine \
-                    sh -c 'npm install && npx jest --testPathPattern=src --testPathIgnorePatterns=src/unit-test --forceExit'
-                '''
+                dir('02_Source/01_Source Code/backend') {
+                    sh '''
+                    npm install
+                    npx jest --testPathPattern=src --testPathIgnorePatterns=src/unit-test --forceExit
+                    '''
+                }
             }
         }
 
@@ -64,15 +69,18 @@ pipeline {
         }
 
         stage('E2E Test') {
+            agent {
+                docker {
+                    image 'node:20-alpine'
+                }
+            }
             steps {
-                sh '''
-                docker run --rm \
-                    -v /tmp/inv_backend:/app \
-                    -w /app \
-                    node:20-alpine \
-                    sh -c 'npm install && npx jest --config ./test/jest-e2e.json --forceExit'
-                rm -rf /tmp/inv_backend
-                '''
+                dir('02_Source/01_Source Code/backend') {
+                    sh '''
+                    npm install
+                    npx jest --config ./test/jest-e2e.json --forceExit
+                    '''
+                }
             }
         }
 
