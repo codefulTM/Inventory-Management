@@ -22,7 +22,7 @@ pipeline {
                 dir('02_Source/01_Source Code/backend') {
                     sh '''
                     npm install
-                    npx jest --testPathPattern=src/unit-test --forceExit
+                    npx jest --testPathPatterns=src/unit-test --forceExit
                     '''
                 }
             }
@@ -38,7 +38,7 @@ pipeline {
                 dir('02_Source/01_Source Code/backend') {
                     sh '''
                     npm install
-                    npx jest --testPathPattern=src --testPathIgnorePatterns=src/unit-test --forceExit
+                    npx jest --testPathPatterns=src --testPathIgnorePatterns=src/unit-test --forceExit
                     '''
                 }
             }
