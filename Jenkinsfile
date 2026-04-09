@@ -15,8 +15,9 @@ pipeline {
         stage('Unit Test') {
             steps {
                 sh '''
-                BACKEND="$(pwd)/02_Source/01_Source Code/backend"
-                ln -sfn "${BACKEND}" /tmp/inv_backend
+                BACKEND_SRC="$(pwd)/02_Source/01_Source Code/backend"
+                rm -rf /tmp/inv_backend
+                cp -r "${BACKEND_SRC}" /tmp/inv_backend
                 docker run --rm \
                     -v /tmp/inv_backend:/app \
                     -w /app \
@@ -29,8 +30,6 @@ pipeline {
         stage('Integration Test') {
             steps {
                 sh '''
-                BACKEND="$(pwd)/02_Source/01_Source Code/backend"
-                ln -sfn "${BACKEND}" /tmp/inv_backend
                 docker run --rm \
                     -v /tmp/inv_backend:/app \
                     -w /app \
@@ -67,13 +66,12 @@ pipeline {
         stage('E2E Test') {
             steps {
                 sh '''
-                BACKEND="$(pwd)/02_Source/01_Source Code/backend"
-                ln -sfn "${BACKEND}" /tmp/inv_backend
                 docker run --rm \
                     -v /tmp/inv_backend:/app \
                     -w /app \
                     node:20-alpine \
                     sh -c 'npm install && npx jest --config ./test/jest-e2e.json --forceExit'
+                rm -rf /tmp/inv_backend
                 '''
             }
         }
