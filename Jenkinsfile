@@ -17,10 +17,10 @@ pipeline {
                 sh '''
                 BACKEND="$(pwd)/02_Source/01_Source Code/backend"
                 docker run --rm \
-                    -v "${BACKEND}:/app" \
+                    --mount "type=bind,source=${BACKEND},target=/app" \
                     -w /app \
                     node:20-alpine \
-                    sh -c "npm install && npx jest --testPathPattern=src/unit-test --forceExit"
+                    sh -c 'npm install && npx jest --testPathPattern=src/unit-test --forceExit'
                 '''
             }
         }
@@ -30,10 +30,10 @@ pipeline {
                 sh '''
                 BACKEND="$(pwd)/02_Source/01_Source Code/backend"
                 docker run --rm \
-                    -v "${BACKEND}:/app" \
+                    --mount "type=bind,source=${BACKEND},target=/app" \
                     -w /app \
                     node:20-alpine \
-                    sh -c "npm install && npx jest --testPathPattern=src --testPathIgnorePatterns=src/unit-test --forceExit"
+                    sh -c 'npm install && npx jest --testPathPattern=src --testPathIgnorePatterns=src/unit-test --forceExit'
                 '''
             }
         }
@@ -67,10 +67,10 @@ pipeline {
                 sh '''
                 BACKEND="$(pwd)/02_Source/01_Source Code/backend"
                 docker run --rm \
-                    -v "${BACKEND}:/app" \
+                    --mount "type=bind,source=${BACKEND},target=/app" \
                     -w /app \
                     node:20-alpine \
-                    sh -c "npm install && npx jest --config ./test/jest-e2e.json --forceExit"
+                    sh -c 'npm install && npx jest --config ./test/jest-e2e.json --forceExit'
                 '''
             }
         }
