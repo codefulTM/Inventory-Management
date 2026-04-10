@@ -119,7 +119,7 @@ const Login = () => {
         onSubmit={handleSubmit}
       >
         <h2 className="text-2xl font-bold mb-6 text-center">
-          Đăng nhập hệ thống Week seven demo
+          Đăng nhập hệ thống
         </h2>
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Tên đăng nhập</label>
