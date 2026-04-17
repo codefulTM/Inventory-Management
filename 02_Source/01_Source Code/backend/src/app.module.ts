@@ -50,6 +50,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     MetricsModule,
     ReportsModule,
     AuditLogModule,
+    AiAgentsModule,
   ],
   controllers: [AppController],
   providers: [

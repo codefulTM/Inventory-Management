@@ -43,6 +43,7 @@ import ProductionBatchForm from "../pages/manager/production-batches/FormPage";
 import OperatorProductionBatchList from "../pages/operator/production-batches/List";
 import OperatorProductionBatchDetail from "../pages/operator/production-batches/Detail";
 import OperatorProductionBatchForm from "../pages/operator/production-batches/FormPage";
+import AIAgentConsole from "../pages/shared/AIAgentConsole";
 import type { JSX } from "react";
 import { isTokenValid } from "../utils/authUtils";
 import StockManagement from "../pages/manager/StockManagement.tsx";
@@ -340,6 +341,14 @@ export const router = createBrowserRouter([
       {
         path: "operator/production-batches/:id/edit",
         element: requireOperatorAuth(<OperatorProductionBatchForm />),
+      },
+      {
+        path: "/ai/console",
+        element: requireAuth(<AIAgentConsole />, [
+          "manager",
+          "operator",
+          "quality-control",
+        ]),
       },
       // Catch-all placeholder
       {

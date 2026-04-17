@@ -20,6 +20,7 @@ import {
   FileBarChart,
   User as UserIcon,
   FileSearch,
+  Bot,
   ChevronRight,
   Tag,
   FlaskConical,
@@ -74,6 +75,8 @@ export default function Layout() {
   // Lấy user từ localStorage
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
+  const apiBaseUrl =
+    import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
   // Đồng bộ role từ backend mỗi lần load — để cập nhật ngay khi bị đổi role
   useEffect(() => {
@@ -91,7 +94,7 @@ export default function Layout() {
       "quality-control": "/qc/dashboard",
       it_admin: "/admin/dashboard",
     };
-    fetch(`${import.meta.env.VITE_API_URL}/users/me`, {
+    fetch(`${apiBaseUrl}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -126,10 +129,10 @@ export default function Layout() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [apiBaseUrl, navigate]);
 
   // Hàm hiển thị tên vai trò trên giao diện
-  const getDisplayNameFromUsername = (_username?: string) => {
+  const getDisplayNameFromUsername = () => {
     return user?.label ?? getRoleLabel();
   };
 
@@ -213,6 +216,11 @@ export default function Layout() {
             icon: <FlaskConical size={20} />,
             label: "Lô sản xuất",
           },
+          {
+            to: "/ai/console",
+            icon: <Bot size={20} />,
+            label: "AI Agent",
+          },
         ];
       case "quality-control":
         return [
@@ -240,6 +248,11 @@ export default function Layout() {
             to: "/qc/traceability",
             icon: <FileSearch size={20} />,
             label: "Báo cáo & Truy vết",
+          },
+          {
+            to: "/ai/console",
+            icon: <Bot size={20} />,
+            label: "AI Agent",
           },
         ];
       case "operator":
@@ -288,6 +301,11 @@ export default function Layout() {
             to: "/operator/labels",
             icon: <Tag size={20} />,
             label: "In nhãn",
+          },
+          {
+            to: "/ai/console",
+            icon: <Bot size={20} />,
+            label: "AI Agent",
           },
         ];
       case "it_admin":
