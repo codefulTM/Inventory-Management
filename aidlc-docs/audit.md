@@ -1,5 +1,13 @@
 # AI-DLC Audit Log
 
+## keycloak-service + api-gateway Refactor — Workflow Start
+**Timestamp**: 2026-04-18T00:00:00Z
+**User Input**: "Using AI-DLC, based on my existing backend, I want to create folders for keycloak-service and api-gateway: 1) keycloak-service: Transfer authentication logic and keycloaks from the backend here. 2) api-gateway: Gateway for the frontend to call APIs; the gateway will navigate using gRPC. Note: When making this change, all logic must be ensured, all tests must pass, and the directory structure must be standard NestJS."
+**AI Response**: Started AI-DLC workflow. Workspace detected as brownfield NestJS monolith. Empty api-gateway/ and keycloak-service/ folders already exist. Requirements question file created. Awaiting user clarifications before proceeding.
+**Context**: INCEPTION - Workspace Detection COMPLETE → Requirements Analysis IN PROGRESS
+
+---
+
 ## Initial Request
 **Timestamp**: 2026-03-20T00:00:00Z
 **User Input**: "Using AI-DLC"

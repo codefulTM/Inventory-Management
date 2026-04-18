@@ -3,16 +3,15 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
-import { KeycloakModule } from './keycloak/keycloak.module';
-import { AuthModule } from './auth/auth.module';
+import { CommonAuthModule } from './common/auth/common-auth.module';
 import { UserModule } from './user/user.module';
 import { MaterialModule } from './material/material.module';
 import { InventoryLotModule } from './inventory-lot/inventory-lot.module';
 import { ProductionBatchModule } from './production-batch/production-batch.module';
 import { InventoryTransactionModule } from './inventory-transaction/inventory-transaction.module';
 import { QCTestModule } from './qc-test/qc-test.module';
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
-import { RolesGuard } from './auth/guards/roles.guard';
+import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
+import { RolesGuard } from './common/auth/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
 import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
@@ -23,16 +22,14 @@ import { AppService } from './app.service';
 import { ImportExportOrderModule } from './import-export-order/import-export-order.module';
 import { InventoryAdjustmentModule } from './inventory-adjustment/inventory-adjustment.module';
 import { InventoryAuditReportModule } from './inventory-audit-report/inventory-audit-report.module';
-import { AiAgentsModule } from './ai-agents/ai-agents.module';
-import { ReportsModule } from './reports/reports.module';
+import { AiDataGrpcModule } from './ai-data-grpc/ai-data-grpc.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    KeycloakModule,
-    AuthModule,
+    CommonAuthModule,
     UserModule,
     MaterialModule,
     InventoryLotModule,
@@ -48,9 +45,8 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     LogModule,
     BarcodeModule,
     MetricsModule,
-    ReportsModule,
     AuditLogModule,
-    AiAgentsModule,
+    AiDataGrpcModule,
   ],
   controllers: [AppController],
   providers: [

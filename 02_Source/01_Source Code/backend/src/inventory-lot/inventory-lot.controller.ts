@@ -20,12 +20,12 @@ import {
   InventoryLotStatus,
 } from './inventory-lot.dto';
 import { BulkQuarantineDto } from '../qc-test/dto/bulk-quarantine.dto';
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
+import { JwtAuthGuard } from "../common/auth/jwt-auth.guard";
+import { RolesGuard } from "../common/auth/roles.guard";
+import { Roles } from "../common/auth/decorators/roles.decorator";
 import { UserRole } from "../schemas/user.schema";
-import { CurrentUser } from "../auth/decorators/current-user.decorator";
-import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
+import { CurrentUser } from "../common/auth/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../common/auth/jwt.strategy";
 
 @Controller('inventory-lots')
 @UseGuards(JwtAuthGuard, RolesGuard)

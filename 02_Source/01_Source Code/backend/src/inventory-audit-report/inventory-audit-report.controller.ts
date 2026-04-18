@@ -13,10 +13,10 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../common/auth/roles.guard';
+import { Roles } from '../common/auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
-import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { AuthenticatedUser } from '../common/auth/jwt.strategy';
 import { CreateInventoryAuditReportDto } from './dto/create-inventory-audit-report.dto';
 import { QueryInventoryAuditReportDto } from './dto/query-inventory-audit-report.dto';
 import { InventoryAuditReportService } from './inventory-audit-report.service';

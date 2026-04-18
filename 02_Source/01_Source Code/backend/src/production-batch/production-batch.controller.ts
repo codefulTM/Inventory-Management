@@ -18,10 +18,10 @@ import { CreateProductionBatchDto } from './dto/create-production-batch.dto';
 import { UpdateProductionBatchDto } from './dto/update-production-batch.dto';
 import { CreateBatchComponentDto } from './dto/create-batch-component.dto';
 import { UpdateBatchComponentDto } from './dto/update-batch-component.dto';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../common/auth/decorators/roles.decorator';
+import { CurrentUser } from '../common/auth/decorators/current-user.decorator';
 import { UserRole } from '../schemas/user.schema';
-import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import type { AuthenticatedUser } from '../common/auth/jwt.strategy';
 
 /**
  * ProductionBatch Controller

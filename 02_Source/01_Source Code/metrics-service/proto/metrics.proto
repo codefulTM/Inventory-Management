@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package metrics;
+
+/**
+ * MetricsReportsService — gRPC service exposing 4 statistical report RPCs.
+ * Called by api-gateway; routed from HTTP GET /reports/*.
+ */
+service MetricsReportsService {
+  rpc GetInventoryStatus  (InventoryStatusRequest)  returns (InventoryStatusResponse);
+  rpc GetMaterialUsage    (MaterialUsageRequest)     returns (MaterialUsageResponse);
+  rpc GetQcPerformance    (QcPerformanceRequest)     returns (QcPerformanceResponse);
+  rpc GetAuditReport      (AuditReportRequest)       returns (AuditReportResponse);
+}
+
+// ─── Inventory Status ──────────────────────────────────────────────────────
+
+message InventoryStatusRequest {}
+
+message InventoryStatusItem {
+  string material_id     = 1;
+  string lot_id          = 2;
+  double quantity        = 3;
+  string status          = 4;
+  string expiration_date = 5;  // ISO 8601 string, empty if absent
+}
+
+message InventoryStatusResponse {
+  string generated_at = 1;   // ISO 8601
+  int32  total_lots   = 2;
+  repeated InventoryStatusItem items = 3;
+}
+
+// ─── Material Usage ────────────────────────────────────────────────────────
+
+message MaterialUsageRequest {
+  string from = 1;  // ISO 8601 date string, optional
+  string to   = 2;  // ISO 8601 date string, optional
+}
+
+message MaterialUsageItem {
+  string material_id       = 1;
+  int32  transaction_count = 2;
+  double total_quantity    = 3;
+}
+
+message MaterialUsageResponse {
+  string generated_at = 1;
+  string from         = 2;
+  string to           = 3;
+  repeated MaterialUsageItem items = 4;
+}
+
+// ─── QC Performance ────────────────────────────────────────────────────────
+
+message QcPerformanceRequest {}
+
+message QcPerformanceItem {
+  string supplier_name = 1;
+  int32  approved      = 2;
+  int32  rejected      = 3;
+  double quality_rate  = 4;
+}
+
+message QcPerformanceResponse {
+  string generated_at = 1;
+  repeated QcPerformanceItem items = 2;
+}
+
+// ─── Audit Report ──────────────────────────────────────────────────────────
+
+message AuditReportRequest {
+  int32 page = 1;  // 0-based, default 0
+  int32 size = 2;  // default 20
+}
+
+message AuditEntry {
+  string action       = 1;
+  string entity       = 2;
+  string performed_by = 3;
+  string performed_at = 4;  // ISO 8601
+  string details      = 5;  // JSON-encoded string
+}
+
+message AuditReportResponse {
+  string generated_at = 1;
+  repeated AuditEntry entries = 2;
+}

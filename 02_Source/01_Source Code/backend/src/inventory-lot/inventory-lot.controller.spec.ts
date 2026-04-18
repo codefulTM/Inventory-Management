@@ -12,15 +12,15 @@ jest.mock('uuid', () => ({
   v4: () => '00000000-0000-4000-8000-000000000004',
 }));
 
-jest.mock('../auth/guards/jwt-auth.guard', () => ({
+jest.mock('../common/auth/jwt-auth.guard', () => ({
   JwtAuthGuard: class JwtAuthGuardMock {},
 }));
 
-jest.mock('../auth/guards/roles.guard', () => ({
+jest.mock('../common/auth/roles.guard', () => ({
   RolesGuard: class RolesGuardMock {},
 }));
 
-jest.mock('../auth/decorators/roles.decorator', () => ({
+jest.mock('../common/auth/decorators/roles.decorator', () => ({
   Roles: () => () => undefined,
 }));
 

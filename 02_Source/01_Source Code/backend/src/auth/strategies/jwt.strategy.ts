@@ -46,8 +46,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       'http://localhost:8080',
     );
     const realm = config.get<string>('KEYCLOAK_REALM', 'inventory');
-    const jwksUri = `${serverUrl}/realms/${realm}/protocol/openid-connect/certs`;
-    const issuer = `${serverUrl}/realms/${realm}`;
+    const jwksUri = config.get<string>(
+      'JWKS_URI',
+      `${serverUrl}/realms/${realm}/protocol/openid-connect/certs`,
+    );
+    const issuer = config.get<string>(
+      'JWT_ISSUER',
+      `${serverUrl}/realms/${realm}`,
+    );
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),

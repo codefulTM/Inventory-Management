@@ -1,9 +1,9 @@
 import { UseGuards, BadRequestException } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
+import { RolesGuard } from '../common/auth/roles.guard';
+import { Roles } from '../common/auth/decorators/roles.decorator';
+import { CurrentUser } from '../common/auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../common/auth/jwt.strategy';
 import { UserRole } from '../schemas/user.schema';
 import {
   Controller,

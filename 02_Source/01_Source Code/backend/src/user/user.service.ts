@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { UserRepository } from './user.repository';
-import { KeycloakService } from '../keycloak/keycloak.service';
+import { KeycloakGrpcClientService } from '../common/keycloak-grpc-client/keycloak-grpc-client.service';
 import { MailService } from '../mail/mail.service';
 import { AuditLogService, LogContext } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
@@ -26,7 +26,7 @@ export class UserService {
 
   constructor(
     private readonly repository: UserRepository,
-    private readonly keycloakService: KeycloakService,
+    private readonly keycloakService: KeycloakGrpcClientService,
     private readonly mailService: MailService,
     private readonly auditLogService: AuditLogService,
   ) {}

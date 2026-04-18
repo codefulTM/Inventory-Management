@@ -9,7 +9,7 @@ import {
 import type { Response } from 'express';
 import { AuditLogService } from './audit-log.service';
 import { AuditAction } from './audit-log.schema';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles } from '../common/auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
 
 @Controller('audit-logs')

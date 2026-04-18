@@ -13,9 +13,9 @@ import {
   SystemMonitoringService,
   SystemMetrics,
 } from './system-monitoring.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
+import { RolesGuard } from '../common/auth/roles.guard';
+import { Roles } from '../common/auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
 
 /**

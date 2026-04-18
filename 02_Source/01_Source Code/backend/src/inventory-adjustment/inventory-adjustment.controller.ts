@@ -11,10 +11,10 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../common/auth/roles.guard';
+import { Roles } from '../common/auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
-import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { AuthenticatedUser } from '../common/auth/jwt.strategy';
 import { InventoryAdjustmentService } from './inventory-adjustment.service';
 import { CreateInventoryAdjustmentDto } from './dto/create-inventory-adjustment.dto';
 import { QueryInventoryAdjustmentDto } from './dto/query-inventory-adjustment.dto';
