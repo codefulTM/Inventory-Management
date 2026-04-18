@@ -69,4 +69,11 @@ export const API_ENDPOINTS = {
     `/inventory-audit-reports/${reportId}`,
   INVENTORY_AUDIT_REPORT_DOWNLOAD: (reportId: string) =>
     `/inventory-audit-reports/${reportId}/download`,
+
+  // Warehouse Slips (US11)
+  WAREHOUSE_SLIPS: "/warehouse/slips",
+  WAREHOUSE_SLIP_DETAIL: (slipId: string) => `/warehouse/slips/${slipId}`,
+  WAREHOUSE_SLIP_ATTACHMENTS: (slipId: string) =>
+    `/warehouse/slips/${slipId}/attachments`,
+  WAREHOUSE_SLIP_PRINT: (slipId: string) => `/warehouse/slips/${slipId}/print`,
 };
