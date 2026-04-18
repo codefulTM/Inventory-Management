@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Alert, Card, Col, Row, Spin, Statistic } from 'antd';
+import { Alert } from 'antd';
+import { Package, Server, Shield } from 'lucide-react';
 import { getAuditReport, getInventoryStatusReport } from '../../services/reportsService';
+import { PageWrapper, StatsGrid, StatCard, LoadingSkeleton } from '../../components/ui';
 
 export default function DashboardIT() {
   const [loading, setLoading] = useState(true);
@@ -29,38 +31,62 @@ export default function DashboardIT() {
     void load();
   }, []);
 
-  return (
-    <div className="p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">IT Admin Dashboard</h1>
-        <p className="text-sm text-gray-500">System health and operational overview</p>
-      </div>
-
-      {error ? <Alert type="error" showIcon message={error} /> : null}
-
-      {loading ? (
-        <div className="py-12 text-center">
-          <Spin />
+  if (loading) {
+    return (
+      <PageWrapper>
+        <div className="p-6">
+          <div className="mb-6">
+            <LoadingSkeleton variant="text" className="w-48 h-8" />
+            <LoadingSkeleton variant="text" className="w-56 h-4 mt-2" />
+          </div>
+          <StatsGrid cols={3}>
+            <LoadingSkeleton variant="card" />
+            <LoadingSkeleton variant="card" />
+            <LoadingSkeleton variant="card" />
+          </StatsGrid>
         </div>
-      ) : (
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} lg={8}>
-            <Card>
-              <Statistic title="Tracked Inventory Lots" value={lots} />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={8}>
-            <Card>
-              <Statistic title="Recent Audit Events" value={events} />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={8}>
-            <Card>
-              <Statistic title="Core Services" value="Online" />
-            </Card>
-          </Col>
-        </Row>
-      )}
-    </div>
+      </PageWrapper>
+    );
+  }
+
+  return (
+    <PageWrapper>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="animate-fadeInUp">
+          <h1 className="text-2xl font-bold text-gray-900">IT Admin Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">System health and operational overview</p>
+        </div>
+
+        {error ? <Alert type="error" showIcon message={error} /> : null}
+
+        {/* Stats Grid */}
+        <StatsGrid cols={3}>
+          <div className="stagger-item" style={{ animationDelay: '0ms' }}>
+            <StatCard
+              label="Tracked Inventory Lots"
+              value={lots}
+              icon={<Package className="w-5 h-5" />}
+            />
+          </div>
+          <div className="stagger-item" style={{ animationDelay: '50ms' }}>
+            <StatCard
+              label="Recent Audit Events"
+              value={events}
+              icon={<Shield className="w-5 h-5" />}
+              variant={events > 0 ? 'warning' : 'success'}
+            />
+          </div>
+          <div className="stagger-item" style={{ animationDelay: '100ms' }}>
+            <StatCard
+              label="Core Services"
+              value="Online"
+              icon={<Server className="w-5 h-5" />}
+              variant="success"
+            />
+          </div>
+        </StatsGrid>
+      </div>
+    </PageWrapper>
   );
 }

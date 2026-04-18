@@ -44,15 +44,15 @@ const UserProfileSection = ({
   getDisplayNameFromUsername: (username?: string) => string;
 }) => (
   <div className="p-4 border-t border-gray-100">
-    <div className="bg-blue-50/50 rounded-2xl p-4 mb-3 border border-blue-100/50 flex items-center space-x-3">
-      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">
+    <div className="bg-primary-50/50 rounded-2xl p-4 mb-3 border border-primary-100/50 flex items-center space-x-3">
+      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary-600 shadow-sm border border-primary-100">
         <UserIcon size={20} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-black text-gray-900 truncate tracking-tight">
           {user?.username || "Unknown User"}
         </div>
-        <div className="text-[10px] font-black text-blue-600 bg-blue-100 px-2 py-0.5 rounded uppercase tracking-widest mt-1">
+        <div className="text-[10px] font-black text-primary-600 bg-primary-100 px-2 py-0.5 rounded uppercase tracking-widest mt-1">
           {getDisplayNameFromUsername(user?.username)}
         </div>
       </div>
@@ -376,12 +376,12 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-gray-900 font-sans">
       {/* SIDEBAR DÀNH CHO DESKTOP */}
-      <aside className="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full md:translate-x-0 bg-white border-r border-gray-100 shadow-xl shadow-blue-900/5">
+      <aside className="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full md:translate-x-0 bg-white border-r border-gray-100 shadow-xl shadow-primary-900/5">
         <div className="h-full flex flex-col">
           {/* LOGO SECTION */}
           <div className="p-8">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+              <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-600/25">
                 <Package className="text-white" size={24} />
               </div>
               <div>
@@ -397,8 +397,8 @@ export default function Layout() {
           </div>
 
           {/* NAVIGATION SECTION */}
-          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+            {navItems.map((item, index) => {
               const isActive =
                 location.pathname === item.to ||
                 location.pathname.startsWith(item.to + "/");
@@ -406,24 +406,59 @@ export default function Layout() {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-200 translate-x-1"
-                      : "text-gray-500 hover:bg-blue-50 hover:text-blue-600"
-                  }`}
+                  className={`
+                    flex items-center gap-3 px-4 py-3 rounded-xl 
+                    transition-all duration-300 ease-out group relative
+                    animate-fadeInUp
+                    ${
+                      isActive
+                        ? "bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-600/30"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                    }
+                  `}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <div className="flex items-center space-x-3">
-                    <span
-                      className={`${isActive ? "text-white" : "group-hover:text-blue-600 transition-colors"}`}
-                    >
-                      {item.icon}
-                    </span>
-                    <span className="font-bold text-sm tracking-tight">
-                      {item.label}
-                    </span>
+                  {/* Background decoration */}
+                  {!isActive && (
+                    <div className="absolute inset-0 rounded-xl bg-primary-5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+                  )}
+
+                  {/* Icon container */}
+                  <div
+                    className={`
+                    w-9 h-9 rounded-lg flex items-center justify-center shrink-0
+                    transition-all duration-300
+                    ${
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-gray-100 text-gray-400 group-hover:bg-primary-50 group-hover:text-primary-600"
+                    }
+                  `}
+                  >
+                    {item.icon}
                   </div>
+
+                  {/* Label */}
+                  <span
+                    className={`
+                    font-semibold text-sm tracking-tight flex-1
+                    ${isActive ? "text-white" : ""}
+                  `}
+                  >
+                    {item.label}
+                  </span>
+
+                  {/* Active indicator */}
                   {isActive && (
-                    <ChevronRight size={14} className="text-white/50" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full" />
+                  )}
+
+                  {/* Hover arrow */}
+                  {!isActive && (
+                    <ChevronRight
+                      size={14}
+                      className="text-gray-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200"
+                    />
                   )}
                 </Link>
               );
@@ -467,8 +502,8 @@ export default function Layout() {
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center space-x-4 px-6 py-4 rounded-2xl font-bold transition-all ${
                       location.pathname === item.to
-                        ? "bg-blue-600 text-white shadow-xl shadow-blue-200"
-                        : "text-gray-500 hover:bg-blue-50"
+                        ? "bg-primary-600 text-white shadow-xl shadow-primary-600/25"
+                        : "text-gray-500 hover:bg-primary-50"
                     }`}
                   >
                     {item.icon}
