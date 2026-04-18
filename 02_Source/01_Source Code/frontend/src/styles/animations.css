@@ -1,0 +1,410 @@
+/* ============================================
+   ANIMATIONS - Inventory Management
+   ============================================ */
+
+/* ----- KEYFRAME ANIMATIONS ----- */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+/* ----- ANIMATION CLASSES ----- */
+
+/* Fade animations */
+.animate-fadeIn {
+  animation: fadeIn 200ms ease-out forwards;
+}
+
+.animate-fadeOut {
+  animation: fadeOut 200ms ease-out forwards;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 300ms ease-out forwards;
+}
+
+.animate-fadeInDown {
+  animation: fadeInDown 300ms ease-out forwards;
+}
+
+.animate-fadeInLeft {
+  animation: fadeInLeft 300ms ease-out forwards;
+}
+
+.animate-fadeInRight {
+  animation: fadeInRight 300ms ease-out forwards;
+}
+
+/* Slide animations */
+.animate-slideInUp {
+  animation: slideInUp 300ms ease-out forwards;
+}
+
+.animate-slideInDown {
+  animation: slideInDown 300ms ease-out forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 300ms ease-out forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 300ms ease-out forwards;
+}
+
+/* Scale animations */
+.animate-scaleIn {
+  animation: scaleIn 200ms ease-out forwards;
+}
+
+.animate-scaleOut {
+  animation: scaleOut 200ms ease-out forwards;
+}
+
+/* Utility animations */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* ----- TRANSITION CLASSES ----- */
+
+/* Duration */
+.duration-fast {
+  transition-duration: 150ms;
+}
+
+.duration-base {
+  transition-duration: 200ms;
+}
+
+.duration-slow {
+  transition-duration: 300ms;
+}
+
+/* Timing */
+.ease-linear {
+  transition-timing-function: linear;
+}
+
+.ease-in {
+  transition-timing-function: ease-in;
+}
+
+.ease-out {
+  transition-timing-function: ease-out;
+}
+
+.ease-in-out {
+  transition-timing-function: ease-in-out;
+}
+
+/* ----- INTERACTION STATES ----- */
+
+/* Button click feedback */
+.btn-press:active {
+  transform: scale(0.98);
+}
+
+/* Hover lift */
+.hover-lift {
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.hover-lift:active {
+  transform: translateY(0);
+}
+
+/* ----- STAGGER ANIMATIONS ----- */
+
+/* Stagger delay for list items */
+.stagger-item {
+  opacity: 0;
+  animation: fadeInUp 300ms ease-out forwards;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 50ms; }
+.stagger-item:nth-child(3) { animation-delay: 100ms; }
+.stagger-item:nth-child(4) { animation-delay: 150ms; }
+.stagger-item:nth-child(5) { animation-delay: 200ms; }
+.stagger-item:nth-child(6) { animation-delay: 250ms; }
+.stagger-item:nth-child(7) { animation-delay: 300ms; }
+.stagger-item:nth-child(8) { animation-delay: 350ms; }
+.stagger-item:nth-child(9) { animation-delay: 400ms; }
+.stagger-item:nth-child(10) { animation-delay: 450ms; }
+.stagger-item:nth-child(11) { animation-delay: 500ms; }
+.stagger-item:nth-child(12) { animation-delay: 550ms; }
+.stagger-item:nth-child(13) { animation-delay: 600ms; }
+.stagger-item:nth-child(14) { animation-delay: 650ms; }
+.stagger-item:nth-child(15) { animation-delay: 700ms; }
+.stagger-item:nth-child(16) { animation-delay: 750ms; }
+.stagger-item:nth-child(17) { animation-delay: 800ms; }
+.stagger-item:nth-child(18) { animation-delay: 850ms; }
+.stagger-item:nth-child(19) { animation-delay: 900ms; }
+.stagger-item:nth-child(20) { animation-delay: 950ms; }
+
+/* Fast stagger (for larger lists) */
+.stagger-item-fast {
+  opacity: 0;
+  animation: fadeInUp 200ms ease-out forwards;
+}
+
+.stagger-item-fast:nth-child(1) { animation-delay: 0ms; }
+.stagger-item-fast:nth-child(2) { animation-delay: 30ms; }
+.stagger-item-fast:nth-child(3) { animation-delay: 60ms; }
+.stagger-item-fast:nth-child(4) { animation-delay: 90ms; }
+.stagger-item-fast:nth-child(5) { animation-delay: 120ms; }
+.stagger-item-fast:nth-child(6) { animation-delay: 150ms; }
+.stagger-item-fast:nth-child(7) { animation-delay: 180ms; }
+.stagger-item-fast:nth-child(8) { animation-delay: 210ms; }
+.stagger-item-fast:nth-child(9) { animation-delay: 240ms; }
+.stagger-item-fast:nth-child(10) { animation-delay: 270ms; }
+.stagger-item-fast:nth-child(11) { animation-delay: 300ms; }
+.stagger-item-fast:nth-child(12) { animation-delay: 330ms; }
+.stagger-item-fast:nth-child(13) { animation-delay: 360ms; }
+.stagger-item-fast:nth-child(14) { animation-delay: 390ms; }
+.stagger-item-fast:nth-child(15) { animation-delay: 420ms; }
+.stagger-item-fast:nth-child(16) { animation-delay: 450ms; }
+.stagger-item-fast:nth-child(17) { animation-delay: 480ms; }
+.stagger-item-fast:nth-child(18) { animation-delay: 510ms; }
+.stagger-item-fast:nth-child(19) { animation-delay: 540ms; }
+.stagger-item-fast:nth-child(20) { animation-delay: 570ms; }
+
+/* ----- PAGE TRANSITIONS ----- */
+
+/* Page enter animation */
+.page-enter {
+  opacity: 0;
+  animation: fadeInUp 300ms ease-out forwards;
+}
+
+/* Page exit animation */
+.page-exit {
+  animation: fadeOut 200ms ease-out forwards;
+}
+
+/* ----- SKELETON LOADING ----- */
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 0.4),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+/* ----- SCROLL ANIMATIONS ----- */
+
+/* Fade in on scroll (CSS-only fallback) */
+.fade-in-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 400ms ease-out, transform 400ms ease-out;
+}
+
+.fade-in-on-scroll.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ----- DARK MODE (if needed) ----- */
+
+@media (prefers-color-scheme: dark) {
+  .animate-fadeInUp,
+  .animate-fadeInDown,
+  .animate-fadeInLeft,
+  .animate-fadeInRight {
+    --tw-bg-opacity: 1;
+  }
+}

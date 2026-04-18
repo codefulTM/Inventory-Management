@@ -20,19 +20,6 @@ import {
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { ProductionBatchService } from '../production-batch/production-batch.service';
 
-// TODO [Workflow B]: After ProductionBatchModule is ready, inject ProductionBatchService
-// and call QCTestService.createTest() after batch QC completes.
-// Expected data mapping:
-//   lot_id           ← uuidv4()
-//   material_id      ← batch.product_id
-//   manufacturer_name ← 'Internal Production'
-//   manufacturer_lot  ← batch.batch_number
-//   received_date    ← new Date()
-//   expiration_date  ← batch.expiration_date
-//   status           ← 'Accepted' | 'Rejected'
-//   quantity         ← batch.batch_size (Decimal128 → number)
-//   unit_of_measure  ← batch.unit_of_measure
-
 @Injectable()
 export class QCTestService {
   constructor(
