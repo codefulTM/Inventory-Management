@@ -18,9 +18,9 @@ import {
 import type { Response } from 'express';
 import { MaterialService } from './material.service';
 import { CreateMaterialDto, UpdateMaterialDto } from './material.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
+import { RolesGuard } from '../common/auth/roles.guard';
+import { Roles } from '../common/auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
 
 /**
@@ -39,7 +39,7 @@ export class MaterialController {
    * Query params: page (default: 1), limit (default: 20)
    * Accessible by: All authenticated users
    */
-  @Roles(UserRole.OPERATOR, UserRole.MANAGER)
+  @Roles(UserRole.OPERATOR, UserRole.MANAGER, UserRole.QC_TECHNICIAN)
   @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(

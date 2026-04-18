@@ -6,12 +6,14 @@ import { UserService } from './user.service';
 import { UserRepository } from './user.repository';
 import { MailModule } from '../mail/mail.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
+import { KeycloakGrpcClientModule } from '../common/keycloak-grpc-client/keycloak-grpc-client.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     MailModule,
     AuditLogModule,
+    KeycloakGrpcClientModule,
   ],
   controllers: [UserController],
   providers: [UserRepository, UserService],

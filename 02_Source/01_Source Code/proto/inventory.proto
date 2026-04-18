@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package inventory;
+
+/**
+ * InventoryGatewayService — generic passthrough service.
+ * The api-gateway uses this to forward non-auth HTTP requests to the backend.
+ * In a future phase, specific service rpcs (MaterialService, UserService, etc.)
+ * can be added here.
+ */
+service InventoryGatewayService {
+  rpc Proxy (ProxyRequest) returns (ProxyResponse);
+}
+
+/**
+ * AiDataService — called by ai-service to fetch inventory/QC data from backend.
+ * Uses a single action-based RPC to keep the proto minimal.
+ * payload and data fields are JSON-encoded strings.
+ *
+ * Supported actions:
+ *   getLotsStatistics        → { } → { total, byStatus, expiringSoon, expired }
+ *   getExpiringSoon          → { days: number } → InventoryLot[]
+ *   getExpiredLots           → { } → InventoryLot[]
+ *   getTransactions          → { page: number, limit: number } → { items, total }
+ *   getSupplierPerformance   → { from?, to? } → SupplierPerformanceRecord[]
+ *   getDashboardKPI          → { } → { pending_count, approved_count, rejected_count, error_rate }
+ *   submitQCDecision         → { lot_id, decision, verified_by, reject_reason? } → { lot, tests }
+ *   createInventoryLot       → CreateInventoryLotDto → InventoryLotResponseDto
+ *   findInventoryLotById     → { id: string } → InventoryLotResponseDto
+ *   updateInventoryLot       → { id: string, ...UpdateInventoryLotDto } → InventoryLotResponseDto
+ */
+service AiDataService {
+  rpc ExecuteAction (AiDataRequest) returns (AiDataResponse);
+}
+
+message ProxyRequest {
+  string method = 1;     // GET, POST, PUT, PATCH, DELETE
+  string path = 2;       // e.g. /materials, /users/123
+  string body = 3;       // JSON-encoded body string
+  string headers = 4;    // JSON-encoded headers string
+  string query = 5;      // JSON-encoded query params string
+}
+
+message ProxyResponse {
+  int32 status_code = 1;
+  string body = 2;       // JSON-encoded response body
+  string headers = 3;    // JSON-encoded response headers
+}
+
+message AiDataRequest {
+  string action = 1;   // action name (see AiDataService doc above)
+  string payload = 2;  // JSON-encoded request payload
+}
+
+message AiDataResponse {
+  bool success = 1;
+  string data = 2;   // JSON-encoded result on success
+  string error = 3;  // error message on failure
+}

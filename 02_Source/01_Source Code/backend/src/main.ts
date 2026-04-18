@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 
 async function bootstrap() {
@@ -49,9 +50,21 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  // ── gRPC microservice transport (for api-gateway to call) ──────────────────
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.GRPC,
+    options: {
+      package: 'inventory',
+      protoPath: join(__dirname, '../proto/inventory.proto'),
+      url: `0.0.0.0:${config.get<string>('GRPC_PORT', '50052')}`,
+    },
+  });
+
+  await app.startAllMicroservices();
   await app.listen(parseInt(port, 10));
 
   console.log(`Backend is running on: ${await app.getUrl()}`);
+  console.log(`Backend gRPC on port: ${config.get('GRPC_PORT', '50052')}`);
   console.log(`CORS origin: ${frontendOrigin}`);
 }
 bootstrap();
