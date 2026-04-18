@@ -484,7 +484,7 @@ export class ProductionBatchService {
 
           // Step 3: Deduct materials from inventory and create transactions
           // Extract user from request context (assuming it's passed via request)
-          const performedBy = 'system'; // TODO: Get from request.user in controller
+          const performedBy = 'system'; // TODO: Pass user from controller when complete endpoint is implemented
           await this.deductMaterialsFromInventory(
             batchId,
             components,

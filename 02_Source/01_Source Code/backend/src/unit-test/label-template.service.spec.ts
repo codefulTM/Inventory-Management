@@ -986,7 +986,10 @@ describe('LabelTemplateService', () => {
     describe.each([
       {
         name: 'lot source',
-        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
+        dto: {
+          template_id: 'RAW-001',
+          lot_id: 'LOT-MOCK-001',
+        } as GenerateLabelDto,
         expectedKey: 'lot_id',
         expectedValue: 'LOT-MOCK-001',
       },
@@ -1051,19 +1054,28 @@ describe('LabelTemplateService', () => {
       {
         name: 'missing placeholder stays unchanged',
         template: 'UNKNOWN={{unknown_key}}',
-        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
+        dto: {
+          template_id: 'RAW-001',
+          lot_id: 'LOT-MOCK-001',
+        } as GenerateLabelDto,
         expected: ['UNKNOWN={{unknown_key}}'],
       },
       {
         name: 'no placeholders unchanged',
         template: 'Static content only',
-        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
+        dto: {
+          template_id: 'RAW-001',
+          lot_id: 'LOT-MOCK-001',
+        } as GenerateLabelDto,
         expected: ['Static content only'],
       },
       {
         name: 'mixed known and unknown placeholders',
         template: '{{material_name}}|{{unknown}}|{{expiration_date}}',
-        dto: { template_id: 'RAW-001', lot_id: 'LOT-MOCK-001' } as GenerateLabelDto,
+        dto: {
+          template_id: 'RAW-001',
+          lot_id: 'LOT-MOCK-001',
+        } as GenerateLabelDto,
         expected: ['{{unknown}}', '2027-11-15'],
       },
       {

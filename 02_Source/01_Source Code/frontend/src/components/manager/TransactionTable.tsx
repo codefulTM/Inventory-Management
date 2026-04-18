@@ -1,5 +1,6 @@
 import React from 'react';
 import type { InventoryTransaction } from '../../services/transactionService';
+import { TableSkeleton, Badge } from '../../components/ui';
 
 interface TransactionTableProps {
   transactions: InventoryTransaction[];
@@ -13,10 +14,6 @@ interface TransactionTableProps {
   };
   onPageChange: (page: number) => void;
 }
-
-const getTransactionTypeColor = (type: string) => {
-  return type === 'Receipt' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800';
-};
 
 const formatDate = (dateString: string | Date) => {
   const date = new Date(dateString);
@@ -38,16 +35,15 @@ export const TransactionTableComponent: React.FC<TransactionTableProps> = ({
 }) => {
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2">Loading transactions...</span>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <TableSkeleton rows={5} columns={8} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <div className="bg-error-50 border border-error-200 rounded-lg p-4 text-error-700">
         <p>Error: {error}</p>
       </div>
     );
@@ -62,7 +58,7 @@ export const TransactionTableComponent: React.FC<TransactionTableProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-x-auto">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
       {/* Table */}
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
@@ -96,9 +92,9 @@ export const TransactionTableComponent: React.FC<TransactionTableProps> = ({
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {transactions.map((transaction) => (
-            <tr key={transaction._id} className="hover:bg-gray-50">
+        <tbody className="bg-white divide-y divide-gray-100">
+          {transactions.map((transaction, index) => (
+            <tr key={transaction._id} className="hover:bg-gray-50 transition-colors duration-150 stagger-item-fast" style={{ animationDelay: `${index * 30}ms` }}>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 {transaction.lot_id ? transaction.lot_id.substring(0, 8) : '-'}...
               </td>
@@ -106,9 +102,9 @@ export const TransactionTableComponent: React.FC<TransactionTableProps> = ({
                 {transaction.material_id ? transaction.material_id.substring(0, 8) : '-'}...
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getTransactionTypeColor(transaction.transaction_type)}`}>
+                <Badge variant={transaction.transaction_type === 'Receipt' ? 'primary' : 'warning'}>
                   {transaction.transaction_type}
-                </span>
+                </Badge>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 {transaction.quantity}
