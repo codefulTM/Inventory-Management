@@ -3,14 +3,14 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY frontend/package*.json ./
+COPY inventory-management-web-app/package*.json ./
 RUN npm ci
 
 # VITE_ env vars must be available at build time for Vite to inline them
 ARG VITE_API_URL=http://localhost:3000
 ENV VITE_API_URL=$VITE_API_URL
 
-COPY frontend/ .
+COPY inventory-management-web-app/ .
 RUN npm run build
 
 # ── Stage 2: Serve with nginx ─────────────────────────────────────────────────
