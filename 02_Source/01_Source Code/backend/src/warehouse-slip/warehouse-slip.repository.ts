@@ -6,6 +6,7 @@ import {
   WarehouseSlipDocument,
 } from '../schemas/warehouse-slip.schema';
 import { Warehouse, WarehouseDocument } from '../schemas/warehouse.schema';
+import { MaterialRepository } from '../material/material.repository';
 
 export interface WarehouseSlipFilterOptions {
   status?: string;
@@ -29,7 +30,13 @@ export class WarehouseSlipRepository {
     private readonly model: Model<WarehouseSlipDocument>,
     @InjectModel(Warehouse.name)
     private readonly warehouseModel: Model<WarehouseDocument>,
+    private readonly materialRepository: MaterialRepository,
   ) {}
+
+  async findMaterialById(materialId: string) {
+    // Delegate to MaterialRepository for encapsulation
+    return this.materialRepository.findByMaterialId(materialId);
+  }
 
   async create(dto: Partial<WarehouseSlip>) {
     const doc = new this.model(dto);

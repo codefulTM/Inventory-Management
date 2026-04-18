@@ -8,6 +8,7 @@ import { Warehouse, WarehouseSchema } from '../schemas/warehouse.schema';
 import { WarehouseSlipController } from './warehouse-slip.controller';
 import { WarehouseSlipService } from './warehouse-slip.service';
 import { WarehouseSlipRepository } from './warehouse-slip.repository';
+import { MaterialModule } from '../material/material.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { WarehouseSlipRepository } from './warehouse-slip.repository';
       { name: WarehouseSlip.name, schema: WarehouseSlipSchema },
       { name: Warehouse.name, schema: WarehouseSchema },
     ]),
+    MaterialModule,
   ],
   controllers: [WarehouseSlipController],
   providers: [WarehouseSlipService, WarehouseSlipRepository],

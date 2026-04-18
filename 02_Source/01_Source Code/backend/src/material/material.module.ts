@@ -13,6 +13,6 @@ import { MaterialRepository } from './material.repository';
   ],
   controllers: [MaterialController],
   providers: [MaterialRepository, MaterialService],
-  exports: [MaterialService],
+  exports: [MaterialService, MaterialRepository],
 })
 export class MaterialModule {}

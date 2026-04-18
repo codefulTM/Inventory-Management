@@ -23,9 +23,42 @@ export class WarehouseSlipService {
       throw new BadRequestException('warehouse_id does not exist');
     }
 
-    const total_quantity = Array.isArray(dto.lines)
-      ? dto.lines.reduce((s, l: any) => s + Number(l.quantity || 0), 0)
-      : 0;
+    // validate materials and compute totals
+    const lines = Array.isArray(dto.lines) ? dto.lines : [];
+    let total_quantity = 0;
+    let total_value = 0;
+
+    for (const l of lines) {
+      const qty = Number(l.quantity || 0);
+      if (qty <= 0) {
+        throw new BadRequestException('Each line must have quantity > 0');
+      }
+      total_quantity += qty;
+
+      // if material_id provided, ensure it exists and is Approved
+      if (l.material_id) {
+        const mat = await this.repo.findMaterialById(l.material_id);
+        if (!mat) {
+          throw new BadRequestException(
+            `material_id ${l.material_id} does not exist`,
+          );
+        }
+        if ((mat.status || '').toLowerCase() !== 'approved') {
+          throw new BadRequestException(
+            `material_id ${l.material_id} is not Approved`,
+          );
+        }
+      }
+
+      const price = Number(l.unit_price || 0);
+      total_value += price * qty;
+    }
+
+    if (total_quantity < 0 || total_value < 0) {
+      throw new BadRequestException(
+        'Total quantity/value must be non-negative',
+      );
+    }
 
     const payload: any = {
       slip_id: uuidv4(),
@@ -37,7 +70,7 @@ export class WarehouseSlipService {
       lines: dto.lines || [],
       attachments: dto.attachments || [],
       total_quantity,
-      total_value: 0,
+      total_value,
       created_by: requester.actor,
       status: dto.status ?? 'PENDING',
     };

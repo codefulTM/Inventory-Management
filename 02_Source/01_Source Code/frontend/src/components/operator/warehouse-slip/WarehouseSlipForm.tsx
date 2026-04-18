@@ -22,6 +22,7 @@ function createEmptyLine(): WarehouseSlipLine {
   };
 }
 import { createWarehouseSlip } from "../../../services/warehouseSlipService";
+import { fetchMaterial } from "../../../services/materialService";
 
 export default function WarehouseSlipForm() {
   const { register, control, handleSubmit } = useForm<Partial<WarehouseSlip>>({
@@ -68,6 +69,24 @@ export default function WarehouseSlipForm() {
   async function onSubmit(data: Partial<WarehouseSlip>) {
     setSubmitting(true);
     try {
+      // client-side validation: ensure materials exist and are Approved
+      const lines = Array.isArray(data.lines) ? data.lines : [];
+      for (const l of lines) {
+        if (l.material_id) {
+          try {
+            const mat = await fetchMaterial(l.material_id);
+            if ((mat.status || "").toLowerCase() !== "approved") {
+              throw new Error(`Material ${l.material_id} is not Approved`);
+            }
+          } catch (err: any) {
+            alert(
+              err?.message || `Material ${l.material_id} validation failed`,
+            );
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
       // build payload; attachments uploaded separately in this minimal impl
       const payload: any = { ...data, attachments: [] };
       const res = await createWarehouseSlip(payload);
@@ -136,6 +155,15 @@ export default function WarehouseSlipForm() {
               valueAsNumber: true,
               required: "Quantity is required",
               min: { value: 1, message: "Quantity must be at least 1" },
+            })}
+          />
+          <input
+            placeholder="unit price"
+            type="number"
+            step="0.01"
+            {...register(`lines.${idx}.unit_price` as const, {
+              valueAsNumber: true,
+              min: { value: 0, message: "Unit price must be >= 0" },
             })}
           />
           <input

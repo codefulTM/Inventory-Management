@@ -11,6 +11,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { IsNumber } from 'class-validator';
 
 export enum WarehouseSlipType {
   IN = 'IN',
@@ -38,6 +39,11 @@ export class CreateWarehouseSlipLineDto {
   @IsInt()
   @Min(1, { message: 'quantity must be a positive integer' })
   quantity: number;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  unit_price?: number;
 
   @IsString()
   @IsNotEmpty()
