@@ -21,6 +21,7 @@ import { BarcodeModule } from './barcode/barcode.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AppService } from './app.service';
 import { ImportExportOrderModule } from './import-export-order/import-export-order.module';
+import { WarehouseSlipModule } from './warehouse-slip/warehouse-slip.module';
 import { InventoryAdjustmentModule } from './inventory-adjustment/inventory-adjustment.module';
 import { InventoryAuditReportModule } from './inventory-audit-report/inventory-audit-report.module';
 import { AiAgentsModule } from './ai-agents/ai-agents.module';
@@ -41,6 +42,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     QCTestModule,
     LabelTemplateModule,
     ImportExportOrderModule,
+    WarehouseSlipModule,
     InventoryAdjustmentModule,
     InventoryAuditReportModule,
     WarehouseHierarchyModule,
