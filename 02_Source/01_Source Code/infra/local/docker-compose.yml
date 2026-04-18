@@ -63,7 +63,7 @@ services:
   keycloak-service:
     build:
       context: ../..
-      dockerfile: infra/local/keycloak-service.Dockerfile
+      dockerfile: ./infra/local/keycloak-service.Dockerfile
     container_name: inventory_keycloak_service
     restart: unless-stopped
     depends_on:
@@ -79,7 +79,7 @@ services:
       KEYCLOAK_CLIENT_ID: inventory-backend
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
       KEYCLOAK_ADMIN_CLIENT_ID: inventory-backend
-      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-}
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
       KEYCLOAK_ADMIN_USER: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       JWT_SECRET: super-secret-jwt-key-change-in-production
@@ -93,12 +93,12 @@ services:
   api-gateway:
     build:
       context: ../..
-      dockerfile: infra/local/api-gateway.Dockerfile
+      dockerfile: ./infra/local/api-gateway.Dockerfile
     container_name: inventory_api_gateway
     restart: unless-stopped
     depends_on:
       - keycloak-service
-      - backend
+      - inventory-management-service
       - ai-service
       - metrics-service
     environment:
@@ -106,7 +106,7 @@ services:
       PORT: 3000
       KEYCLOAK_SERVICE_GRPC_URL: keycloak-service:50051
       METRICS_SERVICE_GRPC_URL: metrics-service:6741
-      BACKEND_URL: http://backend:3001
+      BACKEND_URL: http://inventory-management-service:3001
       AI_SERVICE_URL: http://ai-service:3003
       JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
       JWT_ISSUER: http://localhost:8080/realms/inventory
@@ -115,10 +115,10 @@ services:
     networks:
       - inventory_net
 
-  backend:
+  inventory-management-service:
     build:
       context: ../..
-      dockerfile: infra/local/backend.Dockerfile
+      dockerfile: ./infra/local/inventory-management-service.Dockerfile
     container_name: inventory_backend
     restart: unless-stopped
     depends_on:
@@ -146,15 +146,15 @@ services:
   ai-service:
     build:
       context: ../..
-      dockerfile: infra/local/ai-service.Dockerfile
+      dockerfile: ./infra/local/ai-service.Dockerfile
     container_name: inventory_ai_service
     restart: unless-stopped
     depends_on:
-      - backend
+      - inventory-management-service
     environment:
       NODE_ENV: development
       PORT: 3003
-      BACKEND_GRPC_URL: backend:50052
+      BACKEND_GRPC_URL: inventory-management-service:50052
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GEMINI_ROUTER_MODEL: ${GEMINI_ROUTER_MODEL:-gemini-2.5-flash}
@@ -168,7 +168,7 @@ services:
   analytics-indexer-service:
     build:
       context: ../..
-      dockerfile: infra/local/analytics-indexer-service.Dockerfile
+      dockerfile: ./infra/local/analytics-indexer-service.Dockerfile
     container_name: inventory_analytics_indexer
     restart: unless-stopped
     depends_on:
@@ -194,7 +194,7 @@ services:
   metrics-service:
     build:
       context: ../..
-      dockerfile: infra/local/metrics-service.Dockerfile
+      dockerfile: ./infra/local/metrics-service.Dockerfile
     container_name: inventory_metrics_service
     restart: unless-stopped
     depends_on:
@@ -211,10 +211,10 @@ services:
     networks:
       - inventory_net
 
-  frontend:
+  inventory-management-web-app:
     build:
       context: ../..
-      dockerfile: infra/local/frontend.Dockerfile
+      dockerfile: ./infra/local/inventory-management-web-app.Dockerfile
     container_name: inventory_frontend
     restart: unless-stopped
     depends_on:
