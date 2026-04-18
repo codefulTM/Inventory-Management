@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -144,6 +145,7 @@ export class WarehouseSlipController {
   }
 
   @Get(':id/print')
+  @Header('Content-Type', 'text/html; charset=utf-8')
   @Roles(UserRole.OPERATOR, UserRole.MANAGER)
   async print(
     @Param('id', ParseUUIDPipe) id: string,
@@ -153,9 +155,57 @@ export class WarehouseSlipController {
     const slip = await this.service.getOne(id, requester);
     if (!slip) throw new NotFoundException('Warehouse slip not found');
 
-    // Minimal HTML rendering for printing; can be replaced with template engine
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${slip.slip_number}</title></head><body><h1>Slip: ${slip.slip_number}</h1><p>Type: ${slip.type}</p><p>Warehouse: ${slip.warehouse_id}</p><p>Created by: ${slip.created_by}</p><h2>Lines</h2><ul>${(slip.lines || []).map((l: any) => `<li>${l.material_id ?? ''} - ${l.lot_id ?? ''} - ${l.quantity} ${l.unit}</li>`).join('')}</ul></body></html>`;
+    const linesHtml = (slip.lines || [])
+      .map(
+        (l: any) =>
+          `      <li>${l.material_id || ''} - ${l.quantity} ${l.unit || ''}</li>`,
+      )
+      .join('\n');
 
-    return { html };
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${slip.slip_number}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 16px; }
+      h1 { font-size: 20px; margin-bottom: 8px; }
+      h2 { margin-top: 12px; }
+      ul { margin: 6px 0 0 18px; }
+      .meta { margin-bottom: 8px; }
+      .attachments { margin-top: 12px; }
+      .attachment { margin: 6px 0; }
+      img.preview { max-width: 200px; max-height: 200px; display:block; margin-top:4px; }
+    </style>
+  </head>
+  <body>
+    <h1>${slip.slip_number}</h1>
+    <p class="meta">Type: ${slip.type} &nbsp; | &nbsp; Warehouse: ${slip.warehouse_id} &nbsp; | &nbsp; Created by: ${slip.created_by}</p>
+    <h2>Lines</h2>
+    <ul>
+${linesHtml}
+    </ul>
+    ${
+      Array.isArray(slip.attachments) && slip.attachments.length
+        ? `
+    <h2>Attachments</h2>
+    <div class="attachments">
+      ${slip.attachments
+        .map((a: any) => {
+          const safeUrl = a.url || '';
+          if ((a.mime_type || '').startsWith('image/')) {
+            return `<div class="attachment"><div>${a.original_name}</div><img class="preview" src="${safeUrl}" alt="${a.original_name}"/></div>`;
+          }
+          return `<div class="attachment"><a href="${safeUrl}">${a.original_name}</a></div>`;
+        })
+        .join('\n')}
+    </div>
+    `
+        : ''
+    }
+  </body>
+</html>`;
+
+    return html;
   }
 }
