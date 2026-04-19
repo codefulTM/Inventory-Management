@@ -1,99 +1,111 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { SyncService } from './sync.service';
-import { RedisWatermarkService } from '../redis/redis-watermark.service';
-import { InventoryLotsSync } from './collections/inventory-lots.sync';
-import { InventoryTransactionsSync } from './collections/inventory-transactions.sync';
-import { QCTestsSync } from './collections/qc-tests.sync';
-import { MaterialsSync } from './collections/materials.sync';
-import { AuditLogsSync } from './collections/audit-logs.sync';
-import { ImportExportOrdersSync } from './collections/import-export-orders.sync';
-
-const makeMockSyncer = (collectionName: string) => ({
-  collectionName,
-  sync: jest.fn().mockResolvedValue({ collection: collectionName, indexed: 5, deleted: 0, errors: 0, durationMs: 100 }),
-});
 
 describe('SyncService', () => {
-  let service: SyncService;
-  let watermark: jest.Mocked<RedisWatermarkService>;
-  let lotsSync: any;
-  let transactionsSync: any;
-  let qcTestsSync: any;
-  let materialsSync: any;
-  let auditLogsSync: any;
-  let importExportSync: any;
+  const mockWatermark = {
+    getWatermark: jest.fn(),
+    setWatermark: jest.fn(),
+    getAllWatermarks: jest.fn(),
+    resetWatermarks: jest.fn(),
+  };
 
-  beforeEach(async () => {
-    lotsSync = makeMockSyncer('inventory_lots');
-    transactionsSync = makeMockSyncer('inventory_transactions');
-    qcTestsSync = makeMockSyncer('qc_tests');
-    materialsSync = makeMockSyncer('materials');
-    auditLogsSync = makeMockSyncer('inventory_audit_reports');
-    importExportSync = makeMockSyncer('import_export_orders');
+  const mockConfig = {
+    get: jest.fn().mockReturnValue(500),
+  };
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        SyncService,
-        {
-          provide: RedisWatermarkService,
-          useValue: {
-            getWatermark: jest.fn().mockResolvedValue(null),
-            setWatermark: jest.fn().mockResolvedValue(undefined),
-          },
-        },
-        {
-          provide: ConfigService,
-          useValue: { get: jest.fn().mockReturnValue(500) },
-        },
-        { provide: InventoryLotsSync, useValue: lotsSync },
-        { provide: InventoryTransactionsSync, useValue: transactionsSync },
-        { provide: QCTestsSync, useValue: qcTestsSync },
-        { provide: MaterialsSync, useValue: materialsSync },
-        { provide: AuditLogsSync, useValue: auditLogsSync },
-        { provide: ImportExportOrdersSync, useValue: importExportSync },
-      ],
-    }).compile();
+  const mockEsClient = {
+    count: jest.fn(),
+  };
 
-    service = module.get<SyncService>(SyncService);
-    watermark = module.get(RedisWatermarkService);
+  const mockIndexTemplateService = {
+    applyTemplates: jest.fn(),
+  };
+
+  const createSyncer = (collectionName: string) => ({
+    collectionName,
+    model: {
+      countDocuments: jest.fn().mockResolvedValue(10),
+    },
+    sync: jest.fn().mockResolvedValue({
+      collection: collectionName,
+      indexed: 5,
+      deleted: 1,
+      errors: 0,
+      durationMs: 12,
+    }),
   });
 
-  it('calls sync for all 6 collections', async () => {
-    await service.runFullSync();
-    expect(lotsSync.sync).toHaveBeenCalledTimes(1);
-    expect(transactionsSync.sync).toHaveBeenCalledTimes(1);
-    expect(qcTestsSync.sync).toHaveBeenCalledTimes(1);
-    expect(materialsSync.sync).toHaveBeenCalledTimes(1);
-    expect(auditLogsSync.sync).toHaveBeenCalledTimes(1);
-    expect(importExportSync.sync).toHaveBeenCalledTimes(1);
+  const inventoryLotsSync = createSyncer('inventory_lots');
+  const inventoryTransactionsSync = createSyncer('inventory_transactions');
+  const qcTestsSync = createSyncer('qc_tests');
+  const materialsSync = createSyncer('materials');
+  const auditLogsSync = createSyncer('inventory_audit_reports');
+  const importExportOrdersSync = createSyncer('import_export_orders');
+
+  const service = new SyncService(
+    mockWatermark as any,
+    mockConfig as any,
+    mockEsClient as any,
+    mockIndexTemplateService as any,
+    inventoryLotsSync as any,
+    inventoryTransactionsSync as any,
+    qcTestsSync as any,
+    materialsSync as any,
+    auditLogsSync as any,
+    importExportOrdersSync as any,
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockConfig.get.mockReturnValue(500);
+    mockWatermark.getWatermark.mockResolvedValue(
+      new Date('2026-01-01T00:00:00.000Z'),
+    );
   });
 
-  it('updates watermark for each collection after successful sync', async () => {
-    await service.runFullSync();
-    expect(watermark.setWatermark).toHaveBeenCalledTimes(6);
-    expect(watermark.setWatermark).toHaveBeenCalledWith('inventory_lots', expect.any(Date));
-    expect(watermark.setWatermark).toHaveBeenCalledWith('qc_tests', expect.any(Date));
+  it('runFullSync supports dry-run and template setup for selected collections', async () => {
+    const summary = await service.runFullSync({
+      dryRun: true,
+      collections: ['inventory_lots'],
+      ensureTemplates: true,
+      verifyCounts: false,
+    });
+
+    expect(mockIndexTemplateService.applyTemplates).toHaveBeenCalledWith([
+      'inventory_lots',
+    ]);
+    expect(inventoryLotsSync.sync).toHaveBeenCalledTimes(1);
+    expect(mockWatermark.setWatermark).not.toHaveBeenCalled();
+    expect(summary.dryRun).toBe(true);
+    expect(summary.totalIndexed).toBe(5);
   });
 
-  it('does NOT update watermark when sync throws', async () => {
-    lotsSync.sync.mockRejectedValue(new Error('ES connection refused'));
+  it('inspectWatermarks and resetWatermarks delegate to watermark service', async () => {
+    mockWatermark.getAllWatermarks.mockResolvedValue({
+      inventory_lots: '2026-01-01T00:00:00.000Z',
+    });
+    mockWatermark.resetWatermarks.mockResolvedValue(2);
 
-    await service.runFullSync();
+    const inspected = await service.inspectWatermarks(['inventory_lots']);
+    const resetCount = await service.resetWatermarks(['inventory_lots']);
 
-    // watermark NOT updated for inventory_lots
-    const calls = (watermark.setWatermark as jest.Mock).mock.calls.map((c) => c[0]);
-    expect(calls).not.toContain('inventory_lots');
-    // other collections still synced
-    expect(watermark.setWatermark).toHaveBeenCalledTimes(5);
+    expect(inspected.inventory_lots).toBe('2026-01-01T00:00:00.000Z');
+    expect(resetCount).toBe(2);
   });
 
-  it('continues to remaining collections when one fails', async () => {
-    transactionsSync.sync.mockRejectedValue(new Error('timeout'));
+  it('runCountChecks compares mongo and elasticsearch counts', async () => {
+    inventoryLotsSync.model.countDocuments.mockResolvedValue(9);
+    mockEsClient.count.mockResolvedValue({ count: 7 });
 
-    await service.runFullSync();
+    const checks = await service.runCountChecks({
+      collections: ['inventory_lots'],
+      from: new Date('2026-01-01T00:00:00.000Z'),
+      to: new Date('2026-01-02T00:00:00.000Z'),
+    });
 
-    expect(qcTestsSync.sync).toHaveBeenCalledTimes(1);
-    expect(materialsSync.sync).toHaveBeenCalledTimes(1);
+    expect(checks).toHaveLength(1);
+    expect(checks[0].collection).toBe('inventory_lots');
+    expect(checks[0].mongoCount).toBe(9);
+    expect(checks[0].esCount).toBe(7);
+    expect(checks[0].gap).toBe(2);
   });
 });

@@ -15,7 +15,11 @@ async function main() {
 
   const syncService = app.get(SyncService);
   console.log('[run-once] Triggering sync cycle...');
-  await syncService.runFullSync();
+  const summary = await syncService.runFullSync({
+    ensureTemplates: true,
+    verifyCounts: true,
+  });
+  console.log('[run-once] summary:', JSON.stringify(summary, null, 2));
   console.log('[run-once] Sync complete. Shutting down.');
   await app.close();
   process.exit(0);

@@ -11,6 +11,10 @@ export interface SyncResult {
   durationMs: number;
 }
 
+export interface SyncExecutionOptions {
+  dryRun?: boolean;
+}
+
 export abstract class BaseCollectionSync {
   abstract readonly collectionName: string;
   abstract readonly model: Model<any>;
@@ -27,12 +31,18 @@ export abstract class BaseCollectionSync {
    * @param to   - current cycle end time (will be stored as new watermark on success)
    * @param batchSize - documents per batch
    */
-  async sync(from: Date | null, to: Date, batchSize: number): Promise<SyncResult> {
+  async sync(
+    from: Date | null,
+    to: Date,
+    batchSize: number,
+    options: SyncExecutionOptions = {},
+  ): Promise<SyncResult> {
     const start = Date.now();
     let indexed = 0;
     let deleted = 0;
     let errors = 0;
     let skip = 0;
+    const dryRun = options.dryRun === true;
 
     this.logger.log(
       `[${this.collectionName}] Sync start — from: ${from?.toISOString() ?? 'beginning'}, to: ${to.toISOString()}`,
@@ -81,19 +91,24 @@ export abstract class BaseCollectionSync {
         indexBuckets.get(indexName)!.push(doc);
       }
 
-      // Bulk-index per monthly index
-      for (const [indexName, bucket] of indexBuckets) {
-        const result = await this.esBulk.bulkIndex(indexName, bucket);
-        indexed += result.indexed;
-        errors += result.errors;
-      }
+      if (dryRun) {
+        indexed += toIndex.length;
+        deleted += toDelete.length;
+      } else {
+        // Bulk-index per monthly index
+        for (const [indexName, bucket] of indexBuckets) {
+          const result = await this.esBulk.bulkIndex(indexName, bucket);
+          indexed += result.indexed;
+          errors += result.errors;
+        }
 
-      // Bulk-delete soft-deleted docs (check all possible monthly indices for this cycle)
-      if (toDelete.length) {
-        const indexName = this.indexNaming.getIndexName(this.collectionName, to);
-        const result = await this.esBulk.bulkDelete(indexName, toDelete);
-        deleted += result.deleted;
-        errors += result.errors;
+        // Bulk-delete soft-deleted docs (check all possible monthly indices for this cycle)
+        if (toDelete.length) {
+          const indexName = this.indexNaming.getIndexName(this.collectionName, to);
+          const result = await this.esBulk.bulkDelete(indexName, toDelete);
+          deleted += result.deleted;
+          errors += result.errors;
+        }
       }
 
       skip += docs.length;
@@ -102,7 +117,7 @@ export abstract class BaseCollectionSync {
 
     const durationMs = Date.now() - start;
     this.logger.log(
-      `[${this.collectionName}] Sync done — indexed: ${indexed}, deleted: ${deleted}, errors: ${errors}, duration: ${durationMs}ms`,
+      `[${this.collectionName}] Sync done — indexed: ${indexed}, deleted: ${deleted}, errors: ${errors}, duration: ${durationMs}ms, dryRun: ${dryRun}`,
     );
 
     return { collection: this.collectionName, indexed, deleted, errors, durationMs };

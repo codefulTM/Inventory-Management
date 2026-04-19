@@ -35,4 +35,40 @@ export class RedisWatermarkService {
     await this.redis.set(key, ts.toISOString());
     this.logger.debug(`Watermark updated — ${collection}: ${ts.toISOString()}`);
   }
+
+  async getAllWatermarks(
+    collections?: string[],
+  ): Promise<Record<string, string | null>> {
+    const keys =
+      collections && collections.length > 0
+        ? collections.map((collection) => `${KEY_PREFIX}:${collection}`)
+        : await this.redis.keys(`${KEY_PREFIX}:*`);
+
+    if (keys.length === 0) {
+      return {};
+    }
+
+    const values = await this.redis.mget(...keys);
+    const result: Record<string, string | null> = {};
+
+    keys.forEach((key, index) => {
+      const collection = key.replace(`${KEY_PREFIX}:`, '');
+      result[collection] = values[index] ?? null;
+    });
+
+    return result;
+  }
+
+  async resetWatermarks(collections?: string[]): Promise<number> {
+    const keys =
+      collections && collections.length > 0
+        ? collections.map((collection) => `${KEY_PREFIX}:${collection}`)
+        : await this.redis.keys(`${KEY_PREFIX}:*`);
+
+    if (keys.length === 0) {
+      return 0;
+    }
+
+    return this.redis.del(...keys);
+  }
 }
