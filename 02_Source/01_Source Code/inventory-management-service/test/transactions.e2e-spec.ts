@@ -1,7 +1,7 @@
 import { BadRequestException, INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { RolesGuard } from '../src/auth/guards/roles.guard';
+import { RolesGuard } from '../src/common/auth/roles.guard';
 import { JwtAuthGuard } from '../src/common/auth/jwt-auth.guard';
 import { InventoryTransactionController } from '../src/inventory-transaction/inventory-transaction.controller';
 import { InventoryTransactionRepository } from '../src/inventory-transaction/inventory-transaction.repository';
