@@ -17,6 +17,7 @@ import ProductInspection from "../pages/qc/ProductInspection";
 import ReportTraceability from "../pages/qc/ReportTraceability";
 import DashboardManager from "../pages/manager/Dashboard";
 import MaterialManagementManager from "../pages/manager/MaterialManagement";
+import WarehouseManagement from "../pages/manager/WarehouseManagement";
 import ProductManagementManager from "../pages/manager/ProductManagement";
 import ReportsManager from "../pages/manager/Reports";
 import UserManagementManager from "../pages/manager/UserManagement";
@@ -240,6 +241,10 @@ export const router = createBrowserRouter([
       {
         path: "/manager/materials",
         element: requireManagerAuth(<MaterialManagementManager />),
+      },
+      {
+        path: "/manager/warehouses",
+        element: requireManagerAuth(<WarehouseManagement />),
       },
       {
         path: "/manager/product",

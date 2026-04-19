@@ -172,6 +172,11 @@ export default function Layout() {
             label: "Quản lý nguyên liệu",
           },
           {
+            to: "/manager/warehouses",
+            icon: <Database size={20} />,
+            label: "Quản lý kho",
+          },
+          {
             to: "/manager/in-out",
             icon: <FileText size={20} />,
             label: "Quản lý nhập/xuất kho",
