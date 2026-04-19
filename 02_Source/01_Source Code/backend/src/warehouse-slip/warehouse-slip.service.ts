@@ -166,8 +166,15 @@ export class WarehouseSlipService {
           } as any);
 
           // update lot quantity
-          await this.inventoryLotRepository.updateQuantity(l.lot_id, qty as any);
-          applied.push({ lot_id: l.lot_id, delta: qty, txId: tx?._id ?? tx?.transaction_id });
+          await this.inventoryLotRepository.updateQuantity(
+            l.lot_id,
+            qty as any,
+          );
+          applied.push({
+            lot_id: l.lot_id,
+            delta: qty,
+            txId: tx?._id ?? tx?.transaction_id,
+          });
         } else {
           // OUT: usage, ensure sufficient stock
           const available = Number(lot.quantity || 0);
@@ -187,8 +194,15 @@ export class WarehouseSlipService {
             transaction_date: new Date().toISOString(),
           } as any);
 
-          await this.inventoryLotRepository.updateQuantity(l.lot_id, -qty as any);
-          applied.push({ lot_id: l.lot_id, delta: -qty, txId: tx?._id ?? tx?.transaction_id });
+          await this.inventoryLotRepository.updateQuantity(
+            l.lot_id,
+            -qty as any,
+          );
+          applied.push({
+            lot_id: l.lot_id,
+            delta: -qty,
+            txId: tx?._id ?? tx?.transaction_id,
+          });
         }
       }
 
@@ -209,7 +223,11 @@ export class WarehouseSlipService {
           requester.actor,
           AuditAction.INVENTORY_LOT_UPDATED,
           undefined,
-          { slip_id: slipId, action: 'APPROVE', processed: applied.map((a) => a.txId) },
+          {
+            slip_id: slipId,
+            action: 'APPROVE',
+            processed: applied.map((a) => a.txId),
+          },
         );
       } catch (_) {
         // swallow audit failures
@@ -221,7 +239,10 @@ export class WarehouseSlipService {
       for (const a of applied.reverse()) {
         try {
           // revert lot quantity
-          await this.inventoryLotRepository.updateQuantity(a.lot_id, -a.delta as any);
+          await this.inventoryLotRepository.updateQuantity(
+            a.lot_id,
+            -a.delta as any,
+          );
         } catch (_) {}
         try {
           // try to remove created transaction if we have object id
