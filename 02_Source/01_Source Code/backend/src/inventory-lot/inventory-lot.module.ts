@@ -16,6 +16,8 @@ import { BinWorklistService } from './bin-worklist.service';
 import { BinCountRecordRepository } from './bin-count-record.repository';
 import { InventoryTransactionModule } from '../inventory-transaction/inventory-transaction.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
+import { WarehouseSlipModule } from '../warehouse-slip/warehouse-slip.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
     ]),
     InventoryTransactionModule,
     AuditLogModule,
+    WarehouseSlipModule,
+    MailModule,
   ],
   controllers: [InventoryLotController, BinWorklistController],
   providers: [

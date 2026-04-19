@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Toast from "../../components/Toast";
+import { Link } from "react-router-dom";
 import ConfirmOrderDrawer from "../../components/operator/import-export-order/ConfirmOrderDrawer";
 import OrderDetailDrawer from "../../components/operator/import-export-order/OrderDetailDrawer";
 import OrderWorklistTable from "../../components/operator/import-export-order/OrderWorklistTable";
@@ -309,16 +310,22 @@ export default function StockManagement() {
     <div className="min-h-screen bg-gray-100 p-4 md:p-6">
       <div className="space-y-5">
         <header className="rounded-lg bg-linear-to-br from-emerald-600 to-emerald-700 px-5 py-6 text-white shadow-md">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-100">
-            Manager / US25
-          </p>
-          <h1 className="mt-2 text-3xl font-black">
-            Worklist xác nhận nhập/xuất kho
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-emerald-100">
-            Theo dõi toàn bộ phiếu PendingConfirmation và xử lý xác nhận/từ chối
-            theo quyền Manager.
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="mt-2 text-3xl font-black">
+                Quản lý nhập/xuất kho
+              </h1>
+            </div>
+
+            <div className="shrink-0">
+              <Link
+                to="/manager/warehouse-slips/create"
+                className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow hover:bg-emerald-50"
+              >
+                Tạo phiếu
+              </Link>
+            </div>
+          </div>
         </header>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-md">
@@ -337,8 +344,8 @@ export default function StockManagement() {
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               >
                 <option value="">Tất cả loại phiếu</option>
-                <option value="Inbound">Inbound</option>
-                <option value="Outbound">Outbound</option>
+                <option value="Inbound">Phiếu nhập kho</option>
+                <option value="Outbound">Phiếu xuất kho</option>
               </select>
             </label>
 

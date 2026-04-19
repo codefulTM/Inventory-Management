@@ -56,7 +56,8 @@ export default function OrderWorklistTable({
   }, []);
 
   const base =
-    typeof window !== "undefined" && window.location.pathname.startsWith("/manager")
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/manager")
       ? "/manager"
       : "/operator";
 
@@ -84,15 +85,26 @@ export default function OrderWorklistTable({
   async function loadData() {
     setLoadingLocal(true);
     try {
-      const params: any = { page, limit, ...(filters || {}) };
+      // sanitize filters: remove empty-string or null/undefined entries
+      const raw = filters || {};
+      const cleaned: Record<string, any> = {};
+      Object.entries(raw).forEach(([k, v]) => {
+        if (v === null || v === undefined) return;
+        if (typeof v === "string" && v.trim() === "") return;
+        cleaned[k] = v;
+      });
+
+      const params: any = { page, limit, ...cleaned };
       const res: any = await fetchWarehouseSlips(params);
       const dataItems: WarehouseSlip[] = Array.isArray(res)
         ? res
         : Array.isArray(res?.items)
-        ? res.items
-        : [];
+          ? res.items
+          : [];
       setItems(dataItems);
-      setTotalLocal(typeof res?.total === "number" ? res.total : dataItems.length);
+      setTotalLocal(
+        typeof res?.total === "number" ? res.total : dataItems.length,
+      );
     } catch (e) {
       // keep console log; parent handles user-facing notifications
       console.error("Failed to load warehouse slips", e);
@@ -109,7 +121,7 @@ export default function OrderWorklistTable({
 
   return (
     <section className="rounded-lg border border-gray-200 bg-white shadow-md">
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" style={{ overflowY: "visible" }}>
         <table className="min-w-full text-sm">
           <thead>
             <tr>
@@ -175,13 +187,21 @@ export default function OrderWorklistTable({
                   <td className="px-4 py-3 text-gray-700">
                     {slip.type === "IN" ? "Nhập kho" : "Xuất kho"}
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{slip.warehouse_id}</td>
-                  <td className="px-4 py-3 text-gray-700">{slip.created_by || "-"}</td>
-                  <td className="px-4 py-3 text-gray-700">{(slip.lines || []).length}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {slip.warehouse_id}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {slip.created_by || "-"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {(slip.lines || []).length}
+                  </td>
                   <td className="px-4 py-3">
                     <OrderStatusBadge status={mapSlipStatus(slip.status)} />
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{formatDate(slip.created_date)}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {formatDate(slip.created_date)}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="relative">
                       <div className="flex items-center gap-2">
@@ -217,7 +237,9 @@ export default function OrderWorklistTable({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenMenu((prev) => (prev === slip.slip_id ? null : slip.slip_id));
+                            setOpenMenu((prev) =>
+                              prev === slip.slip_id ? null : slip.slip_id,
+                            );
                           }}
                           className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
                           title="Thêm"
@@ -229,7 +251,7 @@ export default function OrderWorklistTable({
                       {openMenu === slip.slip_id ? (
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 z-50 mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
+                          className="absolute right-0 z-[9999] mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
                         >
                           <button
                             type="button"

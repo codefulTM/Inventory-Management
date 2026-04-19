@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Button,
   Card,
   Col,
+  DatePicker,
   Divider,
+  Modal,
   Row,
+  Select,
   Spin,
   Statistic,
   Table,
@@ -22,6 +26,14 @@ import type {
   MaterialUsageReport,
   QcPerformanceReport,
 } from '../../types/reports';
+import Sparkline from '../../components/Sparkline';
+import {
+  getDashboardSummary,
+  getDashboardTrends,
+  getDashboardDrilldown,
+} from '../../services/dashboardService';
+import { fetchWarehouses } from '../../services/warehouseService';
+import type { Warehouse } from '../../types/warehouse';
 
 function isLowStock(quantity: number): boolean {
   return quantity <= 100;
@@ -34,23 +46,45 @@ export default function DashboardManager() {
   const [materialUsage, setMaterialUsage] = useState<MaterialUsageReport | null>(null);
   const [qcPerformance, setQcPerformance] = useState<QcPerformanceReport | null>(null);
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
+  // US17 minimal additions
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [filterWarehouse, setFilterWarehouse] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<[any, any] | null>(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [trendsIn, setTrendsIn] = useState<Array<{ period: string; total_quantity: number }>>([]);
+  const [trendsOut, setTrendsOut] = useState<Array<{ period: string; total_quantity: number }>>([]);
+  const [drilldownVisible, setDrilldownVisible] = useState(false);
+  const [drilldownData, setDrilldownData] = useState<any>({ items: [], total: 0, page: 1 });
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [inventory, usage, qc, audit] = await Promise.all([
+        const [inventory, usage, qc, audit, whs] = await Promise.all([
           getInventoryStatusReport(),
           getMaterialUsageReport(),
           getQcPerformanceReport(),
           getAuditReport(),
+          fetchWarehouses(1, 200),
         ]);
 
         setInventoryStatus(inventory);
         setMaterialUsage(usage);
         setQcPerformance(qc);
         setAuditReport(audit);
+        setWarehouses(whs.data || []);
+        // load minimal dashboard summary and trends
+        const sumResp = await getDashboardSummary();
+        if (sumResp.data) setSummary(sumResp.data);
+        const now = new Date();
+        const from = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString();
+        const to = now.toISOString();
+        const inResp = await getDashboardTrends('in', from, to, 'day');
+        const outResp = await getDashboardTrends('out', from, to, 'day');
+        if (inResp.data) setTrendsIn(inResp.data);
+        if (outResp.data) setTrendsOut(outResp.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
       } finally {
@@ -102,40 +136,86 @@ export default function DashboardManager() {
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} xl={6}>
               <Card>
-                <Statistic
-                  title="Total Lots"
-                  value={inventoryStatus?.total_lots || 0}
-                />
+                <Statistic title="Inventory Value" value={summary?.total_value ?? 0} precision={2} />
               </Card>
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card>
-                <Statistic
-                  title="Low-Stock Lots"
-                  value={lowStockItems.length}
-                  valueStyle={{ color: lowStockItems.length > 0 ? '#cf1322' : '#3f8600' }}
-                />
+                <Statistic title="In Volume (7d)" value={trendsIn.reduce((s, r) => s + (r.total_quantity || 0), 0)} />
               </Card>
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card>
-                <Statistic
-                  title="Total Material Usage"
-                  value={totalUsageQuantity}
-                />
+                <Statistic title="Out Volume (7d)" value={trendsOut.reduce((s, r) => s + (r.total_quantity || 0), 0)} />
               </Card>
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card>
-                <Statistic
-                  title="Average QC Pass Rate"
-                  value={averageQcRate}
-                  precision={2}
-                  suffix="%"
-                />
+                <Statistic title="Top Materials" value={Array.isArray(summary?.top_materials) ? summary.top_materials.length : 0} />
               </Card>
             </Col>
           </Row>
+
+          {/* Filter bar + Trends */}
+          <Card className="mt-4">
+            <Row gutter={[12, 12]} align="middle">
+              <Col>
+                <DatePicker.RangePicker onChange={(dates) => setDateRange(dates)} />
+              </Col>
+              <Col>
+                <Select
+                  style={{ width: 220 }}
+                  placeholder="Warehouse"
+                  allowClear
+                  onChange={(v) => setFilterWarehouse(v)}
+                  options={(warehouses || []).map((w) => ({ label: w.warehouse_name || w.warehouse_id, value: w.warehouse_id }))}
+                />
+              </Col>
+              <Col>
+                <Button
+                  onClick={async () => {
+                    const from = dateRange?.[0] ? dateRange[0].toISOString() : undefined;
+                    const to = dateRange?.[1] ? dateRange[1].toISOString() : undefined;
+                    const inResp = await getDashboardTrends('in', from, to, 'day', filterWarehouse);
+                    const outResp = await getDashboardTrends('out', from, to, 'day', filterWarehouse);
+                    if (inResp.data) setTrendsIn(inResp.data);
+                    if (outResp.data) setTrendsOut(outResp.data);
+                  }}
+                >
+                  Apply
+                </Button>
+              </Col>
+            </Row>
+
+            <Row gutter={[12, 12]} className="mt-4">
+              <Col xs={24} lg={12}>
+                <h3 className="m-0">In (Receipts)</h3>
+                <Sparkline
+                  points={(trendsIn || []).map((r) => ({ x: r.period, y: r.total_quantity }))}
+                  onPointClick={async (_i, p) => {
+                    setDrilldownVisible(true);
+                    setDrilldownLoading(true);
+                    const resp = await getDashboardDrilldown(1, 20, undefined, p.x, p.x);
+                    if (resp.data) setDrilldownData(resp.data);
+                    setDrilldownLoading(false);
+                  }}
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                <h3 className="m-0">Out (Usage)</h3>
+                <Sparkline
+                  points={(trendsOut || []).map((r) => ({ x: r.period, y: r.total_quantity }))}
+                  onPointClick={async (_i, p) => {
+                    setDrilldownVisible(true);
+                    setDrilldownLoading(true);
+                    const resp = await getDashboardDrilldown(1, 20, undefined, p.x, p.x);
+                    if (resp.data) setDrilldownData(resp.data);
+                    setDrilldownLoading(false);
+                  }}
+                />
+              </Col>
+            </Row>
+          </Card>
 
           <Card title="Low-Stock Watchlist" className="mt-4">
             <Table
@@ -199,6 +279,32 @@ export default function DashboardManager() {
           <p className="text-xs text-gray-400 m-0">
             Last sync: {inventoryStatus?.generated_at || materialUsage?.generated_at || qcPerformance?.generated_at || auditReport?.generated_at || 'N/A'}
           </p>
+
+          <Modal
+            title="Drilldown Transactions"
+            open={drilldownVisible}
+            onCancel={() => setDrilldownVisible(false)}
+            footer={null}
+            width={900}
+          >
+            <Table
+              loading={drilldownLoading}
+              dataSource={drilldownData.items || []}
+              rowKey={(r: any) => r.transaction_id || r._id}
+              pagination={{
+                pageSize: drilldownData.limit || 20,
+                total: drilldownData.total || 0,
+                current: drilldownData.page || 1,
+              }}
+              columns={[
+                { title: 'Transaction ID', dataIndex: 'transaction_id' },
+                { title: 'Lot', dataIndex: 'lot_id' },
+                { title: 'Type', dataIndex: 'transaction_type' },
+                { title: 'Quantity', dataIndex: 'quantity' },
+                { title: 'Date', dataIndex: 'transaction_date' },
+              ]}
+            />
+          </Modal>
         </>
       )}
     </div>
