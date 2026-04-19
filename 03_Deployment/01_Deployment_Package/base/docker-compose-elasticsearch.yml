@@ -5,6 +5,7 @@ services:
     image: elasticsearch:8.17.0
     container_name: inventory_elasticsearch
     restart: unless-stopped
+    user: '1000:1000'
     environment:
       discovery.type: single-node
       xpack.security.enabled: 'false'
