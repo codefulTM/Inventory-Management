@@ -196,6 +196,11 @@ export default function WarehouseSlipForm() {
 
       const payload: any = { ...data, attachments: [] };
       const res = await createWarehouseSlip(payload);
+      if (!res || !res.slip_number) {
+        alert("Tạo phiếu thất bại: phản hồi từ server không hợp lệ");
+        setSubmitting(false);
+        return;
+      }
       alert(`Tạo phiếu thành công: ${res.slip_number}`);
     } catch (err: any) {
       alert(err?.message || "Thất bại");

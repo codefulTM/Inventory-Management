@@ -28,7 +28,6 @@ export class WarehouseSlipService {
   }
 
   async create(dto: CreateWarehouseSlipDto, requester: { actor: string }) {
-    console.log('Creating WH slip');
     // validate warehouse
     const warehouse = await this.repo.findWarehouseById(dto.warehouse_id);
     if (!warehouse) {
@@ -176,9 +175,12 @@ export class WarehouseSlipService {
             { page: 1, limit: 5 },
             requester.actor,
           );
-          const tx = (txResult.items || []).find((it: any) =>
-            Number(it.quantity) === newQty - prevQty && new Date(it.transaction_date) >= before,
-          ) || (txResult.items || [])[0];
+          const tx =
+            (txResult.items || []).find(
+              (it: any) =>
+                Number(it.quantity) === newQty - prevQty &&
+                new Date(it.transaction_date) >= before,
+            ) || (txResult.items || [])[0];
 
           applied.push({
             lot_id: l.lot_id,
@@ -211,9 +213,12 @@ export class WarehouseSlipService {
             { page: 1, limit: 5 },
             requester.actor,
           );
-          const tx = (txResult.items || []).find((it: any) =>
-            Number(it.quantity) === newQty - prevQty && new Date(it.transaction_date) >= before,
-          ) || (txResult.items || [])[0];
+          const tx =
+            (txResult.items || []).find(
+              (it: any) =>
+                Number(it.quantity) === newQty - prevQty &&
+                new Date(it.transaction_date) >= before,
+            ) || (txResult.items || [])[0];
 
           applied.push({
             lot_id: l.lot_id,
