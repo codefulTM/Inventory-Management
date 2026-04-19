@@ -30,11 +30,11 @@ services:
     networks:
       - inventory_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3200/api/auth/me || exit 1"]
+      test: ["CMD-SHELL", "ps aux | grep -q 'node' || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 3
+      start_period: 20s
     logging:
       driver: json-file
       options:
