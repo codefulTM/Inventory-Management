@@ -15,6 +15,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
 import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
 import { LogModule } from './log-management/log.module';
 import { BarcodeModule } from './barcode/barcode.module';
@@ -45,6 +46,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     WarehouseSlipModule,
     InventoryAdjustmentModule,
     InventoryAuditReportModule,
+    WarehouseModule,
     WarehouseHierarchyModule,
     SystemMonitoringModule,
     LogModule,
