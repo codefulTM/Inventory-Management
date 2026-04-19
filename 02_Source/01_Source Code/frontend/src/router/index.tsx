@@ -15,7 +15,7 @@ import InboundControl from "../pages/qc/InboundControl";
 import InventoryQC from "../pages/qc/InventoryQC";
 import ProductInspection from "../pages/qc/ProductInspection";
 import ReportTraceability from "../pages/qc/ReportTraceability";
-import DashboardManager from "../pages/manager/Dashboard";
+import Dashboard from "../pages/manager/Dashboard";
 import MaterialManagementManager from "../pages/manager/MaterialManagement";
 import WarehouseManagement from "../pages/manager/WarehouseManagement";
 import ProductManagementManager from "../pages/manager/ProductManagement";
@@ -232,7 +232,7 @@ export const router = createBrowserRouter([
       // Manager - Chỉ allow role 'manager'
       {
         path: "/manager/dashboard",
-        element: requireManagerAuth(<DashboardManager />),
+        element: requireManagerAuth(<Dashboard />),
       },
       {
         path: "/manager/inventory",
