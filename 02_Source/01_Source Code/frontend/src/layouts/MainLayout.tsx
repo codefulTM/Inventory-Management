@@ -177,6 +177,11 @@ export default function Layout() {
             label: "Quản lý nhập/xuất kho",
           },
           {
+            to: "/manager/warehouse-slips",
+            icon: <FileText size={20} />,
+            label: "Phiếu kho",
+          },
+          {
             to: "/manager/inventory-transactions",
             icon: <FileText size={20} />,
             label: "Lịch sử giao dịch",
@@ -281,6 +286,11 @@ export default function Layout() {
             to: "/operator/stock-out",
             icon: <ArrowUpCircle size={20} />,
             label: "Xuất kho",
+          },
+          {
+            to: "/operator/warehouse-slips",
+            icon: <FileText size={20} />,
+            label: "Phiếu kho",
           },
           {
             to: "/operator/audit",

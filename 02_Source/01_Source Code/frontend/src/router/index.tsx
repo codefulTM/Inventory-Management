@@ -292,19 +292,22 @@ export const router = createBrowserRouter([
       // Manager views for Warehouse Slips (US11) - reuse components, manager-only
       {
         path: "/manager/warehouse-slips",
-        element: requireManagerAuth(<WarehouseSlipList />),
+        element: requireAuth(<WarehouseSlipList />, ["manager", "operator"]),
       },
       {
         path: "/manager/warehouse-slips/create",
-        element: requireManagerAuth(<WarehouseSlipCreate />),
+        element: requireAuth(<WarehouseSlipCreate />, ["manager", "operator"]),
       },
       {
         path: "/manager/warehouse-slips/:id",
-        element: requireManagerAuth(<WarehouseSlipDetailPage />),
+        element: requireAuth(<WarehouseSlipDetailPage />, [
+          "manager",
+          "operator",
+        ]),
       },
       {
         path: "/manager/warehouse-slips/:id/print",
-        element: requireManagerAuth(<WarehouseSlipPrint />),
+        element: requireAuth(<WarehouseSlipPrint />, ["manager", "operator"]),
       },
       {
         path: "manager/inventory-transactions",
@@ -342,19 +345,22 @@ export const router = createBrowserRouter([
       // Warehouse slips (US11)
       {
         path: "/operator/warehouse-slips",
-        element: requireOperatorAuth(<WarehouseSlipList />),
+        element: requireAuth(<WarehouseSlipList />, ["operator", "manager"]),
       },
       {
         path: "/operator/warehouse-slips/create",
-        element: requireOperatorAuth(<WarehouseSlipCreate />),
+        element: requireAuth(<WarehouseSlipCreate />, ["operator", "manager"]),
       },
       {
         path: "/operator/warehouse-slips/:id",
-        element: requireOperatorAuth(<WarehouseSlipDetailPage />),
+        element: requireAuth(<WarehouseSlipDetailPage />, [
+          "operator",
+          "manager",
+        ]),
       },
       {
         path: "/operator/warehouse-slips/:id/print",
-        element: requireOperatorAuth(<WarehouseSlipPrint />),
+        element: requireAuth(<WarehouseSlipPrint />, ["operator", "manager"]),
       },
       {
         path: "/operator/inventory-transactions",

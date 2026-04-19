@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   fetchWarehouseSlip,
   uploadWarehouseSlipAttachment,
@@ -17,7 +18,6 @@ export default function WarehouseSlipDetail({ id }: { id: string }) {
     if (!files || files.length === 0) return;
 
     try {
-      // Upload each file (backend appends to attachments array)
       const uploads: Promise<any>[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
@@ -37,43 +37,67 @@ export default function WarehouseSlipDetail({ id }: { id: string }) {
 
   if (!doc) return <div className="p-4">Loading...</div>;
 
+  const backendPrintUrl = `/api/warehouse/slips/${id}/print`;
+
   return (
     <div className="p-4">
-      <h2 className="text-xl font-semibold">{doc.slip_number}</h2>
-      <p className="text-sm text-gray-600">
-        Type: {doc.type} — Warehouse: {doc.warehouse_id}
-      </p>
-
-      <h3 className="mt-4 font-medium">Lines</h3>
-      <ul className="list-disc list-inside">
-        {doc.lines.map((l) => (
-          <li key={l.line_id} className="py-1">
-            {l.material_id ?? ""} — {l.quantity} {l.unit}
-          </li>
-        ))}
-      </ul>
-
-      <h3 className="mt-4 font-medium">Attachments</h3>
-      <div className="mt-2">
-        <input type="file" multiple onChange={onUpload} />
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-semibold">{doc.slip_number}</h2>
+          <p className="text-sm text-gray-600">
+            Type: {doc.type} — Warehouse: {doc.warehouse_id}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/operator/warehouse-slips/${id}/print`}
+            className="px-3 py-2 bg-white border border-gray-100 rounded-md shadow-sm hover:bg-gray-50"
+          >
+            Xem trước In
+          </Link>
+          <a
+            href={backendPrintUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
+          >
+            Mở chế độ In
+          </a>
+        </div>
       </div>
-      <ul className="mt-2 list-disc list-inside">
-        {doc.attachments.map((a) => (
-          <li key={a.file_id} className="py-1">
-            <a
-              href={a.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              {a.original_name}
-            </a>{" "}
-            <span className="text-xs text-gray-500">
-              ({Math.round((a.size_bytes || 0) / 1024)} KB)
-            </span>
-          </li>
-        ))}
-      </ul>
+
+      <div className="bg-white border border-gray-100 rounded-lg p-4">
+        <h3 className="font-medium">Lines</h3>
+        <ul className="list-disc list-inside mt-2">
+          {doc.lines.map((l) => (
+            <li key={l.line_id} className="py-1 text-sm">
+              {l.material_id ?? ""} — {l.quantity} {l.unit}
+            </li>
+          ))}
+        </ul>
+
+        <h3 className="mt-4 font-medium">Attachments</h3>
+        <div className="mt-2">
+          <input type="file" multiple onChange={onUpload} />
+        </div>
+        <ul className="mt-2 list-disc list-inside">
+          {doc.attachments.map((a) => (
+            <li key={a.file_id} className="py-1">
+              <a
+                href={a.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {a.original_name}
+              </a>{" "}
+              <span className="text-xs text-gray-500">
+                ({Math.round((a.size_bytes || 0) / 1024)} KB)
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
