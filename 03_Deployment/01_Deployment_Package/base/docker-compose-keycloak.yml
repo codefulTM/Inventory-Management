@@ -42,7 +42,7 @@ services:
     ports:
       - "8090:8080"
     volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - /home/ubuntu/codes/Inventory-Management/02_Source/01_Source Code/database/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     depends_on:
       - keycloak-db
     networks:

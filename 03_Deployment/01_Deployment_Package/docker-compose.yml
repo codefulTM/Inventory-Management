@@ -3,12 +3,12 @@ version: '3.9'
 services:
   # ─── Core Application Services ─────────────────────────────────────────────
   keycloak-service:
+    build:
+      context: ../../02_Source/01_Source Code
+      dockerfile: keycloak-service/Dockerfile
     image: inventory-keycloak-service:latest
     container_name: inventory_keycloak_service
     restart: unless-stopped
-    depends_on:
-      - mongo
-      - keycloak
     environment:
       NODE_ENV: production
       PORT: 3200
@@ -36,6 +36,9 @@ services:
         max-file: '3'
 
   api-gateway:
+    build:
+      context: ../../02_Source/01_Source Code
+      dockerfile: api-gateway/Dockerfile
     image: inventory-api-gateway:latest
     container_name: inventory_api_gateway
     restart: unless-stopped
@@ -47,10 +50,11 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       KEYCLOAK_SERVICE_GRPC_URL: keycloak-service:50051
       METRICS_SERVICE_GRPC_URL: metrics-service:6741
-      BACKEND_URL: http://inventory-management-service:3001
-      AI_SERVICE_URL: http://ai-service:3003
+      BACKEND_URL: http://inventory-management-service:3100
+      AI_SERVICE_URL: http://ai-service:3300
       JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
       JWT_ISSUER: ${JWT_ISSUER:-http://keycloak:8080/realms/inventory}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -65,12 +69,12 @@ services:
         max-file: '3'
 
   inventory-management-service:
+    build:
+      context: ../../02_Source/01_Source Code
+      dockerfile: inventory-management-service/Dockerfile
     image: inventory-management-service:latest
     container_name: inventory_backend
     restart: unless-stopped
-    depends_on:
-      - mongo
-      - keycloak-service
     environment:
       NODE_ENV: production
       PORT: 3100
@@ -103,6 +107,9 @@ services:
         max-file: '3'
 
   ai-service:
+    build:
+      context: ../../02_Source/01_Source Code
+      dockerfile: ai-service/Dockerfile
     image: inventory-ai-service:latest
     container_name: inventory_ai_service
     restart: unless-stopped
@@ -129,13 +136,12 @@ services:
         max-file: '3'
 
   analytics-indexer-service:
+    build:
+      context: ../../02_Source/01_Source Code
+      dockerfile: analytics-indexer-service/Dockerfile
     image: inventory-analytics-indexer-service:latest
     container_name: inventory_analytics_indexer
     restart: unless-stopped
-    depends_on:
-      - mongo
-      - redis
-      - elasticsearch
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@mongo:27017/inventory?authSource=admin
@@ -159,11 +165,12 @@ services:
         max-file: '3'
 
   metrics-service:
+    build:
+      context: ../../02_Source/01_Source Code
+      dockerfile: metrics-service/Dockerfile
     image: inventory-metrics-service:latest
     container_name: inventory_metrics_service
     restart: unless-stopped
-    depends_on:
-      - elasticsearch
     environment:
       NODE_ENV: production
       GRPC_PORT: 6741
@@ -183,13 +190,16 @@ services:
         max-file: '3'
 
   inventory-management-web-app:
+    build:
+      context: ../../02_Source/01_Source Code
+      dockerfile: inventory-management-web-app/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://api-gateway:3001}
     image: inventory-management-web-app:latest
     container_name: inventory_frontend
     restart: unless-stopped
     depends_on:
       - api-gateway
-    environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://api-gateway:3001}
     ports:
       - '3000:80'
     networks:
