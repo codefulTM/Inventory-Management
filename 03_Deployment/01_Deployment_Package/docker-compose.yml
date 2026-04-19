@@ -13,7 +13,7 @@ services:
       NODE_ENV: production
       PORT: 3200
       GRPC_PORT: 50051
-      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@mongo:27017/inventory?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@inventory_mongo:27017/inventory?authSource=admin
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_REALM: inventory
       KEYCLOAK_CLIENT_ID: inventory-backend
@@ -29,6 +29,12 @@ services:
       - '50051:50051'
     networks:
       - inventory_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3200/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     logging:
       driver: json-file
       options:
@@ -43,10 +49,14 @@ services:
     container_name: inventory_api_gateway
     restart: unless-stopped
     depends_on:
-      - keycloak-service
-      - inventory-management-service
-      - ai-service
-      - metrics-service
+      keycloak-service:
+        condition: service_healthy
+      inventory-management-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+      metrics-service:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -79,7 +89,7 @@ services:
       NODE_ENV: production
       PORT: 3100
       GRPC_PORT: 50052
-      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@mongo:27017/inventory?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@inventory_mongo:27017/inventory?authSource=admin
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_REALM: inventory
       KEYCLOAK_CLIENT_ID: inventory-backend
@@ -144,7 +154,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@mongo:27017/inventory?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@inventory_mongo:27017/inventory?authSource=admin
       ELASTICSEARCH_NODE: http://elasticsearch:9200
       ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
       ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
