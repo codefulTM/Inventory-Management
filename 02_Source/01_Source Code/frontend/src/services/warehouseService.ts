@@ -20,9 +20,14 @@ function normalize(w: any): Warehouse {
 export async function fetchWarehouses(
   page = 1,
   limit = 20,
+  q?: string,
 ): Promise<PaginatedWarehouseResponse> {
+  const qs = new URLSearchParams();
+  qs.append("page", String(page));
+  qs.append("limit", String(limit));
+  if (q) qs.append("q", q);
   const { data, error } = await apiClient.get<any>(
-    `/warehouses?page=${page}&limit=${limit}`,
+    `/warehouses?${qs.toString()}`,
   );
   if (error) throw error;
   // Backend returns paginated shape: { data, pagination }

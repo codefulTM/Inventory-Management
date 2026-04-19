@@ -67,6 +67,16 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
     });
   }, []);
 
+  const removeWarehouse = useCallback((id: string) => {
+    setWarehouses((prev) => {
+      const next = prev.filter((x) => x._id !== id);
+      if (next.length !== prev.length) {
+        setTotal((t) => Math.max(0, t - 1));
+      }
+      return next;
+    });
+  }, []);
+
   return {
     warehouses,
     total,
@@ -81,5 +91,6 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
     previousPage,
     setLimit,
     upsertWarehouse,
+    removeWarehouse,
   };
 };

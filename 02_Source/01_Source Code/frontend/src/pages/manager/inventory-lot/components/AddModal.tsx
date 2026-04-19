@@ -13,6 +13,8 @@ import {
 import { type EditFormValues, INPUT_CLS, INPUT_ERR_CLS } from "../utils";
 import { FormField } from "./FormField";
 import { useMaterials } from "../hooks/useMaterials";
+import SelectMenu from "../../../../components/SelectMenu";
+import { useWarehouseList } from "../../../../hooks/useWarehouseList";
 
 interface AddModalProps {
   isOpen: boolean;
@@ -37,6 +39,7 @@ export function AddModal({
     handleSubmit: checkOnSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<EditFormValues>({
     defaultValues: {
@@ -52,12 +55,19 @@ export function AddModal({
       quantity: 0,
       unit_of_measure: "",
       storage_location: "",
+      warehouse_id: "",
       status: "Accepted",
       is_sample: false,
       parent_lot_id: "",
       notes: "",
     },
   });
+
+  const {
+    warehouses,
+    loading: warehousesLoading,
+    error: warehousesError,
+  } = useWarehouseList();
 
   if (!isOpen) return null;
 
@@ -228,7 +238,7 @@ export function AddModal({
               <p className="flex items-center gap-1.5 text-xs font-bold text-blue-600 uppercase tracking-wider mb-3">
                 <MapPin size={13} /> Số lượng &amp; Lưu trữ
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <FormField
                   label="Số lượng *"
                   error={errors.quantity?.message}
@@ -258,6 +268,31 @@ export function AddModal({
                     }
                     placeholder="kg / each"
                   />
+                </FormField>
+                <FormField label="Kho chứa">
+                  {warehousesLoading ? (
+                    <div className="flex items-center py-2">
+                      <Loader size={14} className="animate-spin text-gray-400" />
+                      <span className="text-sm text-gray-500 ml-2">Đang tải...</span>
+                    </div>
+                  ) : warehousesError ? (
+                    <div className="flex items-center gap-2 p-2 bg-red-50 text-red-600 rounded text-sm">
+                      <AlertCircle size={14} /> Lỗi: {String(warehousesError?.message ?? warehousesError)}
+                    </div>
+                  ) : (
+                    <>
+                      <SelectMenu
+                        items={warehouses.map((w) => ({ id: w.warehouse_id, label: `${w.warehouse_id} - ${w.warehouse_name}` }))}
+                        value={watch("warehouse_id") ?? ""}
+                        onChange={(v) => setValue("warehouse_id", String(v))}
+                        placeholder="-- Chọn kho --"
+                        showSearch
+                        searchPlaceholder="Tìm kho..."
+                        selectClassName={INPUT_CLS}
+                      />
+                      <input type="hidden" {...register("warehouse_id")} />
+                    </>
+                  )}
                 </FormField>
                 <FormField
                   label="Vị trí lưu trữ *"

@@ -55,11 +55,18 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
         is_active: isActive,
       };
       const result = warehouseId
-        ? await warehouseService.updateWarehouse(warehouseId, payload)
+        ? await warehouseService.updateWarehouse(
+            warehouseId,
+            payload as UpdateWarehouseRequest,
+          )
         : await warehouseService.createWarehouse(
             payload as CreateWarehouseRequest,
           );
       if (onSaved) onSaved(result);
+      setToast({
+        message: warehouseId ? "Cập nhật kho thành công" : "Tạo kho thành công",
+        type: "success",
+      });
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : "Lỗi khi lưu kho";
@@ -71,54 +78,78 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="bg-white rounded shadow p-5">
-        <div className="mb-3">
-          <label className="block text-sm font-medium mb-1">Mã kho</label>
-          <input
-            value={warehouseIdInput}
-            onChange={(e) => setWarehouseIdInput(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
+      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-7">
+        <h2 className="m-0 mb-5 text-2xl text-gray-800">
+          {warehouseId ? "Cập nhật kho" : "Tạo kho"}
+        </h2>
 
-        <div className="mb-3">
-          <label className="block text-sm font-medium mb-1">Tên kho</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="font-bold text-gray-800 text-sm">Mã kho</label>
+            <input
+              value={warehouseIdInput}
+              onChange={(e) => setWarehouseIdInput(e.target.value)}
+              className="px-3 py-2.5 border rounded-lg text-sm focus:border-blue-600 focus:ring-3 focus:ring-blue-100"
+              placeholder="VD: WH-001"
+            />
+          </div>
 
-        <div className="mb-3">
-          <label className="block text-sm font-medium mb-1">Mô tả</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-            rows={4}
-          />
-        </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="font-bold text-gray-800 text-sm">Tên kho</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="px-3 py-2.5 border rounded-lg text-sm focus:border-blue-600 focus:ring-3 focus:ring-blue-100"
+            />
+          </div>
 
-        <div className="mb-3 flex items-center gap-3">
-          <label className="text-sm">Đang hoạt động</label>
-          <input
-            type="checkbox"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-          />
-        </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="font-bold text-gray-800 text-sm">Mô tả</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="px-3 py-2.5 border rounded-lg text-sm focus:border-blue-600 focus:ring-3 focus:ring-blue-100"
+              rows={4}
+            />
+          </div>
 
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded"
-          >
-            {warehouseId ? "Cập nhật" : "Tạo"}
-          </button>
-        </div>
-      </form>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium">Đang hoạt động</label>
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+            />
+          </div>
+
+          <div className="flex gap-3 mt-2.5">
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-sm cursor-pointer transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed flex-1"
+            >
+              {loading
+                ? "Đang xử lý..."
+                : warehouseId
+                  ? "Cập nhật kho"
+                  : "Tạo kho"}
+            </button>
+            <button
+              type="button"
+              className="px-5 py-2.5 bg-gray-100 text-gray-800 rounded-lg font-bold text-sm cursor-pointer transition-all hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={() => {
+                setWarehouseIdInput("");
+                setName("");
+                setDescription("");
+                setIsActive(true);
+              }}
+              disabled={loading}
+            >
+              {warehouseId ? "Hủy" : "Đặt lại"}
+            </button>
+          </div>
+        </form>
+      </div>
       {toast && (
         <Toast
           message={toast.message}

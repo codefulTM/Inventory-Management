@@ -5,6 +5,9 @@ import SelectMenu from "../../SelectMenu";
 
 interface WarehouseListProps {
   onSelect?: (w: Warehouse) => void;
+  onView?: (w: Warehouse) => void;
+  onEdit?: (w: Warehouse) => void;
+  onDelete?: (w: Warehouse) => void;
   warehouses?: Warehouse[];
   total?: number;
   page?: number;
@@ -21,6 +24,9 @@ interface WarehouseListProps {
 
 export const WarehouseList: React.FC<WarehouseListProps> = ({
   onSelect,
+  onView,
+  onEdit,
+  onDelete,
   warehouses: propWarehouses,
   total: propTotal,
   page: propPage,
@@ -47,6 +53,8 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
   const setLimit = propSetLimit ?? (() => {});
   const refetch = propRefetch ?? (() => {});
 
+  const handleView = onView ?? onSelect;
+
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / limit)),
     [total, limit],
@@ -67,30 +75,29 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
 
   if (error) {
     return (
-      <div className="p-5 bg-white rounded shadow">
-        <div className="text-red-600">
-          Tải danh sách kho thất bại: {error.message}
+      <div className="w-full bg-white rounded-lg overflow-hidden shadow-md p-5">
+        <div className="p-5 bg-red-50 border border-red-200 rounded text-red-600">
+          <h3 className="m-0 mb-2.5">Tải danh sách kho thất bại</h3>
+          <p className="m-0 mb-4 text-sm">{error.message}</p>
+          <button
+            className="px-4 py-2 bg-red-600 text-white rounded cursor-pointer font-medium hover:bg-red-700"
+            onClick={refetch}
+          >
+            Thử lại
+          </button>
         </div>
-        <button className="mt-3 btn" onClick={refetch}>
-          Thử lại
-        </button>
-        {toast && (
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            onClose={() => setToast(null)}
-          />
-        )}
       </div>
     );
   }
 
   return (
     <div className="w-full bg-white rounded-lg overflow-hidden shadow-md">
-      <div className="px-5 py-5 border-b flex justify-between items-center">
-        <h2 className="text-lg">Danh sách kho</h2>
+      <div className="px-5 py-5 border-b border-gray-200 flex justify-between items-center">
+        <h2 className="m-0 text-2xl text-gray-800">Danh sách kho</h2>
         <div className="text-sm text-gray-600">
-          Tổng: <strong>{total}</strong>
+          Tổng: <strong>{total}</strong> | Hiển thị{" "}
+          <strong>{Math.min(limit, warehouses.length)}</strong> của{" "}
+          <strong>{total}</strong>
         </div>
       </div>
 
@@ -105,40 +112,86 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-gray-100 text-left">
-                  <th className="px-4 py-3">Warehouse ID</th>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Active</th>
-                  <th className="px-4 py-3">Created</th>
-                  <th className="px-4 py-3">Actions</th>
+                <tr className="bg-gray-100 font-bold text-left text-gray-800">
+                  <th className="px-4 py-3 border-b-2 border-gray-300 text-sm uppercase tracking-wide">
+                    Mã kho
+                  </th>
+                  <th className="px-4 py-3 border-b-2 border-gray-300 text-sm uppercase tracking-wide">
+                    Tên kho
+                  </th>
+                  <th className="px-4 py-3 border-b-2 border-gray-300 text-sm uppercase tracking-wide">
+                    Trạng thái
+                  </th>
+                  <th className="px-4 py-3 border-b-2 border-gray-300 text-sm uppercase tracking-wide">
+                    Ngày tạo
+                  </th>
+                  <th className="px-4 py-3 border-b-2 border-gray-300 text-sm uppercase tracking-wide">
+                    Hành động
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {warehouses.map((w) => (
-                  <tr key={w._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <code className="bg-gray-100 px-2 rounded text-xs">
+                  <tr
+                    key={w._id}
+                    className={`transition-colors hover:bg-gray-50`}
+                  >
+                    <td className="px-4 py-3 border-b border-gray-200">
+                      <code className="bg-gray-100 px-1.5 py-1 rounded text-xs font-mono text-red-600">
                         {w.warehouse_id}
                       </code>
                     </td>
-                    <td className="px-4 py-3">{w.warehouse_name}</td>
-                    <td className="px-4 py-3">
-                      {w.is_active ? "Có" : "Không"}
+                    <td className="px-4 py-3 border-b border-gray-200">
+                      {w.warehouse_name}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 border-b border-gray-200">
+                      {w.is_active ? (
+                        <span className="inline-block px-2 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">
+                          Có
+                        </span>
+                      ) : (
+                        <span className="inline-block px-2 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium">
+                          Không
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 border-b border-gray-200">
                       {new Date(w.created_date).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3">
-                      {onSelect && (
-                        <button
-                          className="px-3 py-1 bg-blue-600 text-white rounded text-xs"
-                          onClick={() => onSelect(w)}
-                        >
-                          Xem
-                        </button>
-                      )}
+                    <td className="px-4 py-3 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        {handleView && (
+                          <button
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium cursor-pointer transition-colors hover:bg-blue-700"
+                            onClick={() => handleView(w)}
+                            title="Xem chi tiết"
+                          >
+                            Xem
+                          </button>
+                        )}
+
+                        {onEdit && (
+                          <button
+                            className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded text-xs font-medium cursor-pointer transition-colors hover:bg-gray-200"
+                            onClick={() => onEdit(w)}
+                            title="Chỉnh sửa"
+                          >
+                            Sửa
+                          </button>
+                        )}
+
+                        {onDelete && (
+                          <button
+                            className="px-3 py-1.5 bg-rose-600 text-white rounded text-xs font-medium cursor-pointer transition-colors hover:bg-rose-700"
+                            onClick={() => onDelete(w)}
+                            title="Xóa"
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -146,9 +199,14 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
             </table>
           </div>
 
-          <div className="px-5 py-5 border-t flex justify-between items-center">
-            <div>
-              <label className="text-sm text-gray-600 mr-2">Số mục trên trang:</label>
+          <div className="px-5 py-5 border-t border-gray-200 flex justify-between items-center flex-wrap gap-5">
+            <div className="flex items-center gap-2.5">
+              <label
+                htmlFor="limit-select"
+                className="text-sm text-gray-600 font-medium"
+              >
+                Số mục trên trang:
+              </label>
               <SelectMenu
                 items={[
                   { id: 10, label: "10" },
@@ -158,25 +216,25 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
                 ]}
                 value={limit}
                 onChange={(id) => setLimit(Number(id))}
-                className="inline-block"
+                selectClassName="px-2.5 py-1.5 border border-gray-300 rounded text-sm cursor-pointer"
               />
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <button
                 onClick={previousPage}
                 disabled={!hasPreviousPage || loading}
-                className="px-3 py-2 border rounded"
+                className="px-4 py-2 bg-gray-100 border border-gray-300 rounded cursor-pointer font-medium transition-all hover:bg-blue-600 hover:text-white hover:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ← Trước
               </button>
-              <span>
-                Trang <strong>{page}</strong> / <strong>{totalPages}</strong>
+              <span className="text-sm text-gray-600">
+                Trang <strong>{page}</strong> của <strong>{totalPages}</strong>
               </span>
               <button
                 onClick={nextPage}
                 disabled={!hasNextPage || loading}
-                className="px-3 py-2 border rounded"
+                className="px-4 py-2 bg-gray-100 border border-gray-300 rounded cursor-pointer font-medium transition-all hover:bg-blue-600 hover:text-white hover:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Tiếp →
               </button>

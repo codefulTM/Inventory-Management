@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { useForm, useFieldArray, useFormState } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  useFormState,
+  Controller,
+} from "react-hook-form";
 import type {
   WarehouseSlip,
   WarehouseSlipLine,
 } from "../../../types/warehouseSlip";
 import AttachmentUploader from "./AttachmentUploader";
+import SelectMenu from "../../SelectMenu";
 import { fetchInventoryLotOptions } from "../../../services/inventoryLotService";
 import { fetchMaterials } from "../../../services/materialService";
 import { fetchWarehouses } from "../../../services/warehouseService";
@@ -39,35 +45,86 @@ export default function WarehouseSlipForm() {
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
   const { errors } = useFormState({ control });
 
-  const [lotOptions, setLotOptions] = useState<
-    { lot_id: string; label: string; material_id: string }[]
-  >([]);
   const [materialsMap, setMaterialsMap] = useState<Record<string, any>>({});
 
-  const [warehouses, setWarehouses] = useState<any[]>([]);
+  // Warehouses (paginated + searchable)
+  const [whItems, setWhItems] = useState<any[]>([]);
+  const [whPage, setWhPage] = useState(1);
+  const [whTotalPages, setWhTotalPages] = useState(1);
+  const [whLoading, setWhLoading] = useState(false);
+  const [whSearch, setWhSearch] = useState("");
+
+  // Lots for selected warehouse (paginated + searchable)
+  const [lotItems, setLotItems] = useState<
+    { lot_id: string; label: string; material_id: string }[]
+  >([]);
+  const [lotPage, setLotPage] = useState(1);
+  const [lotTotalPages, setLotTotalPages] = useState(1);
+  const [lotLoading, setLotLoading] = useState(false);
+  const [lotSearch, setLotSearch] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    // fetch materials and warehouses on mount
-    Promise.all([fetchMaterials(), fetchWarehouses(1, 100)])
-      .then(([materialsRes, warehousesRes]) => {
+    // fetch materials on mount, then initial warehouses
+    fetchMaterials()
+      .then((materialsRes) => {
         if (!mounted) return;
         const matMap: Record<string, any> = {};
         materialsRes.forEach((m: any) => (matMap[m.material_id || m._id] = m));
         setMaterialsMap(matMap);
-        // fetchWarehouses returns { data, pagination }
-        const whs =
-          warehousesRes && warehousesRes.data ? warehousesRes.data : [];
-        setWarehouses(whs.filter((w: any) => w));
+        // initial warehouses load
+        loadWarehouses(1, "");
       })
       .catch(() => {
         setMaterialsMap({});
-        setWarehouses([]);
       });
     return () => {
       mounted = false;
     };
   }, []);
+
+  async function loadWarehouses(page = 1, q = "") {
+    setWhLoading(true);
+    try {
+      const res = await fetchWarehouses(page, 20, q);
+      const whs = res && res.data ? res.data : [];
+      setWhItems(whs.filter((w: any) => w));
+      setWhPage(res.pagination?.page || page);
+      setWhTotalPages(res.pagination?.totalPages || 1);
+    } catch (e) {
+      setWhItems([]);
+      setWhTotalPages(1);
+    } finally {
+      setWhLoading(false);
+    }
+  }
+
+  async function loadLots(warehouseId: string, page = 1, q = "") {
+    setLotLoading(true);
+    try {
+      const res = await fetchInventoryLotOptions({
+        warehouse_id: warehouseId,
+        page,
+        limit: 20,
+        q,
+      });
+      const items = res.items || [];
+      const matMap = { ...materialsMap };
+      const opts = items.map((l: any) => ({
+        lot_id: l.lot_id,
+        material_id: l.material_id,
+        label: `${l.lot_id} — ${(matMap[l.material_id] && (matMap[l.material_id].material_name || matMap[l.material_id].part_number)) || l.material_id}`,
+      }));
+      setLotItems(opts);
+      setLotPage(res.pagination?.page || page);
+      setLotTotalPages(res.pagination?.totalPages || 1);
+    } catch (e) {
+      setLotItems([]);
+      setLotTotalPages(1);
+    } finally {
+      setLotLoading(false);
+    }
+  }
 
   const watchLines = (watch("lines") || []) as Partial<WarehouseSlipLine>[];
 
@@ -75,37 +132,23 @@ export default function WarehouseSlipForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const selectedWarehouse = watch("warehouse_id");
-
   useEffect(() => {
     let mounted = true;
-    async function loadLots() {
-      if (!selectedWarehouse) {
-        setLotOptions([]);
-        return;
-      }
-      try {
-        const items = await fetchInventoryLotOptions({
-          warehouse_id: selectedWarehouse,
-          limit: 100,
-        });
-        if (!mounted) return;
-        const matMap = { ...materialsMap };
-        const opts = items.map((l: any) => ({
-          lot_id: l.lot_id,
-          material_id: l.material_id,
-          label: `${l.lot_id} — ${(matMap[l.material_id] && (matMap[l.material_id].material_name || matMap[l.material_id].part_number)) || l.material_id}`,
-        }));
-        setLotOptions(opts);
-        // clear any selected lot/material in lines when warehouse changes
-        fields.forEach((f, idx) => {
-          setValue(`lines.${idx}.lot_id`, "");
-          setValue(`lines.${idx}.material_id`, "");
-        });
-      } catch (e) {
-        setLotOptions([]);
-      }
+    if (!selectedWarehouse) {
+      setLotItems([]);
+      setLotPage(1);
+      setLotTotalPages(1);
+      return;
     }
-    loadLots();
+    // reset lot search/page when warehouse changes
+    setLotSearch("");
+    setLotPage(1);
+    loadLots(selectedWarehouse, 1, "");
+    // clear any selected lot/material in lines when warehouse changes
+    fields.forEach((f, idx) => {
+      setValue(`lines.${idx}.lot_id`, "");
+      setValue(`lines.${idx}.material_id`, "");
+    });
     return () => {
       mounted = false;
     };
@@ -162,22 +205,35 @@ export default function WarehouseSlipForm() {
           <label className="block text-sm font-medium text-gray-700">
             Kho <span className="text-red-600">*</span>
           </label>
-          <select
-            {...register("warehouse_id", { required: "Kho là bắt buộc" })}
-            className="mt-1 block w-full rounded-md border-gray-200 shadow-sm px-3 py-2"
-          >
-            <option value="">-- Chọn kho --</option>
-            {warehouses
-              .filter((w) => w.is_active !== false)
-              .map((w: any) => (
-                <option
-                  key={w.warehouse_id || w._id}
-                  value={w.warehouse_id || w._id}
-                >
-                  {w.warehouse_name || w.warehouse_id || w._id}
-                </option>
-              ))}
-          </select>
+          <Controller
+            control={control}
+            name="warehouse_id"
+            rules={{ required: "Kho là bắt buộc" }}
+            render={({ field }) => (
+              <SelectMenu
+                items={whItems
+                  .filter((w) => w.is_active !== false)
+                  .map((w: any) => ({
+                    id: w.warehouse_id || w._id,
+                    label: w.warehouse_name || w.warehouse_id || w._id,
+                  }))}
+                value={field.value ?? ""}
+                onChange={(v: string | number) => field.onChange(String(v))}
+                className="w-full"
+                placeholder="-- Chọn kho --"
+                showSearch
+                loading={whLoading}
+                showPagination
+                page={whPage}
+                totalPages={whTotalPages}
+                onSearchChange={(q: string) => {
+                  setWhSearch(q);
+                  loadWarehouses(1, q);
+                }}
+                onPageChange={(p: number) => loadWarehouses(p, whSearch)}
+              />
+            )}
+          />
           {errors?.warehouse_id && (
             <div className="text-xs text-red-600 mt-1">
               {(errors.warehouse_id as any)?.message}
@@ -243,29 +299,56 @@ export default function WarehouseSlipForm() {
               {fields.map((f, idx) => (
                 <tr key={f.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2 align-middle">
-                    <select
-                      {...register(`lines.${idx}.lot_id` as const, {
-                        required: "Lô là bắt buộc",
-                      })}
-                      onChange={(e) => {
-                        const selected = e.target.value;
-                        const found = lotOptions.find(
-                          (o) => o.lot_id === selected,
-                        );
-                        setValue(
-                          `lines.${idx}.material_id`,
-                          found ? found.material_id : "",
-                        );
-                      }}
-                      className="rounded border-gray-200 px-2 py-1 text-sm w-full"
-                    >
-                      <option value="">-- Chọn lô --</option>
-                      {lotOptions.map((o) => (
-                        <option key={o.lot_id} value={o.lot_id}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                    <Controller
+                      control={control}
+                      name={`lines.${idx}.lot_id`}
+                      rules={{ required: "Lô là bắt buộc" }}
+                      render={({ field }) => (
+                        <>
+                          <SelectMenu
+                            items={lotItems.map((o) => ({
+                              id: o.lot_id,
+                              label: o.label,
+                            }))}
+                            value={field.value ?? ""}
+                            onChange={(v: string | number) => {
+                              const selected = String(v);
+                              field.onChange(selected);
+                              const found = lotItems.find(
+                                (o) => o.lot_id === selected,
+                              );
+                              setValue(
+                                `lines.${idx}.material_id`,
+                                found ? found.material_id : "",
+                              );
+                            }}
+                            className="w-full"
+                            placeholder="-- Chọn lô --"
+                            showSearch
+                            loading={lotLoading}
+                            showPagination
+                            page={lotPage}
+                            totalPages={lotTotalPages}
+                            onSearchChange={(q: string) => {
+                              setLotSearch(q);
+                              if (selectedWarehouse)
+                                loadLots(selectedWarehouse, 1, q);
+                            }}
+                            onPageChange={(p: number) => {
+                              if (selectedWarehouse)
+                                loadLots(selectedWarehouse, p, lotSearch);
+                            }}
+                          />
+                          {errors?.lines &&
+                            (errors.lines as any)[idx] &&
+                            (errors.lines as any)[idx].lot_id && (
+                              <div className="text-xs text-red-600 mt-1">
+                                {(errors.lines as any)[idx].lot_id.message}
+                              </div>
+                            )}
+                        </>
+                      )}
+                    />
                   </td>
                   <td className="px-3 py-2 align-middle text-sm text-gray-700">
                     {(() => {

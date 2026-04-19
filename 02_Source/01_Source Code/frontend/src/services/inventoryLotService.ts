@@ -28,8 +28,19 @@ export async function fetchInventoryLotOptions(params?: {
     `/inventory-lots/options?${qs.toString()}`,
   );
   if (error) throw error;
-  // Expect { items: [...], total, page, limit }
-  return data && data.items ? data.items : [];
+  // Expect { items: [...], pagination: { page, totalPages, total, limit } }
+  return {
+    items: data && data.items ? data.items : [],
+    pagination:
+      data && data.pagination
+        ? data.pagination
+        : {
+            page: params?.page ?? 1,
+            limit: params?.limit ?? 100,
+            total: 0,
+            totalPages: 1,
+          },
+  };
 }
 
 export async function createInventoryLot(
