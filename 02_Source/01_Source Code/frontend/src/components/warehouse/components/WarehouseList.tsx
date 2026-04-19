@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useState } from "react";
 import type { Warehouse } from "../../../types/warehouse";
 import Toast from "../../Toast";
+import SelectMenu from "../../SelectMenu";
 
 interface WarehouseListProps {
   onSelect?: (w: Warehouse) => void;
@@ -147,19 +148,18 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
 
           <div className="px-5 py-5 border-t flex justify-between items-center">
             <div>
-              <label className="text-sm text-gray-600 mr-2">
-                Số mục trên trang:
-              </label>
-              <select
+              <label className="text-sm text-gray-600 mr-2">Số mục trên trang:</label>
+              <SelectMenu
+                items={[
+                  { id: 10, label: "10" },
+                  { id: 20, label: "20" },
+                  { id: 50, label: "50" },
+                  { id: 100, label: "100" },
+                ]}
                 value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                className="px-2 py-1 border rounded"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
+                onChange={(id) => setLimit(Number(id))}
+                className="inline-block"
+              />
             </div>
 
             <div className="flex items-center gap-3">

@@ -259,7 +259,7 @@ export default function WarehouseSlipForm() {
                       }}
                       className="rounded border-gray-200 px-2 py-1 text-sm w-full"
                     >
-                      <option value="">-- chọn lô --</option>
+                      <option value="">-- Chọn lô --</option>
                       {lotOptions.map((o) => (
                         <option key={o.lot_id} value={o.lot_id}>
                           {o.label}
