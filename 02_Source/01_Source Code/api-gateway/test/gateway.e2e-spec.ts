@@ -55,4 +55,22 @@ const RUN_E2E = process.env.RUN_E2E === 'true';
   it('GET /reports/audit — returns 401 without token', () => {
     return request(app.getHttpServer()).get('/reports/audit').expect(401);
   });
+
+  it('GET /reports/inventory-trend — returns 401 without token', () => {
+    return request(app.getHttpServer()).get('/reports/inventory-trend').expect(401);
+  });
+
+  it('GET /reports/material-usage-trend — returns 401 without token', () => {
+    return request(app.getHttpServer())
+      .get('/reports/material-usage-trend')
+      .expect(401);
+  });
+
+  it('GET /reports/qc-trend — returns 401 without token', () => {
+    return request(app.getHttpServer()).get('/reports/qc-trend').expect(401);
+  });
+
+  it('GET /reports/audit-trend — returns 401 without token', () => {
+    return request(app.getHttpServer()).get('/reports/audit-trend').expect(401);
+  });
 });

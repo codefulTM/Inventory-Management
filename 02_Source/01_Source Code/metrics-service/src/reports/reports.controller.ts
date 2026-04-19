@@ -69,4 +69,85 @@ export class ReportsController {
       })),
     };
   }
+
+  @GrpcMethod('MetricsReportsService', 'GetInventoryTrend')
+  async getInventoryTrend(data: { from?: string; to?: string; interval?: string }) {
+    const report = await this.reportsService.getInventoryTrendReport(
+      data.from,
+      data.to,
+      data.interval,
+    );
+
+    return {
+      generated_at: report.generated_at.toISOString(),
+      from: report.from.toISOString(),
+      to: report.to.toISOString(),
+      interval: report.interval,
+      points: report.points,
+    };
+  }
+
+  @GrpcMethod('MetricsReportsService', 'GetMaterialUsageTrend')
+  async getMaterialUsageTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+  }) {
+    const report = await this.reportsService.getMaterialUsageTrendReport(
+      data.from,
+      data.to,
+      data.interval,
+      data.limit,
+    );
+
+    return {
+      generated_at: report.generated_at.toISOString(),
+      from: report.from.toISOString(),
+      to: report.to.toISOString(),
+      interval: report.interval,
+      points: report.points,
+    };
+  }
+
+  @GrpcMethod('MetricsReportsService', 'GetQcTrend')
+  async getQcTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+  }) {
+    const report = await this.reportsService.getQcTrendReport(
+      data.from,
+      data.to,
+      data.interval,
+      data.limit,
+    );
+
+    return {
+      generated_at: report.generated_at.toISOString(),
+      from: report.from.toISOString(),
+      to: report.to.toISOString(),
+      interval: report.interval,
+      points: report.points,
+      supplier_rankings: report.supplier_rankings,
+    };
+  }
+
+  @GrpcMethod('MetricsReportsService', 'GetAuditTrend')
+  async getAuditTrend(data: { from?: string; to?: string; interval?: string }) {
+    const report = await this.reportsService.getAuditTrendReport(
+      data.from,
+      data.to,
+      data.interval,
+    );
+
+    return {
+      generated_at: report.generated_at.toISOString(),
+      from: report.from.toISOString(),
+      to: report.to.toISOString(),
+      interval: report.interval,
+      points: report.points,
+    };
+  }
 }

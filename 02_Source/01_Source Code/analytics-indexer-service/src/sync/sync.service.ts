@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Client } from '@elastic/elasticsearch';
 import { RedisWatermarkService } from '../redis/redis-watermark.service';
 import { BaseCollectionSync, SyncResult } from './collections/base-collection-sync';
 import { InventoryLotsSync } from './collections/inventory-lots.sync';
@@ -8,6 +10,44 @@ import { QCTestsSync } from './collections/qc-tests.sync';
 import { MaterialsSync } from './collections/materials.sync';
 import { AuditLogsSync } from './collections/audit-logs.sync';
 import { ImportExportOrdersSync } from './collections/import-export-orders.sync';
+import { ELASTICSEARCH_CLIENT } from '../elasticsearch/elasticsearch.constants';
+import { IndexTemplateService } from '../elasticsearch/index-template.service';
+
+export interface RunFullSyncOptions {
+  collections?: string[];
+  from?: Date | null;
+  to?: Date;
+  batchSize?: number;
+  dryRun?: boolean;
+  updateWatermark?: boolean;
+  verifyCounts?: boolean;
+  ensureTemplates?: boolean;
+}
+
+export interface CountCheckResult {
+  collection: string;
+  mongoCount: number;
+  esCount: number;
+  gap: number;
+  from: string | null;
+  to: string;
+}
+
+export interface RunCollectionResult extends SyncResult {
+  error?: string;
+  from: string | null;
+  to: string;
+  counts?: CountCheckResult;
+}
+
+export interface RunFullSyncSummary {
+  cycleTo: string;
+  dryRun: boolean;
+  results: RunCollectionResult[];
+  totalIndexed: number;
+  totalDeleted: number;
+  totalErrors: number;
+}
 
 @Injectable()
 export class SyncService {
@@ -18,6 +58,8 @@ export class SyncService {
   constructor(
     private readonly watermark: RedisWatermarkService,
     private readonly config: ConfigService,
+    @Inject(ELASTICSEARCH_CLIENT) private readonly esClient: Client,
+    private readonly indexTemplateService: IndexTemplateService,
     private readonly inventoryLotsSync: InventoryLotsSync,
     private readonly inventoryTransactionsSync: InventoryTransactionsSync,
     private readonly qcTestsSync: QCTestsSync,
@@ -36,27 +78,95 @@ export class SyncService {
     ];
   }
 
-  async runFullSync(): Promise<void> {
-    // Capture a single "to" timestamp for the entire cycle
-    const cycleTo = new Date();
-    this.logger.log(`=== Sync cycle start — to: ${cycleTo.toISOString()} ===`);
+  getAvailableCollections(): string[] {
+    return this.syncers.map((syncer) => syncer.collectionName);
+  }
 
-    const results: (SyncResult & { error?: string })[] = [];
+  async inspectWatermarks(
+    collections?: string[],
+  ): Promise<Record<string, string | null>> {
+    return this.watermark.getAllWatermarks(collections);
+  }
 
-    for (const syncer of this.syncers) {
+  async resetWatermarks(collections?: string[]): Promise<number> {
+    return this.watermark.resetWatermarks(collections);
+  }
+
+  async runCountChecks(options: {
+    collections?: string[];
+    from?: Date | null;
+    to?: Date;
+  }): Promise<CountCheckResult[]> {
+    const cycleTo = options.to ?? new Date();
+    const selectedSyncers = this.selectSyncers(options.collections);
+    const checks: CountCheckResult[] = [];
+
+    for (const syncer of selectedSyncers) {
+      const from =
+        options.from !== undefined
+          ? options.from
+          : await this.watermark.getWatermark(syncer.collectionName);
+      checks.push(await this.verifyCounts(syncer, from, cycleTo));
+    }
+
+    return checks;
+  }
+
+  async runFullSync(
+    options: RunFullSyncOptions = {},
+  ): Promise<RunFullSyncSummary> {
+    const cycleTo = options.to ?? new Date();
+    const dryRun = options.dryRun === true;
+    const updateWatermark = options.updateWatermark ?? !dryRun;
+    const verifyCounts = options.verifyCounts === true;
+    const batchSize = options.batchSize ?? this.batchSize;
+
+    const selectedSyncers = this.selectSyncers(options.collections);
+    const selectedCollections = selectedSyncers.map((syncer) => syncer.collectionName);
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'sync_cycle_start',
+        to: cycleTo.toISOString(),
+        dryRun,
+        batchSize,
+        collections: selectedCollections,
+      }),
+    );
+
+    if (options.ensureTemplates === true) {
+      await this.indexTemplateService.applyTemplates(selectedCollections);
+    }
+
+    const results: RunCollectionResult[] = [];
+
+    for (const syncer of selectedSyncers) {
       const collection = syncer.collectionName;
       try {
-        const from = await this.watermark.getWatermark(collection);
-        const result = await syncer.sync(from, cycleTo, this.batchSize);
+        const from =
+          options.from !== undefined
+            ? options.from
+            : await this.watermark.getWatermark(collection);
+        const result = await syncer.sync(from, cycleTo, batchSize, { dryRun });
 
-        // Only update watermark on success (fail-fast: error skips watermark update)
-        await this.watermark.setWatermark(collection, cycleTo);
-        results.push(result);
+        if (updateWatermark) {
+          await this.watermark.setWatermark(collection, cycleTo);
+        }
+
+        const record: RunCollectionResult = {
+          ...result,
+          from: from ? from.toISOString() : null,
+          to: cycleTo.toISOString(),
+        };
+
+        if (verifyCounts) {
+          record.counts = await this.verifyCounts(syncer, from, cycleTo);
+        }
+
+        results.push(record);
       } catch (err: any) {
-        // Log error but continue to next collection
-        // Watermark is NOT updated — next cycle retries the same window
         this.logger.error(
-          `[${collection}] Sync failed — watermark NOT updated. Error: ${err?.message ?? err}`,
+          `[${collection}] Sync failed — Error: ${err?.message ?? err}`,
         );
         results.push({
           collection,
@@ -65,6 +175,8 @@ export class SyncService {
           errors: 1,
           durationMs: 0,
           error: err?.message ?? String(err),
+          from: options.from ? options.from.toISOString() : null,
+          to: cycleTo.toISOString(),
         });
       }
     }
@@ -72,8 +184,90 @@ export class SyncService {
     const totalIndexed = results.reduce((s, r) => s + r.indexed, 0);
     const totalDeleted = results.reduce((s, r) => s + r.deleted, 0);
     const totalErrors = results.reduce((s, r) => s + r.errors, 0);
-    this.logger.log(
-      `=== Sync cycle done — indexed: ${totalIndexed}, deleted: ${totalDeleted}, errors: ${totalErrors} ===`,
+    const summary: RunFullSyncSummary = {
+      cycleTo: cycleTo.toISOString(),
+      dryRun,
+      results,
+      totalIndexed,
+      totalDeleted,
+      totalErrors,
+    };
+
+    this.logger.log(JSON.stringify({ event: 'sync_cycle_done', ...summary }));
+
+    return summary;
+  }
+
+  private selectSyncers(collections?: string[]): BaseCollectionSync[] {
+    if (!collections || collections.length === 0) {
+      return this.syncers;
+    }
+
+    const collectionSet = new Set(collections);
+    const selected = this.syncers.filter((syncer) =>
+      collectionSet.has(syncer.collectionName),
     );
+
+    if (selected.length === 0) {
+      throw new Error(
+        `No supported collections selected. Available: ${this.getAvailableCollections().join(', ')}`,
+      );
+    }
+
+    return selected;
+  }
+
+  private async verifyCounts(
+    syncer: BaseCollectionSync,
+    from: Date | null,
+    to: Date,
+  ): Promise<CountCheckResult> {
+    const modifiedRange: Record<string, unknown> = { $lte: to };
+    if (from) {
+      modifiedRange.$gt = from;
+    }
+
+    const mongoQuery = {
+      modified_date: modifiedRange,
+      deleted: { $ne: true },
+      is_active: { $ne: false },
+    };
+
+    const mongoCount = await syncer.model.countDocuments(mongoQuery);
+
+    let esCount = 0;
+    try {
+      const esResponse = await this.esClient.count({
+        index: `${syncer.collectionName}_*`,
+        query: {
+          bool: {
+            filter: [
+              {
+                range: {
+                  modified_date: {
+                    ...(from ? { gt: from.toISOString() } : {}),
+                    lte: to.toISOString(),
+                  },
+                },
+              },
+            ],
+          },
+        },
+      });
+      esCount = esResponse.count;
+    } catch (error) {
+      this.logger.warn(
+        `[${syncer.collectionName}] Count check ES query failed: ${String(error)}`,
+      );
+    }
+
+    return {
+      collection: syncer.collectionName,
+      mongoCount,
+      esCount,
+      gap: mongoCount - esCount,
+      from: from ? from.toISOString() : null,
+      to: to.toISOString(),
+    };
   }
 }

@@ -3,6 +3,9 @@ import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { SyncService } from './sync.service';
 
+const SYNC_CRON_EXPRESSION =
+  process.env.SYNC_INTERVAL_CRON || '*/10 * * * *';
+
 @Injectable()
 export class SyncScheduler {
   private readonly logger = new Logger(SyncScheduler.name);
@@ -17,7 +20,7 @@ export class SyncScheduler {
    * Default: every 10 minutes.
    * Override via SYNC_INTERVAL_CRON env var.
    */
-  @Cron('*/10 * * * *')
+  @Cron(SYNC_CRON_EXPRESSION)
   async runSync(): Promise<void> {
     if (this.running) {
       this.logger.warn('Previous sync cycle still running — skipping this tick');

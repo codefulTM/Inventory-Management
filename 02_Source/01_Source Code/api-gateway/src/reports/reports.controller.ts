@@ -18,6 +18,10 @@ interface MetricsReportsGrpcService {
   GetMaterialUsage(data: { from?: string; to?: string }): Observable<any>;
   GetQcPerformance(data: Record<string, never>): Observable<any>;
   GetAuditReport(data: { page?: number; size?: number }): Observable<any>;
+  GetInventoryTrend(data: { from?: string; to?: string; interval?: string }): Observable<any>;
+  GetMaterialUsageTrend(data: { from?: string; to?: string; interval?: string; limit?: number }): Observable<any>;
+  GetQcTrend(data: { from?: string; to?: string; interval?: string; limit?: number }): Observable<any>;
+  GetAuditTrend(data: { from?: string; to?: string; interval?: string }): Observable<any>;
 }
 
 @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR)
@@ -79,6 +83,78 @@ export class ReportsController implements OnModuleInit {
       );
     } catch (err) {
       this.logger.error(`[GET /reports/audit] ${err.message}`);
+      throw new InternalServerErrorException('metrics-service unavailable');
+    }
+  }
+
+  @Get('inventory-trend')
+  async getInventoryTrend(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('interval') interval?: string,
+  ) {
+    try {
+      return await firstValueFrom(this.metricsService.GetInventoryTrend({ from, to, interval }));
+    } catch (err) {
+      this.logger.error(`[GET /reports/inventory-trend] ${err.message}`);
+      throw new InternalServerErrorException('metrics-service unavailable');
+    }
+  }
+
+  @Get('material-usage-trend')
+  async getMaterialUsageTrend(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('interval') interval?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      return await firstValueFrom(
+        this.metricsService.GetMaterialUsageTrend({
+          from,
+          to,
+          interval,
+          limit: limit ? parseInt(limit, 10) : undefined,
+        }),
+      );
+    } catch (err) {
+      this.logger.error(`[GET /reports/material-usage-trend] ${err.message}`);
+      throw new InternalServerErrorException('metrics-service unavailable');
+    }
+  }
+
+  @Get('qc-trend')
+  async getQcTrend(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('interval') interval?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      return await firstValueFrom(
+        this.metricsService.GetQcTrend({
+          from,
+          to,
+          interval,
+          limit: limit ? parseInt(limit, 10) : undefined,
+        }),
+      );
+    } catch (err) {
+      this.logger.error(`[GET /reports/qc-trend] ${err.message}`);
+      throw new InternalServerErrorException('metrics-service unavailable');
+    }
+  }
+
+  @Get('audit-trend')
+  async getAuditTrend(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('interval') interval?: string,
+  ) {
+    try {
+      return await firstValueFrom(this.metricsService.GetAuditTrend({ from, to, interval }));
+    } catch (err) {
+      this.logger.error(`[GET /reports/audit-trend] ${err.message}`);
       throw new InternalServerErrorException('metrics-service unavailable');
     }
   }

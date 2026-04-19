@@ -49,3 +49,71 @@ export type AuditReport = {
   generated_at: string;
   entries: AuditEntry[];
 };
+
+export type TrendInterval = 'day' | 'week' | 'month';
+
+export type InventoryTrendPoint = {
+  period: string;
+  lot_count: number;
+  total_quantity: number;
+};
+
+export type InventoryTrendReport = {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: TrendInterval;
+  points: InventoryTrendPoint[];
+};
+
+export type MaterialUsageTrendPoint = {
+  period: string;
+  material_id: string;
+  transaction_count: number;
+  total_quantity: number;
+};
+
+export type MaterialUsageTrendReport = {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: TrendInterval;
+  points: MaterialUsageTrendPoint[];
+};
+
+export type QcTrendPoint = {
+  period: string;
+  pass_count: number;
+  fail_count: number;
+  pending_count: number;
+};
+
+export type QcSupplierRankingItem = {
+  supplier_name: string;
+  pass_count: number;
+  fail_count: number;
+  quality_rate: number;
+};
+
+export type QcTrendReport = {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: TrendInterval;
+  points: QcTrendPoint[];
+  supplier_rankings: QcSupplierRankingItem[];
+};
+
+export type AuditTrendPoint = {
+  period: string;
+  activity_count: number;
+  unique_users: number;
+};
+
+export type AuditTrendReport = {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: TrendInterval;
+  points: AuditTrendPoint[];
+};

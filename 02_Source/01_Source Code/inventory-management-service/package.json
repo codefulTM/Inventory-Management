@@ -19,8 +19,14 @@
     "test:bench:us26": "ts-node ./test/us26-my-history-benchmark.ts",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:task4:data": "jest src/database/sample-data/sample-data.generator.spec.ts --runInBand",
     "kafka:up": "cd ../../infra/kafka && docker compose up -d",
-    "kafka:down": "cd ../../infra/kafka && docker compose down"
+    "kafka:down": "cd ../../infra/kafka && docker compose down",
+    "task4:data:seed": "ts-node scripts/task4/sample-data-cli.ts --mode seed --profile medium",
+    "task4:data:seed:small": "ts-node scripts/task4/sample-data-cli.ts --mode seed --profile small",
+    "task4:data:seed:large": "ts-node scripts/task4/sample-data-cli.ts --mode seed --profile large",
+    "task4:data:reset": "ts-node scripts/task4/sample-data-cli.ts --mode reset",
+    "task4:data:reseed": "ts-node scripts/task4/sample-data-cli.ts --mode reseed --collection inventory_transactions"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",

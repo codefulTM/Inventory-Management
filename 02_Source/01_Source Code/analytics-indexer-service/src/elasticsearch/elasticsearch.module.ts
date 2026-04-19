@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Client } from '@elastic/elasticsearch';
 import { IndexNamingService } from './index-naming.service';
 import { ElasticsearchBulkService } from './elasticsearch-bulk.service';
+import { IndexTemplateService } from './index-template.service';
 import { ELASTICSEARCH_CLIENT } from './elasticsearch.constants';
 
 @Global()
@@ -30,7 +31,13 @@ import { ELASTICSEARCH_CLIENT } from './elasticsearch.constants';
     },
     IndexNamingService,
     ElasticsearchBulkService,
+    IndexTemplateService,
   ],
-  exports: [ELASTICSEARCH_CLIENT, IndexNamingService, ElasticsearchBulkService],
+  exports: [
+    ELASTICSEARCH_CLIENT,
+    IndexNamingService,
+    ElasticsearchBulkService,
+    IndexTemplateService,
+  ],
 })
 export class ElasticsearchIndexModule {}

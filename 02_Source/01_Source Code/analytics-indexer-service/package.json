@@ -15,7 +15,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand"
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "sync:run-once": "ts-node src/run-once.ts",
+    "sync:backfill": "ts-node src/sync-admin.ts --mode backfill",
+    "sync:watermark:inspect": "ts-node src/sync-admin.ts --mode watermark-inspect",
+    "sync:watermark:reset": "ts-node src/sync-admin.ts --mode watermark-reset",
+    "sync:check": "ts-node src/sync-admin.ts --mode count-check"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.17.0",
