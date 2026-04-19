@@ -3,15 +3,6 @@ pipeline {
 
     stages {
 
-        stage('Prepare ENV') {
-            steps {
-                sh '''
-                cp "/home/ubuntu/codes/Inventory-Management/02_Source/01_Source Code/backend/.env" \
-                "02_Source/01_Source Code/backend/.env"
-                '''
-            }
-        }
-
         stage('Unit Test') {
             agent {
                 docker {
@@ -19,7 +10,7 @@ pipeline {
                 }
             }
             steps {
-                dir('02_Source/01_Source Code/backend') {
+                dir('02_Source/01_Source Code/inventory-management-service') {
                     sh '''
                     npm install
                     npx jest --testPathPatterns=src/unit-test --forceExit
@@ -35,7 +26,7 @@ pipeline {
                 }
             }
             steps {
-                dir('02_Source/01_Source Code/backend') {
+                dir('02_Source/01_Source Code/inventory-management-service') {
                     sh '''
                     npm install
                     npx jest --testPathPatterns=src --testPathIgnorePatterns=src/unit-test --forceExit
@@ -46,25 +37,31 @@ pipeline {
 
         stage('Stop Old Containers') {
             steps {
-                sh '''
-                docker compose -f "02_Source/01_Source Code/docker-compose.yml" down || true
-                '''
+                dir('03_Deployment/01_Deployment_Package') {
+                    sh '''
+                    docker compose --env-file .env down || true
+                    '''
+                }
             }
         }
 
-        stage('Build Docker') {
+        stage('Build') {
             steps {
-                sh '''
-                docker compose -f "02_Source/01_Source Code/docker-compose.yml" build
-                '''
+                dir('03_Deployment/01_Deployment_Package') {
+                    sh '''
+                    docker compose --env-file .env build
+                    '''
+                }
             }
         }
 
         stage('Deploy') {
             steps {
-                sh '''
-                docker compose -f "02_Source/01_Source Code/docker-compose.yml" up -d
-                '''
+                dir('03_Deployment/01_Deployment_Package') {
+                    sh '''
+                    docker compose --env-file .env up -d
+                    '''
+                }
             }
         }
 
@@ -75,7 +72,7 @@ pipeline {
                 }
             }
             steps {
-                dir('02_Source/01_Source Code/backend') {
+                dir('02_Source/01_Source Code/inventory-management-service') {
                     sh '''
                     npm install
                     npx jest --config ./test/jest-e2e.json --forceExit
@@ -84,5 +81,18 @@ pipeline {
             }
         }
 
+    }
+
+    post {
+        failure {
+            dir('03_Deployment/01_Deployment_Package') {
+                sh '''
+                echo "=== Pipeline failed! Rolling back... ==="
+                docker compose --env-file .env down || true
+                docker compose --env-file .env up -d || true
+                echo "=== Rollback completed ==="
+                '''
+            }
+        }
     }
 }
