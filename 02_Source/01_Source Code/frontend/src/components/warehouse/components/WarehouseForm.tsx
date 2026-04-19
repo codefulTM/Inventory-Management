@@ -5,6 +5,7 @@ import type {
   UpdateWarehouseRequest,
 } from "../../../types/warehouse";
 import warehouseService from "../../../services/warehouseService";
+import Toast from "../../Toast";
 
 interface Props {
   warehouseId?: string;
@@ -17,6 +18,10 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -56,62 +61,72 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
           );
       if (onSaved) onSaved(result);
     } catch (err) {
-      // Minimal error handling — real app should show toast
       console.error(err);
+      const message = err instanceof Error ? err.message : "Lỗi khi lưu kho";
+      setToast({ message, type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded shadow p-5">
-      <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">Mã kho</label>
-        <input
-          value={warehouseIdInput}
-          onChange={(e) => setWarehouseIdInput(e.target.value)}
-          className="w-full border px-3 py-2 rounded"
-        />
-      </div>
+    <>
+      <form onSubmit={handleSubmit} className="bg-white rounded shadow p-5">
+        <div className="mb-3">
+          <label className="block text-sm font-medium mb-1">Mã kho</label>
+          <input
+            value={warehouseIdInput}
+            onChange={(e) => setWarehouseIdInput(e.target.value)}
+            className="w-full border px-3 py-2 rounded"
+          />
+        </div>
 
-      <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">Tên kho</label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full border px-3 py-2 rounded"
-        />
-      </div>
+        <div className="mb-3">
+          <label className="block text-sm font-medium mb-1">Tên kho</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border px-3 py-2 rounded"
+          />
+        </div>
 
-      <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">Mô tả</label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full border px-3 py-2 rounded"
-          rows={4}
-        />
-      </div>
+        <div className="mb-3">
+          <label className="block text-sm font-medium mb-1">Mô tả</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full border px-3 py-2 rounded"
+            rows={4}
+          />
+        </div>
 
-      <div className="mb-3 flex items-center gap-3">
-        <label className="text-sm">Đang hoạt động</label>
-        <input
-          type="checkbox"
-          checked={isActive}
-          onChange={(e) => setIsActive(e.target.checked)}
-        />
-      </div>
+        <div className="mb-3 flex items-center gap-3">
+          <label className="text-sm">Đang hoạt động</label>
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+          />
+        </div>
 
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-        >
-          {warehouseId ? "Cập nhật" : "Tạo"}
-        </button>
-      </div>
-    </form>
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded"
+          >
+            {warehouseId ? "Cập nhật" : "Tạo"}
+          </button>
+        </div>
+      </form>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </>
   );
 };
 

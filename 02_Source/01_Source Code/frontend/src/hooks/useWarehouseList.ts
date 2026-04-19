@@ -54,6 +54,19 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
 
   const refetch = useCallback(() => fetch(page, limit), [fetch, page, limit]);
 
+  const upsertWarehouse = useCallback((w: Warehouse) => {
+    setWarehouses((prev) => {
+      const idx = prev.findIndex((x) => x._id === w._id);
+      if (idx === -1) {
+        setTotal((t) => t + 1);
+        return [w, ...prev];
+      }
+      const next = prev.slice();
+      next[idx] = w;
+      return next;
+    });
+  }, []);
+
   return {
     warehouses,
     total,
@@ -67,5 +80,6 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
     nextPage,
     previousPage,
     setLimit,
+    upsertWarehouse,
   };
 };

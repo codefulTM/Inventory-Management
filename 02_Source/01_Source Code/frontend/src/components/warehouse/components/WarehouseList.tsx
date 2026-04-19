@@ -1,31 +1,68 @@
-import React, { useMemo } from "react";
-import { useWarehouseList } from "../../../hooks/useWarehouseList";
+import React, { useMemo, useEffect, useState } from "react";
 import type { Warehouse } from "../../../types/warehouse";
+import Toast from "../../Toast";
 
 interface WarehouseListProps {
   onSelect?: (w: Warehouse) => void;
+  warehouses?: Warehouse[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  loading?: boolean;
+  error?: Error | null;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+  nextPage?: () => void;
+  previousPage?: () => void;
+  setLimit?: (n: number) => void;
+  refetch?: () => void;
 }
 
-export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
-  const {
-    warehouses,
-    total,
-    page,
-    limit,
-    loading,
-    error,
-    hasNextPage,
-    hasPreviousPage,
-    nextPage,
-    previousPage,
-    setLimit,
-    refetch,
-  } = useWarehouseList();
+export const WarehouseList: React.FC<WarehouseListProps> = ({
+  onSelect,
+  warehouses: propWarehouses,
+  total: propTotal,
+  page: propPage,
+  limit: propLimit,
+  loading: propLoading,
+  error: propError,
+  hasNextPage: propHasNextPage,
+  hasPreviousPage: propHasPreviousPage,
+  nextPage: propNextPage,
+  previousPage: propPreviousPage,
+  setLimit: propSetLimit,
+  refetch: propRefetch,
+}) => {
+  const warehouses = propWarehouses ?? [];
+  const total = propTotal ?? 0;
+  const page = propPage ?? 1;
+  const limit = propLimit ?? 20;
+  const loading = propLoading ?? false;
+  const error = propError ?? null;
+  const hasNextPage = propHasNextPage ?? false;
+  const hasPreviousPage = propHasPreviousPage ?? false;
+  const nextPage = propNextPage ?? (() => {});
+  const previousPage = propPreviousPage ?? (() => {});
+  const setLimit = propSetLimit ?? (() => {});
+  const refetch = propRefetch ?? (() => {});
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / limit)),
     [total, limit],
   );
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  useEffect(() => {
+    if (error) {
+      const msg =
+        error instanceof Error ? error.message : "Lỗi khi tải danh sách kho";
+      setToast({ message: msg, type: "error" });
+    }
+  }, [error]);
 
   if (error) {
     return (
@@ -36,6 +73,13 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
         <button className="mt-3 btn" onClick={refetch}>
           Thử lại
         </button>
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
       </div>
     );
   }

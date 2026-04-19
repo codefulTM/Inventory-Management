@@ -5,8 +5,9 @@ import type {
   WarehouseSlipLine,
 } from "../../../types/warehouseSlip";
 import AttachmentUploader from "./AttachmentUploader";
-import { fetchInventoryLots } from "../../../services/inventoryLotService";
+import { fetchInventoryLotOptions } from "../../../services/inventoryLotService";
 import { fetchMaterials } from "../../../services/materialService";
+import { fetchWarehouses } from "../../../services/warehouseService";
 import { createWarehouseSlip } from "../../../services/warehouseSlipService";
 import { fetchMaterial } from "../../../services/materialService";
 
@@ -43,22 +44,26 @@ export default function WarehouseSlipForm() {
   >([]);
   const [materialsMap, setMaterialsMap] = useState<Record<string, any>>({});
 
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+
   useEffect(() => {
     let mounted = true;
-    Promise.all([fetchInventoryLots(), fetchMaterials()])
-      .then(([lots, materials]) => {
+    // fetch materials and warehouses on mount
+    Promise.all([fetchMaterials(), fetchWarehouses(1, 100)])
+      .then(([materialsRes, warehousesRes]) => {
         if (!mounted) return;
         const matMap: Record<string, any> = {};
-        materials.forEach((m: any) => (matMap[m.material_id || m._id] = m));
-        const opts = lots.map((l: any) => ({
-          lot_id: l.lot_id,
-          material_id: l.material_id,
-          label: `${l.lot_id} — ${(matMap[l.material_id] && (matMap[l.material_id].material_name || matMap[l.material_id].part_number)) || l.material_id}`,
-        }));
-        setLotOptions(opts);
+        materialsRes.forEach((m: any) => (matMap[m.material_id || m._id] = m));
         setMaterialsMap(matMap);
+        // fetchWarehouses returns { data, pagination }
+        const whs =
+          warehousesRes && warehousesRes.data ? warehousesRes.data : [];
+        setWarehouses(whs.filter((w: any) => w));
       })
-      .catch(() => setLotOptions([]));
+      .catch(() => {
+        setMaterialsMap({});
+        setWarehouses([]);
+      });
     return () => {
       mounted = false;
     };
@@ -68,6 +73,43 @@ export default function WarehouseSlipForm() {
 
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const selectedWarehouse = watch("warehouse_id");
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadLots() {
+      if (!selectedWarehouse) {
+        setLotOptions([]);
+        return;
+      }
+      try {
+        const items = await fetchInventoryLotOptions({
+          warehouse_id: selectedWarehouse,
+          limit: 100,
+        });
+        if (!mounted) return;
+        const matMap = { ...materialsMap };
+        const opts = items.map((l: any) => ({
+          lot_id: l.lot_id,
+          material_id: l.material_id,
+          label: `${l.lot_id} — ${(matMap[l.material_id] && (matMap[l.material_id].material_name || matMap[l.material_id].part_number)) || l.material_id}`,
+        }));
+        setLotOptions(opts);
+        // clear any selected lot/material in lines when warehouse changes
+        fields.forEach((f, idx) => {
+          setValue(`lines.${idx}.lot_id`, "");
+          setValue(`lines.${idx}.material_id`, "");
+        });
+      } catch (e) {
+        setLotOptions([]);
+      }
+    }
+    loadLots();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedWarehouse]);
 
   async function onSubmit(data: Partial<WarehouseSlip>) {
     setSubmitting(true);
@@ -120,11 +162,22 @@ export default function WarehouseSlipForm() {
           <label className="block text-sm font-medium text-gray-700">
             Kho <span className="text-red-600">*</span>
           </label>
-          <input
+          <select
             {...register("warehouse_id", { required: "Kho là bắt buộc" })}
             className="mt-1 block w-full rounded-md border-gray-200 shadow-sm px-3 py-2"
-            placeholder="Chọn hoặc nhập mã kho"
-          />
+          >
+            <option value="">-- Chọn kho --</option>
+            {warehouses
+              .filter((w) => w.is_active !== false)
+              .map((w: any) => (
+                <option
+                  key={w.warehouse_id || w._id}
+                  value={w.warehouse_id || w._id}
+                >
+                  {w.warehouse_name || w.warehouse_id || w._id}
+                </option>
+              ))}
+          </select>
           {errors?.warehouse_id && (
             <div className="text-xs text-red-600 mt-1">
               {(errors.warehouse_id as any)?.message}
