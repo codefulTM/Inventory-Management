@@ -22,6 +22,10 @@ export class WarehouseSlipService {
     if (!warehouse) {
       throw new BadRequestException('warehouse_id does not exist');
     }
+    // ensure warehouse is active
+    if (!warehouse.is_active) {
+      throw new BadRequestException('warehouse_id is not active');
+    }
 
     // validate materials and compute totals
     const lines = Array.isArray(dto.lines) ? dto.lines : [];

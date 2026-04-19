@@ -31,10 +31,10 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
     return (
       <div className="p-5 bg-white rounded shadow">
         <div className="text-red-600">
-          Failed to load warehouses: {error.message}
+          Tải danh sách kho thất bại: {error.message}
         </div>
         <button className="mt-3 btn" onClick={refetch}>
-          Retry
+          Thử lại
         </button>
       </div>
     );
@@ -43,19 +43,19 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
   return (
     <div className="w-full bg-white rounded-lg overflow-hidden shadow-md">
       <div className="px-5 py-5 border-b flex justify-between items-center">
-        <h2 className="text-lg">Warehouses</h2>
+        <h2 className="text-lg">Danh sách kho</h2>
         <div className="text-sm text-gray-600">
-          Total: <strong>{total}</strong>
+          Tổng: <strong>{total}</strong>
         </div>
       </div>
 
       {loading && warehouses.length === 0 ? (
         <div className="p-10 text-center text-gray-400">
-          Loading warehouses...
+          Đang tải danh sách kho...
         </div>
       ) : warehouses.length === 0 ? (
         <div className="p-10 text-center text-gray-400">
-          No warehouses found
+          Không tìm thấy kho nào
         </div>
       ) : (
         <>
@@ -79,7 +79,9 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
                       </code>
                     </td>
                     <td className="px-4 py-3">{w.warehouse_name}</td>
-                    <td className="px-4 py-3">{w.is_active ? "Yes" : "No"}</td>
+                    <td className="px-4 py-3">
+                      {w.is_active ? "Có" : "Không"}
+                    </td>
                     <td className="px-4 py-3">
                       {new Date(w.created_date).toLocaleDateString()}
                     </td>
@@ -89,7 +91,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
                           className="px-3 py-1 bg-blue-600 text-white rounded text-xs"
                           onClick={() => onSelect(w)}
                         >
-                          View
+                          Xem
                         </button>
                       )}
                     </td>
@@ -102,7 +104,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
           <div className="px-5 py-5 border-t flex justify-between items-center">
             <div>
               <label className="text-sm text-gray-600 mr-2">
-                Items per page:
+                Số mục trên trang:
               </label>
               <select
                 value={limit}
@@ -122,17 +124,17 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({ onSelect }) => {
                 disabled={!hasPreviousPage || loading}
                 className="px-3 py-2 border rounded"
               >
-                ← Prev
+                ← Trước
               </button>
               <span>
-                Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+                Trang <strong>{page}</strong> / <strong>{totalPages}</strong>
               </span>
               <button
                 onClick={nextPage}
                 disabled={!hasNextPage || loading}
                 className="px-3 py-2 border rounded"
               >
-                Next →
+                Tiếp →
               </button>
             </div>
           </div>

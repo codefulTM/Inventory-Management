@@ -66,7 +66,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded shadow p-5">
       <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">Warehouse ID</label>
+        <label className="block text-sm font-medium mb-1">Mã kho</label>
         <input
           value={warehouseIdInput}
           onChange={(e) => setWarehouseIdInput(e.target.value)}
@@ -75,7 +75,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
       </div>
 
       <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">Name</label>
+        <label className="block text-sm font-medium mb-1">Tên kho</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -84,7 +84,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
       </div>
 
       <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">Description</label>
+        <label className="block text-sm font-medium mb-1">Mô tả</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -94,7 +94,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
       </div>
 
       <div className="mb-3 flex items-center gap-3">
-        <label className="text-sm">Active</label>
+        <label className="text-sm">Đang hoạt động</label>
         <input
           type="checkbox"
           checked={isActive}
@@ -108,7 +108,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
           disabled={loading}
           className="px-4 py-2 bg-blue-600 text-white rounded"
         >
-          {warehouseId ? "Update" : "Create"}
+          {warehouseId ? "Cập nhật" : "Tạo"}
         </button>
       </div>
     </form>

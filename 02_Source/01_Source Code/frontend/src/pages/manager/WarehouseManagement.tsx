@@ -16,18 +16,18 @@ export const WarehouseManagement: React.FC = () => {
 
         <div className="col-span-4 space-y-4">
           <div>
-            <h3 className="text-lg mb-2">Details / Edit</h3>
+            <h3 className="text-lg mb-2">Chi tiết / Chỉnh sửa</h3>
             {selected ? (
               <WarehouseDetail warehouse={selected} />
             ) : (
               <div className="p-4 bg-white rounded">
-                Select a warehouse to view details
+                Chọn một kho để xem chi tiết
               </div>
             )}
           </div>
 
           <div>
-            <h3 className="text-lg mb-2">Create Warehouse</h3>
+            <h3 className="text-lg mb-2">Tạo kho</h3>
             <WarehouseForm
               onSaved={() => {
                 /* optional: refetch list via event or hook */

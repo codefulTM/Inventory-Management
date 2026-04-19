@@ -23,7 +23,7 @@ export const WarehouseSearch: React.FC<Props> = ({ onResult }) => {
   return (
     <form onSubmit={handleSearch} className="flex gap-2 items-center">
       <input
-        placeholder="Search warehouses..."
+        placeholder="Tìm kiếm kho..."
         value={q}
         onChange={(e) => setQ(e.target.value)}
         className="px-3 py-2 border rounded w-full"
@@ -33,7 +33,7 @@ export const WarehouseSearch: React.FC<Props> = ({ onResult }) => {
         disabled={loading}
         className="px-3 py-2 bg-blue-600 text-white rounded"
       >
-        Search
+        Tìm
       </button>
     </form>
   );
