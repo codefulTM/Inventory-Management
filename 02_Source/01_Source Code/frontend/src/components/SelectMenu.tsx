@@ -95,9 +95,16 @@ const SelectMenu: React.FC<Props> = ({
   const selected = items.find((it) => String(it.id) === String(value));
 
   // local filtering for better UX when backend doesn't perform search
-  const q = (localSearch || "").trim().toLowerCase();
+  const normalize = (s: string) =>
+    (s || "")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  const q = (normalize(localSearch) || "").trim();
   const displayedItems = q
-    ? items.filter((it) => (it.label || "").toLowerCase().includes(q))
+    ? items.filter((it) => normalize(it.label || "").includes(q))
     : items;
 
   const toggleOpen = () => setOpen((s) => !s);
@@ -170,10 +177,18 @@ const SelectMenu: React.FC<Props> = ({
     function update() {
       if (!rootRef.current) return;
       const rect = rootRef.current.getBoundingClientRect();
+      const margin = 8; // keep a small gap from screen edges
+      let width = Math.round(rect.width);
+      const maxWidth = Math.floor(window.innerWidth - margin * 2);
+      if (width > maxWidth) width = maxWidth;
+      let left = Math.round(rect.left + window.scrollX);
+      if (left + width > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - width - margin);
+      }
       setPortalStyle({
         top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
+        left,
+        width,
       });
     }
     update();
@@ -184,6 +199,15 @@ const SelectMenu: React.FC<Props> = ({
       window.removeEventListener("scroll", update, true);
     };
   }, [open]);
+
+  // when opening, highlight current selected item (if any)
+  useEffect(() => {
+    if (!open) return;
+    const idx = displayedItems.findIndex(
+      (it) => String(it.id) === String(value),
+    );
+    setHighlighted(idx >= 0 ? idx : -1);
+  }, [open, displayedItems, value]);
 
   return (
     <div ref={rootRef} className={`${className} relative`}>
@@ -206,6 +230,8 @@ const SelectMenu: React.FC<Props> = ({
               top: portalStyle.top,
               left: portalStyle.left,
               width: portalStyle.width,
+              maxWidth: `calc(100vw - 16px)`,
+              boxSizing: "border-box",
               zIndex: 9999,
             }}
             className="bg-white border rounded shadow-md flex flex-col"
@@ -231,7 +257,7 @@ const SelectMenu: React.FC<Props> = ({
 
             <div
               ref={listRef}
-              className="max-h-48 overflow-auto p-1"
+              className="max-h-56 overflow-auto p-1"
               role="listbox"
               tabIndex={-1}
             >
@@ -252,7 +278,7 @@ const SelectMenu: React.FC<Props> = ({
                     aria-selected={String(it.id) === String(value)}
                     onMouseEnter={() => setHighlighted(i)}
                     onClick={() => handleSelect(it)}
-                    className={`px-2 py-2 cursor-pointer hover:bg-gray-100 ${String(it.id) === String(value) ? "bg-gray-100 font-medium" : highlighted === i ? "bg-gray-50" : ""}`}
+                    className={`px-2 py-2 cursor-pointer hover:bg-gray-100 break-words ${String(it.id) === String(value) ? "bg-gray-100 font-medium" : highlighted === i ? "bg-gray-50" : ""}`}
                   >
                     {it.label}
                   </div>
@@ -261,8 +287,8 @@ const SelectMenu: React.FC<Props> = ({
             </div>
 
             {showPagination && (
-              <div className="p-2 border-t flex items-center justify-between text-sm gap-2">
-                <div className="flex items-center gap-2">
+              <div className="p-2 border-t flex flex-wrap items-center justify-between text-sm gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={handlePrev}
                     disabled={
@@ -277,7 +303,7 @@ const SelectMenu: React.FC<Props> = ({
                   <div className="px-2 py-1 border rounded text-xs flex items-center gap-2">
                     <span>Trang</span>
                     <input
-                      value={page}
+                      value={String(page)}
                       onChange={(e) => handlePageInputChange(e.target.value)}
                       className="w-12 text-center bg-transparent outline-none text-sm"
                       aria-label="Số trang"

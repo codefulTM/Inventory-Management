@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchMaterials } from "../../../../services/materialService";
+import { materialService } from "../../../../services/material.service";
 import type { Material } from "../../../../types/material";
 
 export function useMaterials() {
@@ -8,12 +8,12 @@ export function useMaterials() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchMaterialsList = async () => {
+    const fetchMaterials = async () => {
       try {
         setLoading(true);
-        const result = await fetchMaterials();
+        const result = await materialService.findAll();
 
-        setMaterials(Array.isArray(result) ? result : []);
+        setMaterials(result.data || []);
         setError(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
@@ -25,7 +25,7 @@ export function useMaterials() {
       }
     };
 
-    fetchMaterialsList();
+    fetchMaterials();
   }, []);
 
   return { materials, loading, error };
