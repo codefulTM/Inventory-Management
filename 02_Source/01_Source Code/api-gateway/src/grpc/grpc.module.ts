@@ -1,10 +1,23 @@
 import { Module, Global } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { existsSync } from 'fs';
 import { join } from 'path';
 
 export const AUTH_SERVICE_TOKEN = 'AUTH_GRPC_CLIENT';
 export const METRICS_SERVICE_TOKEN = 'METRICS_GRPC_CLIENT';
+
+function resolveProtoPath(protoFileName: string): string {
+  const candidates = [
+    join(__dirname, `../../proto/${protoFileName}`),
+    join(__dirname, `../../../proto/${protoFileName}`),
+    join(process.cwd(), `proto/${protoFileName}`),
+    join(process.cwd(), `../proto/${protoFileName}`),
+  ];
+
+  const existing = candidates.find((path) => existsSync(path));
+  return existing ?? candidates[0];
+}
 
 /**
  * GrpcModule — registers gRPC clients for downstream services.
@@ -23,7 +36,7 @@ export const METRICS_SERVICE_TOKEN = 'METRICS_GRPC_CLIENT';
           transport: Transport.GRPC,
           options: {
             package: 'auth',
-            protoPath: join(__dirname, '../../proto/auth.proto'),
+            protoPath: resolveProtoPath('auth.proto'),
             url: config.get<string>('KEYCLOAK_SERVICE_GRPC_URL', 'localhost:50051'),
             loader: {
               keepCase: true,
@@ -43,7 +56,7 @@ export const METRICS_SERVICE_TOKEN = 'METRICS_GRPC_CLIENT';
           transport: Transport.GRPC,
           options: {
             package: 'metrics',
-            protoPath: join(__dirname, '../../proto/metrics.proto'),
+            protoPath: resolveProtoPath('metrics.proto'),
             url: config.get<string>('METRICS_SERVICE_GRPC_URL', 'localhost:6741'),
             loader: {
               keepCase: true,
