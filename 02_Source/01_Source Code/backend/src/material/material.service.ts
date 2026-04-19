@@ -547,6 +547,9 @@ export class MaterialService {
       specification_document: material.specification_document,
       created_date: material.created_date,
       modified_date: material.modified_date,
+      created_by: material.created_by,
+      approved_by: material.approved_by,
+      status: material.status,
     };
   }
 }

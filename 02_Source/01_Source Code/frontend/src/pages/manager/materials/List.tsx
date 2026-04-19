@@ -91,6 +91,7 @@ const MaterialList: React.FC = () => {
     setLoading(true);
     try {
       const res = await materialService.findAll(1, 100);
+      console.log("kkk", res);
       const result: Material[] = Array.isArray(res.data) ? res.data : [];
       let filtered: Material[] = result;
       if (search)
@@ -100,7 +101,6 @@ const MaterialList: React.FC = () => {
             m.material_id?.toLowerCase().includes(search.toLowerCase()),
         );
       if (type) filtered = filtered.filter((m) => m.material_type === type);
-      console.log("MaterialList data:", filtered);
       setData(filtered);
     } finally {
       setLoading(false);
