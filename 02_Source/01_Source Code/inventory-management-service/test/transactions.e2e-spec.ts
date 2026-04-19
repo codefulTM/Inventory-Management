@@ -2,6 +2,7 @@ import { BadRequestException, INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { RolesGuard } from '../src/auth/guards/roles.guard';
+import { JwtAuthGuard } from '../src/common/auth/jwt-auth.guard';
 import { InventoryTransactionController } from '../src/inventory-transaction/inventory-transaction.controller';
 import { InventoryTransactionRepository } from '../src/inventory-transaction/inventory-transaction.repository';
 import { InventoryTransactionService } from '../src/inventory-transaction/inventory-transaction.service';
@@ -32,6 +33,10 @@ describe('InventoryTransactionController (e2e)', () => {
     canActivate: jest.fn(() => true),
   };
 
+  const jwtGuardMock = {
+    canActivate: jest.fn(() => true),
+  };
+
   beforeEach(async () => {
     repo = {
       findAll: jest.fn(),
@@ -51,6 +56,7 @@ describe('InventoryTransactionController (e2e)', () => {
       ],
     });
 
+    moduleBuilder.overrideGuard(JwtAuthGuard).useValue(jwtGuardMock);
     moduleBuilder.overrideGuard(RolesGuard).useValue(rolesGuardMock);
 
     const moduleFixture: TestingModule = await moduleBuilder.compile();
