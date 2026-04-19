@@ -13,8 +13,8 @@ services:
       NODE_ENV: production
       PORT: 3200
       GRPC_PORT: 50051
-      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@mongo:27017/inventory?authSource=admin
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@inventory_mongo:27017/inventory?authSource=admin
+      KEYCLOAK_SERVER_URL: http://inventory_keycloak:8080
       KEYCLOAK_REALM: inventory
       KEYCLOAK_CLIENT_ID: inventory-backend
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
@@ -23,12 +23,18 @@ services:
       KEYCLOAK_ADMIN_USER: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
+      JWKS_URI: http://inventory_keycloak:8080/realms/inventory/protocol/openid-connect/certs
     ports:
       - '3200:3200'
       - '50051:50051'
     networks:
       - inventory_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3200/api/auth/me || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     logging:
       driver: json-file
       options:
@@ -43,10 +49,14 @@ services:
     container_name: inventory_api_gateway
     restart: unless-stopped
     depends_on:
-      - keycloak-service
-      - inventory-management-service
-      - ai-service
-      - metrics-service
+      keycloak-service:
+        condition: service_healthy
+      inventory-management-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+      metrics-service:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -55,8 +65,8 @@ services:
       METRICS_SERVICE_GRPC_URL: metrics-service:6741
       BACKEND_URL: http://inventory-management-service:3100
       AI_SERVICE_URL: http://ai-service:3300
-      JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
-      JWT_ISSUER: ${JWT_ISSUER:-http://keycloak:8080/realms/inventory}
+      JWKS_URI: http://inventory_keycloak:8080/realms/inventory/protocol/openid-connect/certs
+      JWT_ISSUER: ${JWT_ISSUER:-http://inventory_keycloak:8080/realms/inventory}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
       - '3001:3001'
@@ -79,19 +89,19 @@ services:
       NODE_ENV: production
       PORT: 3100
       GRPC_PORT: 50052
-      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@mongo:27017/inventory?authSource=admin
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@inventory_mongo:27017/inventory?authSource=admin
+      KEYCLOAK_SERVER_URL: http://inventory_keycloak:8080
       KEYCLOAK_REALM: inventory
       KEYCLOAK_CLIENT_ID: inventory-backend
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
-      JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
-      JWT_ISSUER: ${JWT_ISSUER:-http://keycloak:8080/realms/inventory}
+      JWKS_URI: http://inventory_keycloak:8080/realms/inventory/protocol/openid-connect/certs
+      JWT_ISSUER: ${JWT_ISSUER:-http://inventory_keycloak:8080/realms/inventory}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       KEYCLOAK_SERVICE_GRPC_URL: keycloak-service:50051
-      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      ELASTICSEARCH_NODE: http://inventory_elasticsearch:9200
       ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
       ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
-      REDIS_HOST: redis
+      REDIS_HOST: inventory_redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -144,12 +154,12 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@mongo:27017/inventory?authSource=admin
-      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin123}@inventory_mongo:27017/inventory?authSource=admin
+      ELASTICSEARCH_NODE: http://inventory_elasticsearch:9200
       ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
       ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
       ELASTICSEARCH_TLS_CA: ${ELASTICSEARCH_TLS_CA:-}
-      REDIS_HOST: redis
+      REDIS_HOST: inventory_redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_TLS: 'false'
@@ -174,7 +184,7 @@ services:
     environment:
       NODE_ENV: production
       GRPC_PORT: 6741
-      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      ELASTICSEARCH_NODE: http://inventory_elasticsearch:9200
       ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
       ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
       ELASTICSEARCH_TLS_CA: ${ELASTICSEARCH_TLS_CA:-}
