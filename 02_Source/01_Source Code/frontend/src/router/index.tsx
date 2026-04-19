@@ -32,6 +32,10 @@ import StockOutOperator from "../pages/operator/StockOut";
 import InventoryTransactionListOperator from "../pages/operator/InventoryTransactionListOperator";
 import TransactionHistoryOperator from "../pages/operator/TransactionHistory";
 import LabelPrintOperator from "../pages/operator/LabelPrint";
+import WarehouseSlipList from "../pages/operator/WarehouseSlipList";
+import WarehouseSlipCreate from "../pages/operator/WarehouseSlipCreate";
+import WarehouseSlipDetailPage from "../pages/operator/WarehouseSlipDetailPage";
+import WarehouseSlipPrint from "../pages/operator/WarehouseSlipPrint";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import ForgotPassword from "../pages/auth/ForgotPassword";
@@ -285,6 +289,23 @@ export const router = createBrowserRouter([
         path: "manager/production-batches/:id/edit",
         element: requireManagerAuth(<ProductionBatchForm />),
       },
+      // Manager views for Warehouse Slips (US11) - reuse components, manager-only
+      {
+        path: "/manager/warehouse-slips",
+        element: requireManagerAuth(<WarehouseSlipList />),
+      },
+      {
+        path: "/manager/warehouse-slips/create",
+        element: requireManagerAuth(<WarehouseSlipCreate />),
+      },
+      {
+        path: "/manager/warehouse-slips/:id",
+        element: requireManagerAuth(<WarehouseSlipDetailPage />),
+      },
+      {
+        path: "/manager/warehouse-slips/:id/print",
+        element: requireManagerAuth(<WarehouseSlipPrint />),
+      },
       {
         path: "manager/inventory-transactions",
         element: requireManagerAuth(<InventoryTransactionListManager />),
@@ -317,6 +338,23 @@ export const router = createBrowserRouter([
       {
         path: "/operator/history",
         element: requireOperatorAuth(<TransactionHistoryOperator />),
+      },
+      // Warehouse slips (US11)
+      {
+        path: "/operator/warehouse-slips",
+        element: requireOperatorAuth(<WarehouseSlipList />),
+      },
+      {
+        path: "/operator/warehouse-slips/create",
+        element: requireOperatorAuth(<WarehouseSlipCreate />),
+      },
+      {
+        path: "/operator/warehouse-slips/:id",
+        element: requireOperatorAuth(<WarehouseSlipDetailPage />),
+      },
+      {
+        path: "/operator/warehouse-slips/:id/print",
+        element: requireOperatorAuth(<WarehouseSlipPrint />),
       },
       {
         path: "/operator/inventory-transactions",
