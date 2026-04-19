@@ -1,12 +1,14 @@
-import React, { useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import type { WarehouseSlip } from "../../../types/warehouseSlip";
+import React, { useState, useEffect } from "react";
+import { useForm, useFieldArray, useFormState } from "react-hook-form";
+import type {
+  WarehouseSlip,
+  WarehouseSlipLine,
+} from "../../../types/warehouseSlip";
 import AttachmentUploader from "./AttachmentUploader";
-import type { WarehouseSlipLine } from "../../../types/warehouseSlip";
-import { useEffect } from "react";
 import { fetchInventoryLots } from "../../../services/inventoryLotService";
 import { fetchMaterials } from "../../../services/materialService";
-import { useFormState } from "react-hook-form";
+import { createWarehouseSlip } from "../../../services/warehouseSlipService";
+import { fetchMaterial } from "../../../services/materialService";
 
 function generateLineId() {
   return `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
@@ -21,26 +23,25 @@ function createEmptyLine(): WarehouseSlipLine {
     unit: "",
   };
 }
-import { createWarehouseSlip } from "../../../services/warehouseSlipService";
-import { fetchMaterial } from "../../../services/materialService";
 
 export default function WarehouseSlipForm() {
-  const { register, control, handleSubmit } = useForm<Partial<WarehouseSlip>>({
+  const { register, control, handleSubmit, setValue, watch } = useForm<
+    Partial<WarehouseSlip>
+  >({
     defaultValues: {
       type: "IN",
       warehouse_id: "",
       lines: [createEmptyLine()],
     },
   });
+
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
-  const { setValue } = control as any;
-  const [lotOptions, setLotOptions] = React.useState<
-    {
-      lot_id: string;
-      label: string;
-      material_id: string;
-    }[]
+  const { errors } = useFormState({ control });
+
+  const [lotOptions, setLotOptions] = useState<
+    { lot_id: string; label: string; material_id: string }[]
   >([]);
+  const [materialsMap, setMaterialsMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     let mounted = true;
@@ -55,145 +56,264 @@ export default function WarehouseSlipForm() {
           label: `${l.lot_id} — ${(matMap[l.material_id] && (matMap[l.material_id].material_name || matMap[l.material_id].part_number)) || l.material_id}`,
         }));
         setLotOptions(opts);
+        setMaterialsMap(matMap);
       })
-      .catch(() => {
-        setLotOptions([]);
-      });
+      .catch(() => setLotOptions([]));
     return () => {
       mounted = false;
     };
   }, []);
+
+  const watchLines = (watch("lines") || []) as Partial<WarehouseSlipLine>[];
+
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(data: Partial<WarehouseSlip>) {
     setSubmitting(true);
     try {
-      // client-side validation: ensure materials exist and are Approved
       const lines = Array.isArray(data.lines) ? data.lines : [];
       for (const l of lines) {
         if (l.material_id) {
           try {
             const mat = await fetchMaterial(l.material_id);
             if ((mat.status || "").toLowerCase() !== "approved") {
-              throw new Error(`Material ${l.material_id} is not Approved`);
+              throw new Error(`Nguyên liệu ${l.material_id} chưa được duyệt`);
             }
           } catch (err: any) {
             alert(
-              err?.message || `Material ${l.material_id} validation failed`,
+              err?.message || `Xác thực nguyên liệu ${l.material_id} thất bại`,
             );
             setSubmitting(false);
             return;
           }
         }
       }
-      // build payload; attachments uploaded separately in this minimal impl
+
       const payload: any = { ...data, attachments: [] };
       const res = await createWarehouseSlip(payload);
-      alert(`Created slip ${res.slip_number}`);
+      alert(`Tạo phiếu thành công: ${res.slip_number}`);
     } catch (err: any) {
-      alert(err?.message || "Failed");
+      alert(err?.message || "Thất bại");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <div>
-        <label>Type</label>
-        <select {...register("type")}>
-          {" "}
-          <option value="IN">IN</option>
-          <option value="OUT">OUT</option>
-        </select>
-      </div>
-      <div>
-        <label>Warehouse</label>
-        <input {...register("warehouse_id", { required: true })} />
-      </div>
-      <div>
-        <label>Reference</label>
-        <input {...register("reference_number")} />
-      </div>
-      <div>
-        <label>Notes</label>
-        <textarea {...register("notes")} />
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Loại phiếu
+          </label>
+          <select
+            {...register("type")}
+            className="mt-1 block w-full rounded-md border-gray-200 shadow-sm px-3 py-2"
+          >
+            <option value="IN">Phiếu nhập</option>
+            <option value="OUT">Phiếu xuất</option>
+          </select>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Kho <span className="text-red-600">*</span>
+          </label>
+          <input
+            {...register("warehouse_id", { required: "Kho là bắt buộc" })}
+            className="mt-1 block w-full rounded-md border-gray-200 shadow-sm px-3 py-2"
+            placeholder="Chọn hoặc nhập mã kho"
+          />
+          {errors?.warehouse_id && (
+            <div className="text-xs text-red-600 mt-1">
+              {(errors.warehouse_id as any)?.message}
+            </div>
+          )}
+        </div>
       </div>
 
-      <h4>Lines</h4>
-      {fields.map((f, idx) => (
-        <div key={f.id} className="flex items-center gap-2">
-          <select
-            {...register(`lines.${idx}.lot_id` as const, {
-              required: "Lot is required",
-            })}
-            onChange={(e) => {
-              const selected = e.target.value;
-              // set material_id based on selected lot
-              const found = lotOptions.find((o) => o.lot_id === selected);
-              setValue(
-                `lines.${idx}.material_id`,
-                found ? found.material_id : "",
-              );
-            }}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Số tham chiếu
+          </label>
+          <input
+            {...register("reference_number")}
+            className="mt-1 block w-full rounded-md border-gray-200 shadow-sm px-3 py-2"
+            placeholder="Số tham chiếu (tùy chọn)"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Ghi chú
+          </label>
+          <input
+            {...register("notes")}
+            className="mt-1 block w-full rounded-md border-gray-200 shadow-sm px-3 py-2"
+            placeholder="Ghi chú"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-100 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-base font-semibold">Dòng hàng</h4>
+          <button
+            type="button"
+            onClick={() => append(createEmptyLine())}
+            className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-md text-sm"
           >
-            <option value="">-- select lot --</option>
-            {lotOptions.map((o) => (
-              <option key={o.lot_id} value={o.lot_id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <input
-            type="hidden"
-            {...register(`lines.${idx}.material_id` as const)}
-          />
-          <input
-            type="number"
-            {...register(`lines.${idx}.quantity` as const, {
-              valueAsNumber: true,
-              required: "Quantity is required",
-              min: { value: 1, message: "Quantity must be at least 1" },
-            })}
-          />
-          <input
-            placeholder="unit price"
-            type="number"
-            step="0.01"
-            {...register(`lines.${idx}.unit_price` as const, {
-              valueAsNumber: true,
-              min: { value: 0, message: "Unit price must be >= 0" },
-            })}
-          />
-          <input
-            placeholder="unit"
-            {...register(`lines.${idx}.unit` as const, {
-              required: "Unit is required",
-            })}
-          />
-          <button type="button" onClick={() => remove(idx)}>
-            Remove
+            Thêm dòng
           </button>
         </div>
-      ))}
-      <button type="button" onClick={() => append(createEmptyLine())}>
-        Add line
-      </button>
 
-      <h4>Attachments</h4>
-      <AttachmentUploader
-        onChange={(list) => setFiles(list.map((i) => i.file))}
-      />
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm divide-y divide-gray-100">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">
+                  Lô <span className="text-red-600">*</span>
+                </th>
+                <th className="px-3 py-2 text-left">Nguyên liệu</th>
+                <th className="px-3 py-2 text-left">
+                  Số lượng <span className="text-red-600">*</span>
+                </th>
+                <th className="px-3 py-2 text-left">Đơn giá</th>
+                <th className="px-3 py-2 text-left">
+                  Đơn vị <span className="text-red-600">*</span>
+                </th>
+                <th className="px-3 py-2 text-right">Hành động</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {fields.map((f, idx) => (
+                <tr key={f.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 align-middle">
+                    <select
+                      {...register(`lines.${idx}.lot_id` as const, {
+                        required: "Lô là bắt buộc",
+                      })}
+                      onChange={(e) => {
+                        const selected = e.target.value;
+                        const found = lotOptions.find(
+                          (o) => o.lot_id === selected,
+                        );
+                        setValue(
+                          `lines.${idx}.material_id`,
+                          found ? found.material_id : "",
+                        );
+                      }}
+                      className="rounded border-gray-200 px-2 py-1 text-sm w-full"
+                    >
+                      <option value="">-- chọn lô --</option>
+                      {lotOptions.map((o) => (
+                        <option key={o.lot_id} value={o.lot_id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2 align-middle text-sm text-gray-700">
+                    {(() => {
+                      const materialId = (watchLines[idx] || {})
+                        .material_id as string;
+                      const m = materialId ? materialsMap[materialId] : null;
+                      return m
+                        ? m.material_name || m.part_number || materialId
+                        : materialId || "-";
+                    })()}
+                    <input
+                      type="hidden"
+                      {...register(`lines.${idx}.material_id` as const)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <input
+                      type="number"
+                      {...register(`lines.${idx}.quantity` as const, {
+                        valueAsNumber: true,
+                        required: "Số lượng là bắt buộc",
+                        min: {
+                          value: 1,
+                          message: "Số lượng phải lớn hơn hoặc bằng 1",
+                        },
+                      })}
+                      className="w-28 rounded border-gray-200 px-2 py-1"
+                      min={1}
+                    />
+                    {errors?.lines && errors.lines[idx] && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {(errors.lines[idx] as any)?.quantity?.message}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <input
+                      placeholder="0.00"
+                      type="number"
+                      step="0.01"
+                      {...register(`lines.${idx}.unit_price` as const, {
+                        valueAsNumber: true,
+                        min: { value: 0, message: "Đơn giá phải >= 0" },
+                      })}
+                      className="w-32 rounded border-gray-200 px-2 py-1"
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <input
+                      placeholder="đơn vị"
+                      {...register(`lines.${idx}.unit` as const, {
+                        required: "Đơn vị là bắt buộc",
+                      })}
+                      className="w-24 rounded border-gray-200 px-2 py-1"
+                    />
+                    {errors?.lines && errors.lines[idx] && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {(errors.lines[idx] as any)?.unit?.message}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 align-middle text-right">
+                    <button
+                      type="button"
+                      onClick={() => remove(idx)}
+                      className="text-sm text-red-600 hover:underline"
+                    >
+                      Xóa
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      <div className="mt-3">
+      <div className="bg-white border border-gray-100 rounded-lg p-4">
+        <h4 className="font-semibold mb-2">Tệp đính kèm</h4>
+        <AttachmentUploader
+          onChange={(list) => setFiles(list.map((i) => i.file))}
+        />
+        <div className="text-xs text-gray-500 mt-2">
+          Cho phép: JPG, PNG, PDF. Tối đa 5MB mỗi file.
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
         <button
           type="submit"
           disabled={submitting}
-          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm disabled:opacity-60"
         >
-          Submit
+          {submitting ? "Đang gửi..." : "Tạo phiếu"}
         </button>
+        <a
+          href="/operator/warehouse-slips"
+          className="text-sm text-gray-600 hover:underline"
+        >
+          Hủy
+        </a>
       </div>
     </form>
   );
