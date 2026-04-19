@@ -229,8 +229,12 @@ export default function WarehouseSlipForm() {
                 onSearchChange={(q: string) => {
                   setWhSearch(q);
                   loadWarehouses(1, q);
+                  console.log("search changed");
                 }}
-                onPageChange={(p: number) => loadWarehouses(p, whSearch)}
+                onPageChange={(p: number) => {
+                  loadWarehouses(p, whSearch);
+                  console.log("page changed");
+                }}
               />
             )}
           />

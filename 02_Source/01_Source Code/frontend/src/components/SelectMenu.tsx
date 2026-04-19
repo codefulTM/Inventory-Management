@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 
 export type SelectItem = { id: string | number; label: string };
 
@@ -57,28 +58,47 @@ const SelectMenu: React.FC<Props> = ({
   const [highlighted, setHighlighted] = useState<number>(-1);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [portalStyle, setPortalStyle] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => setLocalSearch(searchValue ?? ""), [searchValue]);
 
   // debounce live-search: call onSearchChange after typing stops
+  const onSearchChangeRef = useRef<((q: string) => void) | null>(null);
+  useEffect(() => {
+    onSearchChangeRef.current = onSearchChange ?? null;
+  }, [onSearchChange]);
+
   useEffect(() => {
     const t = setTimeout(() => {
-      if (onSearchChange) onSearchChange(localSearch);
+      const fn = onSearchChangeRef.current;
+      if (fn) fn(localSearch);
     }, 300);
     return () => clearTimeout(t);
-  }, [localSearch, onSearchChange]);
+  }, [localSearch]);
 
   // close when clicking outside
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!rootRef.current) return;
-      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      const insideRoot = rootRef.current.contains(target);
+      const insideDropdown = dropdownRef.current
+        ? dropdownRef.current.contains(target)
+        : false;
+      if (!insideRoot && !insideDropdown) setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
   const selected = items.find((it) => String(it.id) === String(value));
+
+  // local filtering for better UX when backend doesn't perform search
+  const q = (localSearch || "").trim().toLowerCase();
+  const displayedItems = q
+    ? items.filter((it) => (it.label || "").toLowerCase().includes(q))
+    : items;
 
   const toggleOpen = () => setOpen((s) => !s);
 
@@ -99,33 +119,34 @@ const SelectMenu: React.FC<Props> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) {
-      if (e.key === "ArrowDown" || e.key === "Enter") {
-        setOpen(true);
+  // handle keyboard even when dropdown is rendered in a portal
+  useEffect(() => {
+    if (!open) return;
+    function onDocKey(e: KeyboardEvent) {
+      if (e.key === "ArrowDown") {
+        setHighlighted((p) =>
+          Math.min(p + 1, Math.max(0, displayedItems.length - 1)),
+        );
         e.preventDefault();
+        scrollHighlightedIntoView();
+      } else if (e.key === "ArrowUp") {
+        setHighlighted((p) => Math.max(p - 1, 0));
+        e.preventDefault();
+        scrollHighlightedIntoView();
+      } else if (e.key === "Enter") {
+        if (highlighted >= 0 && highlighted < displayedItems.length) {
+          handleSelect(displayedItems[highlighted]);
+        } else if (onSearch) {
+          onSearch(localSearch);
+        }
+        e.preventDefault();
+      } else if (e.key === "Escape") {
+        setOpen(false);
       }
-      return;
     }
-    if (e.key === "ArrowDown") {
-      setHighlighted((p) => Math.min(p + 1, items.length - 1));
-      e.preventDefault();
-      scrollHighlightedIntoView();
-    } else if (e.key === "ArrowUp") {
-      setHighlighted((p) => Math.max(p - 1, 0));
-      e.preventDefault();
-      scrollHighlightedIntoView();
-    } else if (e.key === "Enter") {
-      if (highlighted >= 0 && highlighted < items.length) {
-        handleSelect(items[highlighted]);
-      } else if (onSearch) {
-        onSearch(localSearch);
-      }
-      e.preventDefault();
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
-  };
+    document.addEventListener("keydown", onDocKey);
+    return () => document.removeEventListener("keydown", onDocKey);
+  }, [open, displayedItems, highlighted, localSearch, onSearch]);
 
   const handlePrev = () => {
     if (onPrev) return onPrev();
@@ -144,12 +165,28 @@ const SelectMenu: React.FC<Props> = ({
     if (onPageChange) onPageChange(num);
   };
 
+  useEffect(() => {
+    if (!open) return;
+    function update() {
+      if (!rootRef.current) return;
+      const rect = rootRef.current.getBoundingClientRect();
+      setPortalStyle({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
+
   return (
-    <div
-      ref={rootRef}
-      className={`${className} relative`}
-      onKeyDown={handleKeyDown}
-    >
+    <div ref={rootRef} className={`${className} relative`}>
       <button
         type="button"
         aria-haspopup="listbox"
@@ -160,101 +197,110 @@ const SelectMenu: React.FC<Props> = ({
         <span>{selected ? selected.label : (placeholder ?? "")}</span>
         <span className="ml-2 text-sm">{open ? "▴" : "▾"}</span>
       </button>
-
-      {open && (
-        <div
-          className="absolute left-0 right-0 mt-1 z-50 bg-white border rounded shadow-md flex flex-col"
-          role="dialog"
-        >
-          {showSearch && (
-            <div className="p-2 border-b">
-              <input
-                type="text"
-                value={localSearch}
-                onChange={(e) => setLocalSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (onSearch) onSearch(localSearch);
-                  }
-                }}
-                placeholder={searchPlaceholder}
-                className="w-full px-2 py-1 border rounded"
-              />
-            </div>
-          )}
-
+      {open &&
+        createPortal(
           <div
-            ref={listRef}
-            className="max-h-48 overflow-auto p-1"
-            role="listbox"
-            tabIndex={-1}
+            ref={dropdownRef}
+            style={{
+              position: "absolute",
+              top: portalStyle.top,
+              left: portalStyle.left,
+              width: portalStyle.width,
+              zIndex: 9999,
+            }}
+            className="bg-white border rounded shadow-md flex flex-col"
+            role="dialog"
           >
-            {loading ? (
-              <div className="p-3 text-center text-sm text-gray-500">
-                Đang tải...
+            {showSearch && (
+              <div className="p-2 border-b">
+                <input
+                  type="text"
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (onSearch) onSearch(localSearch);
+                    }
+                  }}
+                  placeholder={searchPlaceholder}
+                  className="w-full px-2 py-1 border rounded"
+                />
               </div>
-            ) : items.length === 0 ? (
-              <div className="p-3 text-center text-sm text-gray-500">
-                Không có kết quả
-              </div>
-            ) : (
-              items.map((it, i) => (
-                <div
-                  key={String(it.id)}
-                  data-item-index={i}
-                  role="option"
-                  aria-selected={String(it.id) === String(value)}
-                  onMouseEnter={() => setHighlighted(i)}
-                  onClick={() => handleSelect(it)}
-                  className={`px-2 py-2 cursor-pointer hover:bg-gray-100 ${String(it.id) === String(value) ? "bg-gray-100 font-medium" : highlighted === i ? "bg-gray-50" : ""}`}
-                >
-                  {it.label}
-                </div>
-              ))
             )}
-          </div>
 
-          {showPagination && (
-            <div className="p-2 border-t flex items-center justify-between text-sm gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePrev}
-                  disabled={
-                    page <= 1 || (totalPages !== undefined && totalPages <= 1)
-                  }
-                  className="px-2 py-1 border rounded"
-                  aria-label="Trang trước"
-                >
-                  ←
-                </button>
-
-                <div className="px-2 py-1 border rounded text-xs flex items-center gap-2">
-                  <span>Trang</span>
-                  <input
-                    value={page}
-                    onChange={(e) => handlePageInputChange(e.target.value)}
-                    className="w-12 text-center bg-transparent outline-none text-sm"
-                    aria-label="Số trang"
-                  />
-                  <span>/ {totalPages ?? 1}</span>
+            <div
+              ref={listRef}
+              className="max-h-48 overflow-auto p-1"
+              role="listbox"
+              tabIndex={-1}
+            >
+              {loading ? (
+                <div className="p-3 text-center text-sm text-gray-500">
+                  Đang tải...
                 </div>
-
-                <button
-                  onClick={handleNext}
-                  disabled={
-                    totalPages !== undefined ? page >= totalPages : false
-                  }
-                  className="px-2 py-1 border rounded"
-                  aria-label="Trang sau"
-                >
-                  →
-                </button>
-              </div>
+              ) : displayedItems.length === 0 ? (
+                <div className="p-3 text-center text-sm text-gray-500">
+                  Không có kết quả
+                </div>
+              ) : (
+                displayedItems.map((it, i) => (
+                  <div
+                    key={String(it.id)}
+                    data-item-index={i}
+                    role="option"
+                    aria-selected={String(it.id) === String(value)}
+                    onMouseEnter={() => setHighlighted(i)}
+                    onClick={() => handleSelect(it)}
+                    className={`px-2 py-2 cursor-pointer hover:bg-gray-100 ${String(it.id) === String(value) ? "bg-gray-100 font-medium" : highlighted === i ? "bg-gray-50" : ""}`}
+                  >
+                    {it.label}
+                  </div>
+                ))
+              )}
             </div>
-          )}
-        </div>
-      )}
+
+            {showPagination && (
+              <div className="p-2 border-t flex items-center justify-between text-sm gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrev}
+                    disabled={
+                      page <= 1 || (totalPages !== undefined && totalPages <= 1)
+                    }
+                    className="px-2 py-1 border rounded"
+                    aria-label="Trang trước"
+                  >
+                    ←
+                  </button>
+
+                  <div className="px-2 py-1 border rounded text-xs flex items-center gap-2">
+                    <span>Trang</span>
+                    <input
+                      value={page}
+                      onChange={(e) => handlePageInputChange(e.target.value)}
+                      className="w-12 text-center bg-transparent outline-none text-sm"
+                      aria-label="Số trang"
+                    />
+                    <span>/ {totalPages ?? 1}</span>
+                  </div>
+
+                  <button
+                    onClick={handleNext}
+                    disabled={
+                      totalPages !== undefined ? page >= totalPages : false
+                    }
+                    className="px-2 py-1 border rounded"
+                    aria-label="Trang sau"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

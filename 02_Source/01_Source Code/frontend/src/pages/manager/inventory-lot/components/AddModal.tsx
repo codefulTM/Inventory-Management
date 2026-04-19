@@ -272,17 +272,26 @@ export function AddModal({
                 <FormField label="Kho chứa">
                   {warehousesLoading ? (
                     <div className="flex items-center py-2">
-                      <Loader size={14} className="animate-spin text-gray-400" />
-                      <span className="text-sm text-gray-500 ml-2">Đang tải...</span>
+                      <Loader
+                        size={14}
+                        className="animate-spin text-gray-400"
+                      />
+                      <span className="text-sm text-gray-500 ml-2">
+                        Đang tải...
+                      </span>
                     </div>
                   ) : warehousesError ? (
                     <div className="flex items-center gap-2 p-2 bg-red-50 text-red-600 rounded text-sm">
-                      <AlertCircle size={14} /> Lỗi: {String(warehousesError?.message ?? warehousesError)}
+                      <AlertCircle size={14} /> Lỗi:{" "}
+                      {String(warehousesError?.message ?? warehousesError)}
                     </div>
                   ) : (
                     <>
                       <SelectMenu
-                        items={warehouses.map((w) => ({ id: w.warehouse_id, label: `${w.warehouse_id} - ${w.warehouse_name}` }))}
+                        items={warehouses.map((w) => ({
+                          id: w.warehouse_id,
+                          label: `${w.warehouse_id} - ${w.warehouse_name}`,
+                        }))}
                         value={watch("warehouse_id") ?? ""}
                         onChange={(v) => setValue("warehouse_id", String(v))}
                         placeholder="-- Chọn kho --"
@@ -334,7 +343,9 @@ export function AddModal({
                         return true;
                       },
                     })}
-                    className={errors.manufacture_date ? INPUT_ERR_CLS : INPUT_CLS}
+                    className={
+                      errors.manufacture_date ? INPUT_ERR_CLS : INPUT_CLS
+                    }
                   />
                 </FormField>
                 <FormField

@@ -166,8 +166,12 @@ export function DetailModal({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Kho chứa</p>
-                  <p className="mt-1 font-semibold text-gray-900 text-sm">{selectedLot.warehouse_id ?? '-'}</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Kho chứa
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900 text-sm">
+                    {selectedLot.warehouse_id ?? "-"}
+                  </p>
                 </div>
               </div>
             </section>
