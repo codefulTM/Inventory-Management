@@ -12,10 +12,10 @@ import type {
 import AttachmentUploader from "./AttachmentUploader";
 import SelectMenu from "../../SelectMenu";
 import { fetchInventoryLotOptions } from "../../../services/inventoryLotService";
-import { fetchMaterials } from "../../../services/materialService";
+import { materialService } from "../../../services/material.service";
 import { fetchWarehouses } from "../../../services/warehouseService";
 import { createWarehouseSlip } from "../../../services/warehouseSlipService";
-import { fetchMaterial } from "../../../services/materialService";
+// note: use materialService.findById for single material lookup
 
 function generateLineId() {
   return `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
@@ -56,7 +56,12 @@ export default function WarehouseSlipForm() {
 
   // Lots for selected warehouse (paginated + searchable)
   const [lotItems, setLotItems] = useState<
-    { lot_id: string; label: string; material_id: string }[]
+    {
+      lot_id: string;
+      label: string;
+      material_id: string;
+      material_name: string;
+    }[]
   >([]);
   const [lotPage, setLotPage] = useState(1);
   const [lotTotalPages, setLotTotalPages] = useState(1);
@@ -66,9 +71,12 @@ export default function WarehouseSlipForm() {
   useEffect(() => {
     let mounted = true;
     // fetch materials on mount, then initial warehouses
-    fetchMaterials()
-      .then((materialsRes) => {
+    // use materialService.findAll to get materials (paginated response)
+    materialService
+      .findAll(1, 1000)
+      .then((res) => {
         if (!mounted) return;
+        const materialsRes = (res && res.data) || [];
         const matMap: Record<string, any> = {};
         materialsRes.forEach((m: any) => (matMap[m.material_id || m._id] = m));
         setMaterialsMap(matMap);
@@ -110,11 +118,22 @@ export default function WarehouseSlipForm() {
       });
       const items = res.items || [];
       const matMap = { ...materialsMap };
-      const opts = items.map((l: any) => ({
-        lot_id: l.lot_id,
-        material_id: l.material_id,
-        label: `${l.lot_id} — ${(matMap[l.material_id] && (matMap[l.material_id].material_name || matMap[l.material_id].part_number)) || l.material_id}`,
-      }));
+      const opts = items.map((l: any) => {
+        const materialName =
+          (matMap[l.material_id] &&
+            (matMap[l.material_id].material_name ||
+              matMap[l.material_id].part_number)) ||
+          l.material_name ||
+          l.part_number ||
+          l.material_id ||
+          "";
+        return {
+          lot_id: l.lot_id,
+          material_id: l.material_id,
+          material_name: materialName,
+          label: `${l.lot_id} - ${materialName}`,
+        };
+      });
       setLotItems(opts);
       setLotPage(res.pagination?.page || page);
       setLotTotalPages(res.pagination?.totalPages || 1);
@@ -161,7 +180,7 @@ export default function WarehouseSlipForm() {
       for (const l of lines) {
         if (l.material_id) {
           try {
-            const mat = await fetchMaterial(l.material_id);
+            const mat = await materialService.findById(l.material_id);
             if ((mat.status || "").toLowerCase() !== "approved") {
               throw new Error(`Nguyên liệu ${l.material_id} chưa được duyệt`);
             }
@@ -229,12 +248,8 @@ export default function WarehouseSlipForm() {
                 onSearchChange={(q: string) => {
                   setWhSearch(q);
                   loadWarehouses(1, q);
-                  console.log("search changed");
                 }}
-                onPageChange={(p: number) => {
-                  loadWarehouses(p, whSearch);
-                  console.log("page changed");
-                }}
+                onPageChange={(p: number) => loadWarehouses(p, whSearch)}
               />
             )}
           />
@@ -312,7 +327,7 @@ export default function WarehouseSlipForm() {
                           <SelectMenu
                             items={lotItems.map((o) => ({
                               id: o.lot_id,
-                              label: o.label,
+                              label: `${o.lot_id} - ${o.material_name || ""}`,
                             }))}
                             value={field.value ?? ""}
                             onChange={(v: string | number) => {
@@ -358,10 +373,12 @@ export default function WarehouseSlipForm() {
                     {(() => {
                       const materialId = (watchLines[idx] || {})
                         .material_id as string;
+                      const lotId = (watchLines[idx] || {}).lot_id as string;
                       const m = materialId ? materialsMap[materialId] : null;
-                      return m
-                        ? m.material_name || m.part_number || materialId
-                        : materialId || "-";
+                      if (m) return m.material_name || m.part_number || "-";
+                      const lot = lotItems.find((o) => o.lot_id === lotId);
+                      if (lot && lot.material_name) return lot.material_name;
+                      return "-";
                     })()}
                     <input
                       type="hidden"

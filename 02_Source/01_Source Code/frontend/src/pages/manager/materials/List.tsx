@@ -128,7 +128,9 @@ const MaterialList: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editing) {
-        await materialService.update(editing._id, values);
+        // remove fields that backend forbids on update
+        const { material_id, part_number, ...updateValues } = values as any;
+        await materialService.update(editing._id, updateValues);
         message.success("Cập nhật thành công");
       } else {
         await materialService.create(values);
@@ -137,7 +139,10 @@ const MaterialList: React.FC = () => {
       hide();
       await fetchData();
     } catch (e) {
-      // ignore
+      console.error("Material modal submit failed:", e);
+      // show toast error
+      const msg = (e as any)?.message || "Thao tác thất bại";
+      message.error(msg);
     } finally {
       setModalLoading(false);
     }

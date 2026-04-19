@@ -10,6 +10,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { isValidObjectId } from 'mongoose';
 import { MaterialRepository } from './material.repository';
 import {
   CreateMaterialDto,
@@ -151,7 +152,14 @@ export class MaterialService {
   async findById(id: string): Promise<MaterialResponseDto> {
     this.logger.debug(`Finding material by ID: ${id}`);
 
-    const material = await this.repository.findById(id);
+    // Accept either a MongoDB ObjectId or the business `material_id` (e.g. "MAT-002").
+    let material;
+    if (isValidObjectId(id)) {
+      material = await this.repository.findById(id);
+    } else {
+      material = await this.repository.findByMaterialId(id);
+    }
+
     if (!material) {
       this.logger.warn(`Material not found: ${id}`);
       throw new NotFoundException(`Material with ID '${id}' not found`);
@@ -280,15 +288,24 @@ export class MaterialService {
   ): Promise<MaterialResponseDto> {
     this.logger.log(`Updating material: ${id}`);
 
-    // Check if material exists
-    const material = await this.repository.findById(id);
+    // Resolve whether `id` is an ObjectId or a business `material_id` and
+    // obtain the real Mongo `_id` to perform updates safely.
+    let material = null as any;
+    let resolvedId = id;
+    if (isValidObjectId(id)) {
+      material = await this.repository.findById(id);
+    } else {
+      material = await this.repository.findByMaterialId(id);
+      if (material) resolvedId = material._id?.toString();
+    }
+
     if (!material) {
       this.logger.warn(`Material not found for update: ${id}`);
       throw new NotFoundException(`Material with ID '${id}' not found`);
     }
 
-    // Perform the update
-    const updated = await this.repository.update(id, updateDto);
+    // Perform the update using resolved MongoDB _id
+    const updated = await this.repository.update(resolvedId, updateDto);
     this.logger.log(`Material updated successfully: ${id}`);
 
     return this.toResponseDto(updated);
@@ -303,15 +320,23 @@ export class MaterialService {
   async delete(id: string): Promise<{ message: string }> {
     this.logger.log(`Deleting material: ${id}`);
 
-    // Check if material exists
-    const material = await this.repository.findById(id);
+    // Resolve either MongoDB ObjectId or business material_id
+    let material = null as any;
+    let resolvedId = id;
+    if (isValidObjectId(id)) {
+      material = await this.repository.findById(id);
+    } else {
+      material = await this.repository.findByMaterialId(id);
+      if (material) resolvedId = material._id?.toString();
+    }
+
     if (!material) {
       this.logger.warn(`Material not found for deletion: ${id}`);
       throw new NotFoundException(`Material with ID '${id}' not found`);
     }
 
-    // Delete the material
-    await this.repository.delete(id);
+    // Delete the material using resolved MongoDB _id
+    await this.repository.delete(resolvedId);
     this.logger.log(`Material deleted successfully: ${id}`);
 
     return { message: `Material '${id}' deleted successfully` };
