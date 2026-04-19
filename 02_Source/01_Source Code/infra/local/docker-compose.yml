@@ -63,7 +63,7 @@ services:
   keycloak-service:
     build:
       context: ../..
-      dockerfile: ./infra/local/keycloak-service.Dockerfile
+      dockerfile: ./keycloak-service/Dockerfile
     container_name: inventory_keycloak_service
     restart: unless-stopped
     depends_on:
@@ -93,7 +93,7 @@ services:
   api-gateway:
     build:
       context: ../..
-      dockerfile: ./infra/local/api-gateway.Dockerfile
+      dockerfile: ./api-gateway/Dockerfile
     container_name: inventory_api_gateway
     restart: unless-stopped
     depends_on:
@@ -118,7 +118,7 @@ services:
   inventory-management-service:
     build:
       context: ../..
-      dockerfile: ./infra/local/inventory-management-service.Dockerfile
+      dockerfile: ./inventory-management-service/Dockerfile
     container_name: inventory_backend
     restart: unless-stopped
     depends_on:
@@ -146,7 +146,7 @@ services:
   ai-service:
     build:
       context: ../..
-      dockerfile: ./infra/local/ai-service.Dockerfile
+      dockerfile: ./ai-service/Dockerfile
     container_name: inventory_ai_service
     restart: unless-stopped
     depends_on:
@@ -168,7 +168,7 @@ services:
   analytics-indexer-service:
     build:
       context: ../..
-      dockerfile: ./infra/local/analytics-indexer-service.Dockerfile
+      dockerfile: ./analytics-indexer-service/Dockerfile
     container_name: inventory_analytics_indexer
     restart: unless-stopped
     depends_on:
@@ -194,7 +194,7 @@ services:
   metrics-service:
     build:
       context: ../..
-      dockerfile: ./infra/local/metrics-service.Dockerfile
+      dockerfile: ./metrics-service/Dockerfile
     container_name: inventory_metrics_service
     restart: unless-stopped
     depends_on:
@@ -214,7 +214,7 @@ services:
   inventory-management-web-app:
     build:
       context: ../..
-      dockerfile: ./infra/local/inventory-management-web-app.Dockerfile
+      dockerfile: ./inventory-management-web-app/Dockerfile.dev
     container_name: inventory_frontend
     restart: unless-stopped
     depends_on:
