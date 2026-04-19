@@ -9,7 +9,7 @@ import { WarehouseSlipRepository } from './warehouse-slip.repository';
 import { CreateWarehouseSlipDto } from './dto/create-warehouse-slip.dto';
 import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
 import { TransactionType } from '../inventory-transaction/dto/create-inventory-transaction.dto';
-import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repository';
+import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
 
@@ -18,7 +18,7 @@ export class WarehouseSlipService {
   constructor(
     private readonly repo: WarehouseSlipRepository,
     private readonly inventoryTransactionService: InventoryTransactionService,
-    private readonly inventoryLotRepository: InventoryLotRepository,
+    private readonly inventoryLotService: InventoryLotService,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -28,6 +28,7 @@ export class WarehouseSlipService {
   }
 
   async create(dto: CreateWarehouseSlipDto, requester: { actor: string }) {
+    console.log('Creating WH slip');
     // validate warehouse
     const warehouse = await this.repo.findWarehouseById(dto.warehouse_id);
     if (!warehouse) {
@@ -140,6 +141,7 @@ export class WarehouseSlipService {
       lot_id: string;
       delta: number;
       txId?: any;
+      prevQuantity: number;
     }> = [];
 
     try {
@@ -149,59 +151,75 @@ export class WarehouseSlipService {
         if (!l.lot_id) throw new BadRequestException('Line missing lot_id');
         if (qty <= 0) throw new BadRequestException('Invalid line quantity');
 
-        const lot = await this.inventoryLotRepository.findById(l.lot_id);
+        const lot = await this.inventoryLotService.findById(l.lot_id);
         if (!lot) throw new BadRequestException(`Lot ${l.lot_id} not found`);
 
-        if ((slip.type || '').toUpperCase() === 'IN') {
-          // Receipt: quantity positive
-          const tx = await this.inventoryTransactionService.create({
-            lot_id: l.lot_id,
-            transaction_type: TransactionType.Receipt,
-            quantity: qty,
-            unit_of_measure: l.unit || lot.unit_of_measure || 'EA',
-            performed_by: requester.actor,
-            reference_number: `slip:${slip.slip_id}`,
-            notes: `Approve slip ${slip.slip_number}`,
-            transaction_date: new Date().toISOString(),
-          } as any);
+        const prevQty = Number(lot.quantity || 0);
 
-          // update lot quantity
-          await this.inventoryLotRepository.updateQuantity(
+        if ((slip.type || '').toUpperCase() === 'IN') {
+          // Receipt: use InventoryLotService.update() which creates a transaction
+          const newQty = prevQty + qty;
+          const before = new Date();
+          await this.inventoryLotService.update(
             l.lot_id,
-            qty as any,
+            {
+              quantity: newQty,
+              unit_of_measure: l.unit || lot.unit_of_measure,
+              qc_by: requester.actor,
+            },
+            { username: requester.actor },
           );
+
+          // try to find the created transaction via actor's history
+          const txResult = await this.inventoryTransactionService.getMyHistory(
+            { keyword: `lot-update:${l.lot_id}` },
+            { page: 1, limit: 5 },
+            requester.actor,
+          );
+          const tx = (txResult.items || []).find((it: any) =>
+            Number(it.quantity) === newQty - prevQty && new Date(it.transaction_date) >= before,
+          ) || (txResult.items || [])[0];
+
           applied.push({
             lot_id: l.lot_id,
             delta: qty,
             txId: tx?._id ?? tx?.transaction_id,
+            prevQuantity: prevQty,
           });
         } else {
-          // OUT: usage, ensure sufficient stock
-          const available = Number(lot.quantity || 0);
+          // OUT: ensure sufficient stock then use service update
+          const available = prevQty;
           if (available < qty) {
             throw new BadRequestException(
               `Insufficient stock on lot ${l.lot_id}: available=${available}`,
             );
           }
-          const tx = await this.inventoryTransactionService.create({
-            lot_id: l.lot_id,
-            transaction_type: TransactionType.Usage,
-            quantity: -Math.abs(qty),
-            unit_of_measure: l.unit || lot.unit_of_measure || 'EA',
-            performed_by: requester.actor,
-            reference_number: `slip:${slip.slip_id}`,
-            notes: `Approve slip ${slip.slip_number}`,
-            transaction_date: new Date().toISOString(),
-          } as any);
-
-          await this.inventoryLotRepository.updateQuantity(
+          const newQty = prevQty - qty;
+          const before = new Date();
+          await this.inventoryLotService.update(
             l.lot_id,
-            -qty as any,
+            {
+              quantity: newQty,
+              unit_of_measure: l.unit || lot.unit_of_measure,
+              qc_by: requester.actor,
+            },
+            { username: requester.actor },
           );
+
+          const txResult = await this.inventoryTransactionService.getMyHistory(
+            { keyword: `lot-update:${l.lot_id}` },
+            { page: 1, limit: 5 },
+            requester.actor,
+          );
+          const tx = (txResult.items || []).find((it: any) =>
+            Number(it.quantity) === newQty - prevQty && new Date(it.transaction_date) >= before,
+          ) || (txResult.items || [])[0];
+
           applied.push({
             lot_id: l.lot_id,
             delta: -qty,
             txId: tx?._id ?? tx?.transaction_id,
+            prevQuantity: prevQty,
           });
         }
       }
@@ -235,17 +253,17 @@ export class WarehouseSlipService {
 
       return updated;
     } catch (err) {
-      // rollback applied ops
+      // rollback applied ops: revert using service update and try removing created tx
       for (const a of applied.reverse()) {
         try {
-          // revert lot quantity
-          await this.inventoryLotRepository.updateQuantity(
+          // revert to previous absolute quantity
+          await this.inventoryLotService.update(
             a.lot_id,
-            -a.delta as any,
+            { quantity: a.prevQuantity, qc_by: requester.actor },
+            { username: requester.actor },
           );
         } catch (_) {}
         try {
-          // try to remove created transaction if we have object id
           if (a.txId) {
             await this.inventoryTransactionService.remove(String(a.txId));
           }
