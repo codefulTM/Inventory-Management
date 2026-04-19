@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   InventoryLot,
@@ -27,7 +27,7 @@ import { MailModule } from '../mail/mail.module';
     ]),
     InventoryTransactionModule,
     AuditLogModule,
-    WarehouseSlipModule,
+    forwardRef(() => WarehouseSlipModule),
     MailModule,
   ],
   controllers: [InventoryLotController, BinWorklistController],

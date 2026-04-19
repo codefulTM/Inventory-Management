@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   WarehouseSlip,
@@ -21,7 +21,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
     ]),
     MaterialModule,
     InventoryTransactionModule,
-    InventoryLotModule,
+    forwardRef(() => InventoryLotModule),
     AuditLogModule,
   ],
   controllers: [WarehouseSlipController],

@@ -319,7 +319,7 @@ export default function StockManagement() {
 
             <div className="shrink-0">
               <Link
-                to="/manager/warehouse-slips/create"
+                to="/manager/in-out/create"
                 className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow hover:bg-emerald-50"
               >
                 Tạo phiếu

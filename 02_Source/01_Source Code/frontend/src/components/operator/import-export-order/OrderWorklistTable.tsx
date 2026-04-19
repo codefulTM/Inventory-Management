@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { CheckCircle2, XCircle, MoreHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
 // removed ImportExportOrder references; this table now uses WarehouseSlip data
@@ -44,11 +45,16 @@ export default function OrderWorklistTable({
   reloadTrigger,
 }: OrderWorklistTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
   // close menu on outside click
   useEffect(() => {
     function handleDocClick() {
       setOpenMenu(null);
+      setMenuPosition(null);
     }
 
     document.addEventListener("click", handleDocClick);
@@ -130,7 +136,7 @@ export default function OrderWorklistTable({
               <th className="px-4 py-3">Warehouse</th>
               <th className="px-4 py-3">Người tạo</th>
               <th className="px-4 py-3">Số dòng vật tư</th>
-              <th className="px-4 py-3">Trạng thái</th>
+              <th className="px-4 py-3 text-center">Trạng thái</th>
               <th className="px-4 py-3">Ngày tạo</th>
               <th className="px-4 py-3">Thao tác</th>
             </tr>
@@ -196,7 +202,7 @@ export default function OrderWorklistTable({
                   <td className="px-4 py-3 text-gray-700">
                     {(slip.lines || []).length}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     <OrderStatusBadge status={mapSlipStatus(slip.status)} />
                   </td>
                   <td className="px-4 py-3 text-gray-700">
@@ -237,6 +243,23 @@ export default function OrderWorklistTable({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            const btn = e.currentTarget as HTMLElement;
+                            const rect = btn.getBoundingClientRect();
+                            const MENU_WIDTH_PX = 176; // matches w-44
+                            const margin = 8;
+                            let left =
+                              rect.right + window.scrollX - MENU_WIDTH_PX;
+                            const minLeft = window.scrollX + margin;
+                            const maxLeft =
+                              window.scrollX +
+                              window.innerWidth -
+                              MENU_WIDTH_PX -
+                              margin;
+                            left = Math.max(minLeft, Math.min(left, maxLeft));
+                            setMenuPosition({
+                              top: rect.bottom + window.scrollY,
+                              left,
+                            });
                             setOpenMenu((prev) =>
                               prev === slip.slip_id ? null : slip.slip_id,
                             );
@@ -249,29 +272,67 @@ export default function OrderWorklistTable({
                       </div>
 
                       {openMenu === slip.slip_id ? (
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 z-[9999] mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMenu(null);
-                              onViewDetail?.(slip.slip_id);
-                            }}
-                            className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <span className="font-bold">Chi tiết</span>
-                          </button>
+                        typeof document !== "undefined" && menuPosition ? (
+                          createPortal(
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                position: "absolute",
+                                top: menuPosition.top,
+                                left: menuPosition.left,
+                              }}
+                              className="z-[9999] mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  setMenuPosition(null);
+                                  onViewDetail?.(slip.slip_id);
+                                }}
+                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <span className="font-bold">Chi tiết</span>
+                              </button>
 
-                          <Link
-                            to={`${base}/warehouse-slips/${slip.slip_id}/print`}
-                            onClick={() => setOpenMenu(null)}
-                            className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                              <Link
+                                to={`${base}/warehouse-slips/${slip.slip_id}/print`}
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  setMenuPosition(null);
+                                }}
+                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                Preview
+                              </Link>
+                            </div>,
+                            document.body,
+                          )
+                        ) : (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-0 z-[9999] mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
                           >
-                            Preview
-                          </Link>
-                        </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenu(null);
+                                onViewDetail?.(slip.slip_id);
+                              }}
+                              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              <span className="font-bold">Chi tiết</span>
+                            </button>
+
+                            <Link
+                              to={`${base}/warehouse-slips/${slip.slip_id}/print`}
+                              onClick={() => setOpenMenu(null)}
+                              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              Preview
+                            </Link>
+                          </div>
+                        )
                       ) : null}
                     </div>
                   </td>
