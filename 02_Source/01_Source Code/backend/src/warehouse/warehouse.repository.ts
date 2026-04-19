@@ -3,6 +3,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Warehouse, WarehouseDocument } from '../schemas/warehouse.schema';
+import { CreateWarehouseDto } from './dto/create-warehouse.dto';
+import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 
 @Injectable()
 export class WarehouseRepository {
@@ -13,7 +15,7 @@ export class WarehouseRepository {
     private readonly warehouseModel: Model<WarehouseDocument>,
   ) {}
 
-  async create(createDto: any): Promise<WarehouseDocument> {
+  async create(createDto: CreateWarehouseDto): Promise<WarehouseDocument> {
     this.logger.debug(`Creating warehouse: ${createDto.warehouse_id}`);
     const doc = new this.warehouseModel(createDto);
     return doc.save();
@@ -74,7 +76,10 @@ export class WarehouseRepository {
     return { data, total };
   }
 
-  async update(id: string, updateDto: any): Promise<WarehouseDocument | null> {
+  async update(
+    id: string,
+    updateDto: UpdateWarehouseDto,
+  ): Promise<WarehouseDocument | null> {
     return this.warehouseModel
       .findByIdAndUpdate(id, updateDto, { new: true, runValidators: true })
       .exec();

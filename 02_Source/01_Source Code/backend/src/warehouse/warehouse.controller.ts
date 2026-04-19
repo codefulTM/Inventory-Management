@@ -17,6 +17,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { WarehouseService } from './warehouse.service';
+import { CreateWarehouseDto } from './dto/create-warehouse.dto';
+import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -67,7 +69,10 @@ export class WarehouseController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body(new ValidationPipe({ transform: true })) createDto: any) {
+  async create(
+    @Body(new ValidationPipe({ transform: true }))
+    createDto: CreateWarehouseDto,
+  ) {
     return this.warehouseService.create(createDto);
   }
 
@@ -76,7 +81,7 @@ export class WarehouseController {
   async update(
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, skipMissingProperties: true }))
-    updateDto: any,
+    updateDto: UpdateWarehouseDto,
   ) {
     return this.warehouseService.update(id, updateDto);
   }

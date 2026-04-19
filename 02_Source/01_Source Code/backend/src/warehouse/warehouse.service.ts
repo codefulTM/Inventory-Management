@@ -6,6 +6,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { WarehouseRepository } from './warehouse.repository';
+import { CreateWarehouseDto } from './dto/create-warehouse.dto';
+import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
+import { WarehouseResponseDto } from './dto/warehouse-response.dto';
+import { PaginatedWarehouseResponseDto } from './dto/paginated-warehouse-response.dto';
 
 @Injectable()
 export class WarehouseService {
@@ -13,7 +17,7 @@ export class WarehouseService {
 
   constructor(private readonly repository: WarehouseRepository) {}
 
-  async create(createDto: any) {
+  async create(createDto: CreateWarehouseDto): Promise<WarehouseResponseDto> {
     this.logger.log(`Creating warehouse: ${createDto.warehouse_id}`);
 
     const existing = await this.repository.findByWarehouseId(
@@ -32,7 +36,10 @@ export class WarehouseService {
     return this.toResponse(created);
   }
 
-  async findAll(page?: number, limit?: number) {
+  async findAll(
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedWarehouseResponseDto> {
     if (page !== undefined && limit !== undefined)
       return this.findAllWithPagination(page, limit);
 
@@ -48,7 +55,10 @@ export class WarehouseService {
     };
   }
 
-  async findAllWithPagination(page = 1, limit = 20) {
+  async findAllWithPagination(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedWarehouseResponseDto> {
     if (page < 1) throw new BadRequestException('Page must be >= 1');
     if (limit < 1) throw new BadRequestException('Limit must be >= 1');
 
@@ -64,14 +74,18 @@ export class WarehouseService {
     };
   }
 
-  async findById(id: string) {
+  async findById(id: string): Promise<WarehouseResponseDto> {
     const found = await this.repository.findById(id);
     if (!found)
       throw new NotFoundException(`Warehouse with ID '${id}' not found`);
     return this.toResponse(found);
   }
 
-  async search(query: string, page = 1, limit = 20) {
+  async search(
+    query: string,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedWarehouseResponseDto> {
     if (!query || query.trim().length === 0)
       throw new BadRequestException('Search query cannot be empty');
     if (page < 1) throw new BadRequestException('Page must be >= 1');
@@ -89,7 +103,10 @@ export class WarehouseService {
     };
   }
 
-  async update(id: string, updateDto: any) {
+  async update(
+    id: string,
+    updateDto: UpdateWarehouseDto,
+  ): Promise<WarehouseResponseDto> {
     const warehouse = await this.repository.findById(id);
     if (!warehouse)
       throw new NotFoundException(`Warehouse with ID '${id}' not found`);
@@ -125,8 +142,7 @@ export class WarehouseService {
     return this.repository.findOptions(query, page, limit);
   }
 
-  private toResponse(doc: any) {
-    if (!doc) return null;
+  private toResponse(doc: any): WarehouseResponseDto {
     return {
       _id: doc._id?.toString() || '',
       warehouse_id: doc.warehouse_id,
@@ -135,6 +151,6 @@ export class WarehouseService {
       is_active: doc.is_active,
       created_date: doc.created_date,
       modified_date: doc.modified_date,
-    };
+    } as WarehouseResponseDto;
   }
 }
