@@ -2,7 +2,10 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaOptions } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { SlipAttachmentSchema, SlipAttachment } from './slip-attachment.schema';
-import { WarehouseSlipLineSchema, WarehouseSlipLine } from './warehouse-slip-line.schema';
+import {
+  WarehouseSlipLineSchema,
+  WarehouseSlipLine,
+} from './warehouse-slip-line.schema';
 
 export type WarehouseSlipDocument = WarehouseSlip & Document;
 
@@ -30,6 +33,27 @@ export class WarehouseSlip {
 
   @Prop({ enum: ['PENDING', 'CONFIRMED', 'REJECTED'], default: 'PENDING' })
   status: string;
+
+  @Prop()
+  confirmed_by?: string;
+
+  @Prop({ type: Date })
+  confirmed_at?: Date;
+
+  @Prop()
+  rejected_by?: string;
+
+  @Prop({ type: Date })
+  rejected_at?: Date;
+
+  @Prop()
+  reject_reason?: string;
+
+  @Prop({ default: false })
+  locked?: boolean;
+
+  @Prop({ type: [String], default: [] })
+  processed_transactions?: string[];
 
   @Prop()
   reference_number?: string;

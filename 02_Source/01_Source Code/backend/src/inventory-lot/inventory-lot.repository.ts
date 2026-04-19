@@ -243,12 +243,13 @@ export class InventoryLotRepository {
 
   async updateQuantity(
     lot_id: string,
-    quantityDelta: string,
+    quantityDelta: number | string,
   ): Promise<InventoryLotDocument | null> {
+    const delta = Number(quantityDelta) || 0;
     return this.inventoryLotModel
       .findOneAndUpdate(
         { lot_id },
-        { $inc: { quantity: quantityDelta } },
+        { $inc: { quantity: delta } },
         { new: true },
       )
       .exec();

@@ -29,6 +29,7 @@ import { WarehouseSlipService } from './warehouse-slip.service';
 import { CreateWarehouseSlipDto } from './dto/create-warehouse-slip.dto';
 import { QueryWarehouseSlipDto } from './dto/query-warehouse-slip.dto';
 import { UploadWarehouseSlipAttachmentDto } from './dto/upload-warehouse-slip-attachment.dto';
+import { RejectWarehouseSlipDto } from './dto/reject-warehouse-slip.dto';
 
 const ATTACHMENT_UPLOAD_DIR = join(process.cwd(), 'uploads', 'warehouse-slips');
 const MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024;
@@ -51,6 +52,27 @@ export class WarehouseSlipController {
       'system';
 
     return { actor, role: req.user?.role };
+  }
+
+  @Post(':id/approve')
+  @Roles(UserRole.MANAGER)
+  async approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: { user?: AuthenticatedUser },
+  ) {
+    const requester = this.toRequester(req);
+    return this.service.approve(id, requester);
+  }
+
+  @Post(':id/reject')
+  @Roles(UserRole.MANAGER)
+  async reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectWarehouseSlipDto,
+    @Req() req: { user?: AuthenticatedUser },
+  ) {
+    const requester = this.toRequester(req);
+    return this.service.reject(id, dto.reason, requester);
   }
 
   @Post()

@@ -9,6 +9,9 @@ import { WarehouseSlipController } from './warehouse-slip.controller';
 import { WarehouseSlipService } from './warehouse-slip.service';
 import { WarehouseSlipRepository } from './warehouse-slip.repository';
 import { MaterialModule } from '../material/material.module';
+import { InventoryTransactionModule } from '../inventory-transaction/inventory-transaction.module';
+import { InventoryLotModule } from '../inventory-lot/inventory-lot.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -17,6 +20,9 @@ import { MaterialModule } from '../material/material.module';
       { name: Warehouse.name, schema: WarehouseSchema },
     ]),
     MaterialModule,
+    InventoryTransactionModule,
+    InventoryLotModule,
+    AuditLogModule,
   ],
   controllers: [WarehouseSlipController],
   providers: [WarehouseSlipService, WarehouseSlipRepository],
