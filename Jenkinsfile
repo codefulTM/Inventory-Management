@@ -3,6 +3,15 @@ pipeline {
 
     stages {
 
+        stage('Prepare ENV') {
+            steps {
+                sh '''
+                cp "/home/ubuntu/codes/Inventory-Management/03_Deployment/01_Deployment_Package/.env" \
+                "03_Deployment/01_Deployment_Package/.env"
+                '''
+            }
+        }
+
         stage('Unit Test') {
             agent {
                 docker {
