@@ -1,26 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { CheckCircle2, Eye, XCircle, MoreHorizontal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, XCircle, MoreHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { ImportExportOrder } from "../../../types/importExportOrder";
+// removed ImportExportOrder references; this table now uses WarehouseSlip data
 import OrderStatusBadge from "./OrderStatusBadge";
-import {
-  fetchWarehouseSlips,
-  approveWarehouseSlip,
-  rejectWarehouseSlip,
-} from "../../../services/warehouseSlipService";
+import { fetchWarehouseSlips } from "../../../services/warehouseSlipService";
 import type { WarehouseSlip } from "../../../types/warehouseSlip";
-import type { ImportExportOrderStatus } from "../../../types/importExportOrder";
-
 interface OrderWorklistTableProps {
-  orders: ImportExportOrder[];
-  loading?: boolean;
   page: number;
   limit: number;
-  total: number;
   onPageChange: (page: number) => void;
   onViewDetail: (orderId: string) => void;
   onConfirmOrder: (orderId: string) => void;
   onRejectOrder: (orderId: string) => void;
+  loading?: boolean;
+  total?: number;
 }
 
 function formatDate(value?: string): string {
@@ -37,17 +30,15 @@ function formatDate(value?: string): string {
 }
 
 export default function OrderWorklistTable({
-  orders,
   loading = false,
   page,
   limit,
-  total,
   onPageChange,
   onViewDetail,
   onConfirmOrder,
   onRejectOrder,
+  total = 0,
 }: OrderWorklistTableProps) {
-  const totalPages = Math.max(1, Math.ceil(total / limit));
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   // close menu on outside click
@@ -69,9 +60,12 @@ export default function OrderWorklistTable({
   const [items, setItems] = useState<WarehouseSlip[]>([]);
   const [loadingLocal, setLoadingLocal] = useState<boolean>(false);
   const [totalLocal, setTotalLocal] = useState<number>(total ?? 0);
-  const [processingIds, setProcessingIds] = useState<string[]>([]);
+  // Reserved for future per-row processing states
+  // const [processingIds, setProcessingIds] = useState<string[]>([]);
 
-  function mapSlipStatus(status?: string): ImportExportOrderStatus {
+  const totalPages = Math.max(1, Math.ceil(totalLocal / limit));
+
+  function mapSlipStatus(status?: string) {
     if (!status) return "PendingConfirmation";
     switch (status.toString().toUpperCase()) {
       case "CONFIRMED":
@@ -186,34 +180,22 @@ export default function OrderWorklistTable({
                   <td className="px-4 py-3">
                     <div className="relative">
                       <div className="flex items-center gap-2">
-                        <Link
-                          to={`${base}/warehouse-slips/${slip.slip_id}`}
-                          className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
-                        >
-                          <Eye size={14} />
-                          Chi tiết
-                        </Link>
-
                         <button
                           type="button"
-                          onClick={async () => {
-                            if (processingIds.includes(slip.slip_id)) return;
-                            setProcessingIds((p) => [...p, slip.slip_id]);
-                            try {
-                              await approveWarehouseSlip(slip.slip_id);
-                              await loadData();
-                            } catch (e) {
-                              console.error(e);
-                              alert("Không thể xác nhận phiếu. Vui lòng thử lại.");
-                            } finally {
-                              setProcessingIds((p) => p.filter((id) => id !== slip.slip_id));
-                            }
-                          }}
-                          disabled={processingIds.includes(slip.slip_id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                          onClick={() => onConfirmOrder?.(slip.slip_id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"
                         >
                           <CheckCircle2 size={14} />
                           Xác nhận
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onRejectOrder?.(slip.slip_id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                        >
+                          <XCircle size={14} />
+                          Từ chối
                         </button>
 
                         <button
@@ -236,21 +218,13 @@ export default function OrderWorklistTable({
                         >
                           <button
                             type="button"
-                            onClick={async () => {
+                            onClick={() => {
                               setOpenMenu(null);
-                              const reason = window.prompt("Lý do từ chối phiếu:");
-                              if (!reason) return;
-                              try {
-                                await rejectWarehouseSlip(slip.slip_id, reason);
-                                await loadData();
-                              } catch (e) {
-                                console.error(e);
-                                alert("Không thể từ chối phiếu. Vui lòng thử lại.");
-                              }
+                              onViewDetail?.(slip.slip_id);
                             }}
-                            className="block w-full px-3 py-2 text-left text-sm text-rose-700 hover:bg-gray-50"
+                            className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                           >
-                            Từ chối
+                            Chi tiết
                           </button>
 
                           <Link
@@ -283,7 +257,7 @@ export default function OrderWorklistTable({
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-600">
         <p>
-          Trang {page}/{totalPages} - Tổng {total} phiếu pending
+          Trang {page}/{totalPages} - Tổng {totalLocal} phiếu pending
         </p>
 
         <div className="flex items-center gap-2">

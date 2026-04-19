@@ -313,6 +313,10 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  async aggregate<T = any>(pipeline: any[]): Promise<T[]> {
+    return this.inventoryLotModel.aggregate<T>(pipeline).exec();
+  }
+
   async updateStatusByIds(
     lot_ids: string[],
     status: string,

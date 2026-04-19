@@ -9,13 +9,16 @@ import {
   confirmImportExportOrder,
   fetchImportExportOrderDetail,
   fetchImportExportOrders,
-  fetchImportExportOrderWorklist,
   ImportExportOrderApiError,
   rejectImportExportOrder,
   updateImportExportOrder,
 } from "../../services/importExportOrderService";
+import {
+  fetchWarehouseSlip,
+  approveWarehouseSlip,
+  rejectWarehouseSlip,
+} from "../../services/warehouseSlipService";
 import type {
-  ConfirmImportExportOrderPayload,
   ImportExportOrder,
   ImportExportOrderQueryParams,
   RejectImportExportOrderPayload,
@@ -133,9 +136,7 @@ export default function TransactionHistoryOperator() {
   const [listError, setListError] = useState<string | null>(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<ImportExportOrder | null>(
-    null,
-  );
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -143,9 +144,7 @@ export default function TransactionHistoryOperator() {
 
   const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [actionOrder, setActionOrder] = useState<ImportExportOrder | null>(
-    null,
-  );
+  const [actionOrder, setActionOrder] = useState<any | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
@@ -179,14 +178,17 @@ export default function TransactionHistoryOperator() {
       };
 
       try {
-        const response =
-          mode === "worklist"
-            ? await fetchImportExportOrderWorklist(params)
-            : await fetchImportExportOrders(params);
-
-        setOrders(response.items);
-        setTotal(response.total);
-        setPage(response.page || nextPage);
+        if (mode === "history") {
+          const response = await fetchImportExportOrders(params);
+          setOrders(response.items);
+          setTotal(response.total);
+          setPage(response.page || nextPage);
+        } else {
+          // Worklist is handled by child table which uses warehouseSlipService.
+          setOrders([]);
+          setTotal(0);
+          setPage(nextPage);
+        }
       } catch (error) {
         const message = mapBackendErrorMessage(
           error,
@@ -230,16 +232,27 @@ export default function TransactionHistoryOperator() {
     setIsEditing(false);
 
     try {
-      const detail = await fetchImportExportOrderDetail(orderId);
-      setSelectedOrder(detail);
+      const detail =
+        viewMode === "worklist"
+          ? await fetchWarehouseSlip(orderId)
+          : await fetchImportExportOrderDetail(orderId);
 
-      if (editMode && detail.status === "PendingConfirmation") {
-        setIsEditing(true);
-      } else if (editMode) {
-        notify(
-          "Chỉ có thể chỉnh sửa phiếu ở trạng thái PendingConfirmation.",
-          "error",
-        );
+      setSelectedOrder(detail as any);
+
+      if (editMode) {
+        const statusOk =
+          viewMode === "worklist"
+            ? (detail as any).status === "PENDING"
+            : (detail as any).status === "PendingConfirmation";
+
+        if (statusOk) {
+          setIsEditing(true);
+        } else {
+          notify(
+            "Chỉ có thể chỉnh sửa phiếu ở trạng thái PendingConfirmation.",
+            "error",
+          );
+        }
       }
     } catch (error) {
       const message = mapBackendErrorMessage(
@@ -323,15 +336,22 @@ export default function TransactionHistoryOperator() {
     setDrawerOpen(false);
 
     try {
-      const detail = await fetchImportExportOrderDetail(orderId);
+      const detail =
+        viewMode === "worklist"
+          ? await fetchWarehouseSlip(orderId)
+          : await fetchImportExportOrderDetail(orderId);
 
-      if (detail.status !== "PendingConfirmation") {
+      const isPending =
+        viewMode === "worklist"
+          ? (detail as any).status === "PENDING"
+          : (detail as any).status === "PendingConfirmation";
+
+      if (!isPending) {
         notify("Phiếu đã được xử lý trước đó.", "error");
-        await loadOrders(viewMode, page, filters);
         return;
       }
 
-      setActionOrder(detail);
+      setActionOrder(detail as any);
       setConfirmDrawerOpen(true);
     } catch (error) {
       const message = mapBackendErrorMessage(
@@ -349,15 +369,22 @@ export default function TransactionHistoryOperator() {
     setDrawerOpen(false);
 
     try {
-      const detail = await fetchImportExportOrderDetail(orderId);
+      const detail =
+        viewMode === "worklist"
+          ? await fetchWarehouseSlip(orderId)
+          : await fetchImportExportOrderDetail(orderId);
 
-      if (detail.status !== "PendingConfirmation") {
+      const isPending =
+        viewMode === "worklist"
+          ? (detail as any).status === "PENDING"
+          : (detail as any).status === "PendingConfirmation";
+
+      if (!isPending) {
         notify("Phiếu đã được xử lý trước đó.", "error");
-        await loadOrders(viewMode, page, filters);
         return;
       }
 
-      setActionOrder(detail);
+      setActionOrder(detail as any);
       setRejectModalOpen(true);
     } catch (error) {
       const message = mapBackendErrorMessage(
@@ -397,22 +424,27 @@ export default function TransactionHistoryOperator() {
     }
   };
 
-  const handleConfirmOrder = async (
-    payload: ConfirmImportExportOrderPayload,
-  ) => {
-    if (!actionOrder) {
-      return;
-    }
+  const handleConfirmOrder = async (payload?: any) => {
+    if (!actionOrder) return;
 
     setIsConfirmSubmitting(true);
     setConfirmError(null);
 
     try {
-      const updated = await confirmImportExportOrder(
-        actionOrder.order_id,
-        payload,
-      );
-      notify(`Đã xác nhận phiếu ${updated.order_id} thành công.`, "success");
+      if (viewMode === "worklist") {
+        const updated = await approveWarehouseSlip(
+          actionOrder.slip_id,
+          payload as any,
+        );
+        notify(`Đã xác nhận phiếu ${updated.slip_id} thành công.`, "success");
+      } else {
+        const updated = await confirmImportExportOrder(
+          actionOrder.order_id,
+          payload,
+        );
+        notify(`Đã xác nhận phiếu ${updated.order_id} thành công.`, "success");
+      }
+
       closeConfirmDrawer();
       await loadOrders(viewMode, page, filters);
     } catch (error) {
@@ -428,21 +460,24 @@ export default function TransactionHistoryOperator() {
   };
 
   const handleRejectOrder = async (reason: string) => {
-    if (!actionOrder) {
-      return;
-    }
+    if (!actionOrder) return;
 
     setIsRejectSubmitting(true);
     setRejectError(null);
 
-    const payload: RejectImportExportOrderPayload = { reason };
-
     try {
-      const updated = await rejectImportExportOrder(
-        actionOrder.order_id,
-        payload,
-      );
-      notify(`Đã từ chối phiếu ${updated.order_id}.`, "success");
+      if (viewMode === "worklist") {
+        const updated = await rejectWarehouseSlip(actionOrder.slip_id, reason);
+        notify(`Đã từ chối phiếu ${updated.slip_id}.`, "success");
+      } else {
+        const payload: RejectImportExportOrderPayload = { reason };
+        const updated = await rejectImportExportOrder(
+          actionOrder.order_id,
+          payload,
+        );
+        notify(`Đã từ chối phiếu ${updated.order_id}.`, "success");
+      }
+
       closeRejectModal();
       await loadOrders(viewMode, page, filters);
     } catch (error) {
@@ -610,11 +645,9 @@ export default function TransactionHistoryOperator() {
 
         {isWorklistMode ? (
           <OrderWorklistTable
-            orders={orders}
             loading={loading}
             page={page}
             limit={DEFAULT_LIMIT}
-            total={total}
             onPageChange={handlePageChange}
             onViewDetail={(orderId) => {
               void openDetail(orderId, false);
@@ -645,7 +678,11 @@ export default function TransactionHistoryOperator() {
       </div>
 
       <OrderDetailDrawer
-        key={selectedOrder?.order_id ?? "order-detail-drawer"}
+        key={
+          isWorklistMode
+            ? (selectedOrder?.slip_id ?? "order-detail-drawer")
+            : (selectedOrder?.order_id ?? "order-detail-drawer")
+        }
         open={drawerOpen}
         order={selectedOrder}
         loading={detailLoading}
@@ -658,7 +695,11 @@ export default function TransactionHistoryOperator() {
       />
 
       <ConfirmOrderDrawer
-        key={`confirm-${actionOrder?.order_id ?? "none"}`}
+        key={
+          isWorklistMode
+            ? `confirm-${actionOrder?.slip_id ?? "none"}`
+            : `confirm-${actionOrder?.order_id ?? "none"}`
+        }
         open={confirmDrawerOpen}
         order={actionOrder}
         submitting={isConfirmSubmitting}
@@ -668,9 +709,13 @@ export default function TransactionHistoryOperator() {
       />
 
       <RejectOrderModal
-        key={`reject-${actionOrder?.order_id ?? "none"}`}
+        key={
+          isWorklistMode
+            ? `reject-${actionOrder?.slip_id ?? "none"}`
+            : `reject-${actionOrder?.order_id ?? "none"}`
+        }
         open={rejectModalOpen}
-        orderId={actionOrder?.order_id}
+        orderId={isWorklistMode ? actionOrder?.slip_id : actionOrder?.order_id}
         submitting={isRejectSubmitting}
         errorMessage={rejectError}
         onClose={closeRejectModal}

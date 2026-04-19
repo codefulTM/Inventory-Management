@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type {
-  ImportExportOrder,
-  ImportExportOrderItem,
-  UpdateImportExportOrderPayload,
-} from "../../../types/importExportOrder";
+  WarehouseSlip,
+  WarehouseSlipLine,
+} from "../../../types/warehouseSlip";
 import OrderStatusBadge from "./OrderStatusBadge";
 
 interface EditableItem {
@@ -17,17 +16,17 @@ interface EditableItem {
 
 interface OrderDetailDrawerProps {
   open: boolean;
-  order: ImportExportOrder | null;
+  order: WarehouseSlip | null;
   loading?: boolean;
   submitting?: boolean;
   errorMessage?: string | null;
   isEditing: boolean;
   onToggleEdit: (next: boolean) => void;
   onClose: () => void;
-  onSave: (payload: UpdateImportExportOrderPayload) => Promise<void>;
+  onSave: (payload: any) => Promise<void>;
 }
 
-function toEditableItems(items: ImportExportOrderItem[]): EditableItem[] {
+function toEditableItems(items: WarehouseSlipLine[] = []): EditableItem[] {
   if (!Array.isArray(items) || items.length === 0) {
     return [
       {
@@ -41,14 +40,11 @@ function toEditableItems(items: ImportExportOrderItem[]): EditableItem[] {
   }
 
   return items.map((item) => ({
-    material_id: item.material_id ?? "",
+    material_id: item.material_id ?? item.sku ?? "",
     lot_id: item.lot_id ?? "",
-    quantity:
-      typeof item.quantity === "number" && Number.isFinite(item.quantity)
-        ? item.quantity
-        : 1,
-    unit_of_measure: item.unit_of_measure ?? "",
-    expected_location: item.expected_location ?? "",
+    quantity: typeof item.quantity === "number" && Number.isFinite(item.quantity) ? item.quantity : 1,
+    unit_of_measure: item.unit ?? "",
+    expected_location: item.notes ?? "",
   }));
 }
 
@@ -83,18 +79,36 @@ export default function OrderDetailDrawer({
 }: OrderDetailDrawerProps) {
   const [warehouseId, setWarehouseId] = useState(order?.warehouse_id ?? "");
   const [orderType, setOrderType] = useState<"Inbound" | "Outbound">(
-    order?.order_type ?? "Inbound",
+    order?.type === "IN" ? "Inbound" : (order as any)?.order_type ?? "Inbound",
   );
-  const [reason, setReason] = useState(order?.reason ?? "");
+  const [reason, setReason] = useState(order?.notes ?? "");
   const [referenceNumber, setReferenceNumber] = useState(
     order?.reference_number ?? "",
   );
-  const [items, setItems] = useState<EditableItem[]>(
-    toEditableItems(order?.items ?? []),
-  );
+  const [items, setItems] = useState<EditableItem[]>(toEditableItems(order?.lines ?? []));
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const canEdit = order?.status === "PendingConfirmation";
+  useEffect(() => {
+    if (!order) return;
+
+    if (Array.isArray((order as any).lines)) {
+      setItems(toEditableItems((order as any).lines));
+    } else if (Array.isArray((order as any).items)) {
+      setItems(
+        (order as any).items.map((it: any) => ({
+          material_id: it.material_id ?? "",
+          lot_id: it.lot_id ?? "",
+          quantity: typeof it.quantity === "number" ? it.quantity : Number(it.quantity) || 0,
+          unit_of_measure: it.unit_of_measure ?? "",
+          expected_location: it.expected_location ?? "",
+        })),
+      );
+    } else {
+      setItems(toEditableItems([]));
+    }
+  }, [order]);
+
+  const canEdit = (order as any)?.status === "PENDING" || (order as any)?.status === "PendingConfirmation";
 
   useEffect(() => {
     if (!open) {
@@ -102,10 +116,7 @@ export default function OrderDetailDrawer({
     }
   }, [open, onToggleEdit]);
 
-  const attachmentCount = useMemo(
-    () => order?.attachments.length ?? 0,
-    [order],
-  );
+  const attachmentCount = useMemo(() => order?.attachments.length ?? 0, [order]);
 
   if (!open) {
     return null;
@@ -170,7 +181,7 @@ export default function OrderDetailDrawer({
       return;
     }
 
-    const normalizedItems: ImportExportOrderItem[] = [];
+    const normalizedItems: any[] = [];
 
     for (const item of items) {
       if (!item.material_id.trim()) {
@@ -224,7 +235,7 @@ export default function OrderDetailDrawer({
               Chi tiết phiếu
             </p>
             <h3 className="mt-1 text-lg font-black text-gray-900">
-              {order?.order_id ?? "Đang tải..."}
+              {order?.slip_number ?? order?.slip_id ?? "Đang tải..."}
             </h3>
           </div>
 
@@ -248,50 +259,34 @@ export default function OrderDetailDrawer({
         ) : (
           <div className="space-y-6 p-6">
             <section className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-              <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                <p>
-                  <span className="font-semibold text-gray-500">
-                    Trạng thái:
-                  </span>{" "}
-                  <OrderStatusBadge status={order.status} />
-                </p>
-                <p>
-                  <span className="font-semibold text-gray-500">
-                    Loại phiếu:
-                  </span>{" "}
-                  <span className="font-bold text-gray-900">
-                    {order.order_type === "Inbound" ? "Nhập kho" : "Xuất kho"}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-semibold text-gray-500">
-                    Người tạo:
-                  </span>{" "}
-                  <span className="font-bold text-gray-900">
-                    {order.created_by}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-semibold text-gray-500">Ngày tạo:</span>{" "}
-                  <span className="font-bold text-gray-900">
-                    {formatDate(order.created_date)}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-semibold text-gray-500">Cập nhật:</span>{" "}
-                  <span className="font-bold text-gray-900">
-                    {formatDate(order.modified_date)}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-semibold text-gray-500">
-                    Số chứng từ:
-                  </span>{" "}
-                  <span className="font-bold text-gray-900">
-                    {attachmentCount}
-                  </span>
-                </p>
-              </div>
+                <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                  <p>
+                    <span className="font-semibold text-gray-500">Trạng thái:</span>{" "}
+                    <OrderStatusBadge status={
+                      (order as any)?.status === "CONFIRMED" ? "Confirmed" : (order as any)?.status === "REJECTED" ? "Rejected" : "PendingConfirmation"
+                    } />
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-500">Loại phiếu:</span>{" "}
+                    <span className="font-bold text-gray-900">{order?.type === "IN" ? "Nhập kho" : "Xuất kho"}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-500">Người tạo:</span>{" "}
+                    <span className="font-bold text-gray-900">{order?.created_by ?? "-"}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-500">Ngày tạo:</span>{" "}
+                    <span className="font-bold text-gray-900">{formatDate(order?.created_date)}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-500">Cập nhật:</span>{" "}
+                    <span className="font-bold text-gray-900">{formatDate(((order as any)?.modified_date) ?? order?.created_date)}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-500">Số chứng từ:</span>{" "}
+                    <span className="font-bold text-gray-900">{attachmentCount}</span>
+                  </p>
+                </div>
             </section>
 
             {isEditing ? (
@@ -453,39 +448,25 @@ export default function OrderDetailDrawer({
               </section>
             ) : (
               <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">
-                <h4 className="text-sm font-black uppercase tracking-wide text-gray-700">
-                  Thông tin phiếu
-                </h4>
+                <h4 className="text-sm font-black uppercase tracking-wide text-gray-700">Thông tin phiếu</h4>
 
                 <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                   <p>
-                    <span className="font-semibold text-gray-500">
-                      Warehouse:
-                    </span>{" "}
-                    <span className="font-bold text-gray-900">
-                      {order.warehouse_id}
-                    </span>
+                    <span className="font-semibold text-gray-500">Warehouse:</span>{" "}
+                    <span className="font-bold text-gray-900">{order?.warehouse_id ?? "-"}</span>
                   </p>
                   <p>
-                    <span className="font-semibold text-gray-500">
-                      Số tham chiếu:
-                    </span>{" "}
-                    <span className="font-bold text-gray-900">
-                      {order.reference_number || "-"}
-                    </span>
+                    <span className="font-semibold text-gray-500">Số tham chiếu:</span>{" "}
+                    <span className="font-bold text-gray-900">{order?.reference_number || "-"}</span>
                   </p>
                   <p className="md:col-span-2">
-                    <span className="font-semibold text-gray-500">Lý do:</span>{" "}
-                    <span className="font-bold text-gray-900">
-                      {order.reason || "-"}
-                    </span>
+                    <span className="font-semibold text-gray-500">Ghi chú:</span>{" "}
+                    <span className="font-bold text-gray-900">{order?.notes || "-"}</span>
                   </p>
                 </div>
 
                 <div>
-                  <h5 className="mb-2 text-xs font-black uppercase tracking-wide text-gray-600">
-                    Danh sách vật tư
-                  </h5>
+                  <h5 className="mb-2 text-xs font-black uppercase tracking-wide text-gray-600">Danh sách vật tư</h5>
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
@@ -494,27 +475,17 @@ export default function OrderDetailDrawer({
                           <th className="px-3 py-2">Lot</th>
                           <th className="px-3 py-2">Số lượng</th>
                           <th className="px-3 py-2">Đơn vị</th>
-                          <th className="px-3 py-2">Vị trí</th>
+                          <th className="px-3 py-2">Ghi chú</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {order.items.map((item, index) => (
-                          <tr key={`${item.material_id}-${index}`}>
-                            <td className="px-3 py-2 text-gray-700">
-                              {item.material_id}
-                            </td>
-                            <td className="px-3 py-2 text-gray-700">
-                              {item.lot_id || "-"}
-                            </td>
-                            <td className="px-3 py-2 text-gray-700">
-                              {item.quantity}
-                            </td>
-                            <td className="px-3 py-2 text-gray-700">
-                              {item.unit_of_measure}
-                            </td>
-                            <td className="px-3 py-2 text-gray-700">
-                              {item.expected_location || "-"}
-                            </td>
+                        {(order?.lines || []).map((item, index) => (
+                          <tr key={`${item.line_id}-${index}`}>
+                            <td className="px-3 py-2 text-gray-700">{item.material_id ?? item.sku ?? "-"}</td>
+                            <td className="px-3 py-2 text-gray-700">{item.lot_id || "-"}</td>
+                            <td className="px-3 py-2 text-gray-700">{item.quantity}</td>
+                            <td className="px-3 py-2 text-gray-700">{item.unit || "-"}</td>
+                            <td className="px-3 py-2 text-gray-700">{item.notes || "-"}</td>
                           </tr>
                         ))}
                       </tbody>

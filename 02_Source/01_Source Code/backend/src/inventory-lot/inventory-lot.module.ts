@@ -11,6 +11,9 @@ import {
 import { InventoryLotController } from './inventory-lot.controller';
 import { InventoryLotService } from './inventory-lot.service';
 import { InventoryLotRepository } from './inventory-lot.repository';
+import { BinWorklistController } from './bin-worklist.controller';
+import { BinWorklistService } from './bin-worklist.service';
+import { BinCountRecordRepository } from './bin-count-record.repository';
 import { InventoryTransactionModule } from '../inventory-transaction/inventory-transaction.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 
@@ -23,8 +26,13 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
     InventoryTransactionModule,
     AuditLogModule,
   ],
-  controllers: [InventoryLotController],
-  providers: [InventoryLotService, InventoryLotRepository],
-  exports: [InventoryLotService, InventoryLotRepository],
+  controllers: [InventoryLotController, BinWorklistController],
+  providers: [
+    InventoryLotService,
+    InventoryLotRepository,
+    BinCountRecordRepository,
+    BinWorklistService,
+  ],
+  exports: [InventoryLotService, InventoryLotRepository, BinWorklistService],
 })
 export class InventoryLotModule {}
