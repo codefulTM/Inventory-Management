@@ -151,6 +151,7 @@ export default function TransactionHistoryOperator() {
   const [isRejectSubmitting, setIsRejectSubmitting] = useState(false);
 
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [worklistReloadTrigger, setWorklistReloadTrigger] = useState<number>(0);
 
   const notify = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -437,6 +438,7 @@ export default function TransactionHistoryOperator() {
           payload as any,
         );
         notify(`Đã xác nhận phiếu ${updated.slip_id} thành công.`, "success");
+        setWorklistReloadTrigger((s) => s + 1);
       } else {
         const updated = await confirmImportExportOrder(
           actionOrder.order_id,
@@ -469,6 +471,7 @@ export default function TransactionHistoryOperator() {
       if (viewMode === "worklist") {
         const updated = await rejectWarehouseSlip(actionOrder.slip_id, reason);
         notify(`Đã từ chối phiếu ${updated.slip_id}.`, "success");
+        setWorklistReloadTrigger((s) => s + 1);
       } else {
         const payload: RejectImportExportOrderPayload = { reason };
         const updated = await rejectImportExportOrder(
@@ -658,6 +661,8 @@ export default function TransactionHistoryOperator() {
             onRejectOrder={(orderId) => {
               void openReject(orderId);
             }}
+            filters={filters}
+            reloadTrigger={worklistReloadTrigger}
           />
         ) : (
           <OrderHistoryTable

@@ -14,6 +14,8 @@ interface OrderWorklistTableProps {
   onRejectOrder: (orderId: string) => void;
   loading?: boolean;
   total?: number;
+  filters?: any;
+  reloadTrigger?: number;
 }
 
 function formatDate(value?: string): string {
@@ -38,6 +40,8 @@ export default function OrderWorklistTable({
   onConfirmOrder,
   onRejectOrder,
   total = 0,
+  filters,
+  reloadTrigger,
 }: OrderWorklistTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
@@ -80,7 +84,8 @@ export default function OrderWorklistTable({
   async function loadData() {
     setLoadingLocal(true);
     try {
-      const res: any = await fetchWarehouseSlips({ page, limit });
+      const params: any = { page, limit, ...(filters || {}) };
+      const res: any = await fetchWarehouseSlips(params);
       const dataItems: WarehouseSlip[] = Array.isArray(res)
         ? res
         : Array.isArray(res?.items)
@@ -100,13 +105,13 @@ export default function OrderWorklistTable({
 
   useEffect(() => {
     void loadData();
-  }, [page, limit]);
+  }, [page, limit, JSON.stringify(filters), reloadTrigger]);
 
   return (
     <section className="rounded-lg border border-gray-200 bg-white shadow-md">
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-indigo-50 text-left text-xs font-bold uppercase tracking-wide text-indigo-700">
+          <thead>
             <tr>
               <th className="px-4 py-3">Mã phiếu</th>
               <th className="px-4 py-3">Loại</th>
@@ -183,7 +188,12 @@ export default function OrderWorklistTable({
                         <button
                           type="button"
                           onClick={() => onConfirmOrder?.(slip.slip_id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"
+                          disabled={!(slip.status === "PENDING")}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-bold transition ${
+                            slip.status === "PENDING"
+                              ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                              : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                          }`}
                         >
                           <CheckCircle2 size={14} />
                           Xác nhận
@@ -192,7 +202,12 @@ export default function OrderWorklistTable({
                         <button
                           type="button"
                           onClick={() => onRejectOrder?.(slip.slip_id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                          disabled={!(slip.status === "PENDING")}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-bold transition ${
+                            slip.status === "PENDING"
+                              ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                              : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                          }`}
                         >
                           <XCircle size={14} />
                           Từ chối
@@ -214,7 +229,7 @@ export default function OrderWorklistTable({
                       {openMenu === slip.slip_id ? (
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 z-20 mt-2 w-40 overflow-hidden rounded-md border bg-white shadow"
+                          className="absolute right-0 z-50 mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
                         >
                           <button
                             type="button"
@@ -224,7 +239,7 @@ export default function OrderWorklistTable({
                             }}
                             className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                           >
-                            Chi tiết
+                            <span className="font-bold">Chi tiết</span>
                           </button>
 
                           <Link
@@ -234,16 +249,6 @@ export default function OrderWorklistTable({
                           >
                             Preview
                           </Link>
-
-                          <a
-                            href={`/api/warehouse/slips/${slip.slip_id}/print`}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={() => setOpenMenu(null)}
-                            className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            In
-                          </a>
                         </div>
                       ) : null}
                     </div>

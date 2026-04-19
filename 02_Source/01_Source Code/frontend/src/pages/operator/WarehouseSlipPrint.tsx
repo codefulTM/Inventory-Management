@@ -28,34 +28,53 @@ export default function WarehouseSlipPrint() {
 
       const style = `
         <style>
-          body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 20px; color: #111827 }
-          h1 { font-size: 22px; margin-bottom: 8px }
-          .meta { margin-bottom: 12px; color: #374151 }
-          table { width: 100%; border-collapse: collapse; margin-top: 8px }
-          th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left }
-          th { background: #f9fafb }
-          ul { margin: 6px 0 0 18px }
+          :root { --muted: #6b7280; --accent: #0369a1 }
+          body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: #f3f4f6; padding: 24px; color: #111827 }
+          .paper { max-width: 820px; margin: 0 auto; background: white; padding: 28px; box-shadow: 0 10px 30px rgba(2,6,23,0.08); border-radius: 6px }
+          .doc-header { display:flex; align-items:center; gap:16px; margin-bottom:12px }
+          .logo { width:56px; height:56px; background: linear-gradient(135deg,#60a5fa,#06b6d4); border-radius:8px; display:inline-block }
+          h1 { font-size:20px; margin:0; letter-spacing:0.2px }
+          .meta { margin-left:auto; text-align:right; color: var(--muted); font-size:13px }
+          .meta b { color: #111827 }
+          .meta-row { margin-bottom:6px }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px }
+          th, td { border: 1px solid #e6e7eb; padding: 10px; text-align: left; font-size: 13px }
+          th { background: #fbfbfd; color: #374151 }
+          ul { margin: 8px 0 0 18px }
           .attachments { margin-top: 12px }
-          /* print page sizing */
-          @page { size: A4; margin: 20mm }
+          .print-actions { display:flex; gap:8px; align-items:center }
+          @media print { body { background: white; padding:0 } .paper { box-shadow:none; border-radius:0; margin:0; padding: 14mm } }
+          @page { size: A4; margin: 12mm }
         </style>
       `;
 
       const bodyHtml = `
-        <div class="print-document">
-          <h1>${slip.slip_number}</h1>
-          <div class="meta">Type: ${slip.type} — Warehouse: ${slip.warehouse_id}</div>
-          <h2>Lines</h2>
+        <div class="paper">
+          <div class="doc-header">
+            <div class="logo" aria-hidden></div>
+            <div>
+              <h1>${slip.slip_number}</h1>
+              <div style="color:var(--muted); font-size:13px">${slip.title || "Warehouse Slip"}</div>
+            </div>
+            <div class="meta">
+              <div class="meta-row"><b>Type:</b> ${slip.type || "-"}</div>
+              <div class="meta-row"><b>Warehouse:</b> ${slip.warehouse_id || "-"}</div>
+              <div class="meta-row"><b>Date:</b> ${new Date(slip.created_date || Date.now()).toLocaleString()}</div>
+            </div>
+          </div>
+
+          <h3 style="margin-top:6px; margin-bottom:6px">Lines</h3>
           <table>
             <thead>
-              <tr><th>#</th><th>Material</th><th>Qty</th><th>Unit</th></tr>
+              <tr><th style="width:48px">#</th><th>Material</th><th style="width:120px">Qty</th><th style="width:120px">Unit</th></tr>
             </thead>
             <tbody>
 ${rows}
             </tbody>
           </table>
+
           <div class="attachments">
-            <h3>Attachments</h3>
+            <h4 style="margin-top:12px; margin-bottom:8px">Attachments</h4>
             <ul>
 ${attachments}
             </ul>
@@ -114,9 +133,7 @@ ${attachments}
       }, 300);
     } catch (e) {
       console.warn("Print setup failed", e);
-      alert(
-        "Không thể in. Vui lòng thử mở chế độ In (raw) rồi in từ trình duyệt.",
-      );
+      alert("Không thể in. Vui lòng thử lại.");
     }
   }
 
@@ -129,16 +146,8 @@ ${attachments}
             onClick={handlePrint}
             className="px-3 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
           >
-            In (Print)
+            In
           </button>
-          <a
-            href={`/api/warehouse/slips/${id}/print`}
-            target="_blank"
-            rel="noreferrer"
-            className="px-3 py-2 bg-white border border-gray-100 rounded-md hover:bg-gray-50"
-          >
-            Mở chế độ In (raw)
-          </a>
         </div>
       </div>
 

@@ -28,6 +28,7 @@ import { InventoryAuditReportModule } from './inventory-audit-report/inventory-a
 import { AiAgentsModule } from './ai-agents/ai-agents.module';
 import { ReportsModule } from './reports/reports.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     BarcodeModule,
     MetricsModule,
     ReportsModule,
+    DashboardModule,
     AuditLogModule,
     AiAgentsModule,
   ],

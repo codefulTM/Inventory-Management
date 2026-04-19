@@ -122,6 +122,7 @@ export default function StockManagement() {
   const [isRejectSubmitting, setIsRejectSubmitting] = useState(false);
 
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [worklistReloadTrigger, setWorklistReloadTrigger] = useState<number>(0);
 
   const notify = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -268,6 +269,7 @@ export default function StockManagement() {
       const updated = await approveWarehouseSlip(actionOrder.slip_id, payload);
       notify(`Đã xác nhận phiếu ${updated.slip_id} thành công.`, "success");
       closeConfirmDrawer();
+      setWorklistReloadTrigger((s) => s + 1);
     } catch (error) {
       const message = mapBackendErrorMessage(
         error,
@@ -290,6 +292,7 @@ export default function StockManagement() {
       const updated = await rejectWarehouseSlip(actionOrder.slip_id, reason);
       notify(`Đã từ chối phiếu ${updated.slip_id}.`, "success");
       closeRejectModal();
+      setWorklistReloadTrigger((s) => s + 1);
     } catch (error) {
       const message = mapBackendErrorMessage(
         error,
@@ -404,6 +407,8 @@ export default function StockManagement() {
           onViewDetail={(orderId) => void openDetail(orderId)}
           onConfirmOrder={(orderId) => void openConfirm(orderId)}
           onRejectOrder={(orderId) => void openReject(orderId)}
+          filters={filters}
+          reloadTrigger={worklistReloadTrigger}
         />
 
         {/* Warehouse slip list merged into the main worklist; removed duplicate table. */}
