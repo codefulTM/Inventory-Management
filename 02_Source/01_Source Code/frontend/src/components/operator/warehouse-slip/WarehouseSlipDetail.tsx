@@ -3,11 +3,16 @@ import { Link } from "react-router-dom";
 import {
   fetchWarehouseSlip,
   uploadWarehouseSlipAttachment,
+  approveWarehouseSlip,
+  rejectWarehouseSlip,
 } from "../../../services/warehouseSlipService";
+import { useAuth } from "../../../hooks/useAuth";
 import type { WarehouseSlip } from "../../../types/warehouseSlip";
 
 export default function WarehouseSlipDetail({ id }: { id: string }) {
   const [doc, setDoc] = useState<WarehouseSlip | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const { isManager } = useAuth();
 
   useEffect(() => {
     fetchWarehouseSlip(id).then((r) => setDoc(r));
@@ -63,6 +68,56 @@ export default function WarehouseSlipDetail({ id }: { id: string }) {
           >
             Mở chế độ In
           </a>
+          {isManager && doc.status === "PENDING" && (
+            <>
+              <button
+                onClick={async () => {
+                  if (!window.confirm("Xác nhận phê duyệt phiếu này?")) return;
+                  try {
+                    setProcessing(true);
+                    await approveWarehouseSlip(id);
+                    const updated = await fetchWarehouseSlip(id);
+                    setDoc(updated);
+                    alert("Phiếu đã được phê duyệt");
+                  } catch (err: any) {
+                    console.error(err);
+                    alert(err?.message || "Phê duyệt thất bại");
+                  } finally {
+                    setProcessing(false);
+                  }
+                }}
+                disabled={processing}
+                className="px-3 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700"
+              >
+                {processing ? "Đang xử lý..." : "Approve"}
+              </button>
+              <button
+                onClick={async () => {
+                  const reason = window.prompt("Lý do từ chối (bắt buộc):");
+                  if (!reason || !String(reason).trim()) {
+                    alert("Lý do là bắt buộc");
+                    return;
+                  }
+                  try {
+                    setProcessing(true);
+                    await rejectWarehouseSlip(id, reason);
+                    const updated = await fetchWarehouseSlip(id);
+                    setDoc(updated);
+                    alert("Phiếu đã bị từ chối");
+                  } catch (err: any) {
+                    console.error(err);
+                    alert(err?.message || "Từ chối thất bại");
+                  } finally {
+                    setProcessing(false);
+                  }
+                }}
+                disabled={processing}
+                className="px-3 py-2 bg-red-600 text-white rounded-md shadow-sm hover:bg-red-700"
+              >
+                Reject
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -80,6 +135,11 @@ export default function WarehouseSlipDetail({ id }: { id: string }) {
         <div className="mt-2">
           <input type="file" multiple onChange={onUpload} />
         </div>
+        {doc.status === "CONFIRMED" && (
+          <div className="mt-2 text-sm text-gray-700">
+            Transactions created: {doc.processed_transactions?.length ?? 0}
+          </div>
+        )}
         <ul className="mt-2 list-disc list-inside">
           {doc.attachments.map((a) => (
             <li key={a.file_id} className="py-1">

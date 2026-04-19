@@ -483,6 +483,8 @@ export default function StockManagement() {
             void openReject(orderId);
           }}
         />
+
+        {/* Warehouse slip list merged into the main worklist; removed duplicate table. */}
       </div>
 
       <OrderDetailDrawer

@@ -11,6 +11,13 @@ export default function WarehouseSlipTable() {
     fetchWarehouseSlips().then((r) => setItems(r.items ?? r));
   }, []);
 
+  // choose link base depending on current route (manager vs operator)
+  const base =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/manager")
+      ? "/manager"
+      : "/operator";
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-100">
@@ -50,7 +57,7 @@ export default function WarehouseSlipTable() {
                 {
                   <span
                     className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
-                      i.status === "APPROVED"
+                      i.status === "CONFIRMED"
                         ? "bg-green-100 text-green-700"
                         : "bg-yellow-100 text-yellow-700"
                     }`}
@@ -60,14 +67,12 @@ export default function WarehouseSlipTable() {
                 }
               </td>
               <td className="px-4 py-3 text-sm text-gray-500">
-                {new Date(
-                  i.created_date || i.created_at || Date.now(),
-                ).toLocaleString()}
+                {new Date(i.created_date || Date.now()).toLocaleString()}
               </td>
               <td className="px-4 py-3 text-right text-sm">
                 <div className="inline-flex items-center gap-2">
                   <Link
-                    to={`/operator/warehouse-slips/${i.slip_id}`}
+                    to={`${base}/warehouse-slips/${i.slip_id}`}
                     className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white border border-gray-100 text-sm hover:bg-gray-50"
                     title="Xem chi tiết"
                   >
@@ -75,7 +80,7 @@ export default function WarehouseSlipTable() {
                     <span>View</span>
                   </Link>
                   <Link
-                    to={`/operator/warehouse-slips/${i.slip_id}/print`}
+                    to={`${base}/warehouse-slips/${i.slip_id}/print`}
                     className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white border border-gray-100 text-sm hover:bg-gray-50"
                     title="Xem trước (Print preview)"
                   >

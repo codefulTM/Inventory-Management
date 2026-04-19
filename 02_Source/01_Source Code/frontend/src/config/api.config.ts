@@ -76,4 +76,8 @@ export const API_ENDPOINTS = {
   WAREHOUSE_SLIP_ATTACHMENTS: (slipId: string) =>
     `/warehouse/slips/${slipId}/attachments`,
   WAREHOUSE_SLIP_PRINT: (slipId: string) => `/warehouse/slips/${slipId}/print`,
+  WAREHOUSE_SLIP_APPROVE: (slipId: string) =>
+    `/warehouse/slips/${slipId}/approve`,
+  WAREHOUSE_SLIP_REJECT: (slipId: string) =>
+    `/warehouse/slips/${slipId}/reject`,
 };

@@ -195,6 +195,13 @@ export default function WarehouseSlipForm() {
       }
 
       const payload: any = { ...data, attachments: [] };
+      // Remove client-side only properties not accepted by backend (e.g., line_id)
+      if (Array.isArray(payload.lines)) {
+        payload.lines = payload.lines.map((ln: any) => {
+          const { line_id, ...rest } = ln || {};
+          return rest;
+        });
+      }
       const res = await createWarehouseSlip(payload);
       if (!res || !res.slip_number) {
         alert("Tạo phiếu thất bại: phản hồi từ server không hợp lệ");

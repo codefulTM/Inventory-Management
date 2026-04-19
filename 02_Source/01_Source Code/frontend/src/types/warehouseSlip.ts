@@ -39,5 +39,6 @@ export interface WarehouseSlip {
   notes?: string;
   lines: WarehouseSlipLine[];
   attachments: WarehouseSlipAttachment[];
+  processed_transactions?: string[];
   created_date?: string;
 }

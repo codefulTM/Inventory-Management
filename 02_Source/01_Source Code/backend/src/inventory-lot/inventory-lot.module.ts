@@ -4,6 +4,10 @@ import {
   InventoryLot,
   InventoryLotSchema,
 } from '../schemas/inventory-lot.schema';
+import {
+  BinCountRecord,
+  BinCountRecordSchema,
+} from '../schemas/bin-count-record.schema';
 import { InventoryLotController } from './inventory-lot.controller';
 import { InventoryLotService } from './inventory-lot.service';
 import { InventoryLotRepository } from './inventory-lot.repository';
@@ -14,6 +18,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
   imports: [
     MongooseModule.forFeature([
       { name: InventoryLot.name, schema: InventoryLotSchema },
+      { name: BinCountRecord.name, schema: BinCountRecordSchema },
     ]),
     InventoryTransactionModule,
     AuditLogModule,

@@ -52,3 +52,21 @@ export async function fetchWarehouseSlipPrintHtml(id: string) {
   if (error) throw error;
   return data;
 }
+
+export async function approveWarehouseSlip(id: string, payload?: any) {
+  const { data, error } = await apiClient.post<any>(
+    API_ENDPOINTS.WAREHOUSE_SLIP_APPROVE(id),
+    payload || {},
+  );
+  if (error) throw error;
+  return data;
+}
+
+export async function rejectWarehouseSlip(id: string, reason: string) {
+  const { data, error } = await apiClient.post<any>(
+    API_ENDPOINTS.WAREHOUSE_SLIP_REJECT(id),
+    { reason },
+  );
+  if (error) throw error;
+  return data;
+}
