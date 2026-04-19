@@ -5,6 +5,14 @@ import type { InventoryStatusItemDto } from '../dto/inventory-status-report.dto'
 import type { MaterialUsageItemDto } from '../dto/material-usage-report.dto';
 import type { QcPerformanceItemDto } from '../dto/qc-performance-report.dto';
 import type { AuditEntryDto } from '../dto/audit-report.dto';
+import type {
+  AuditTrendPointDto,
+  InventoryTrendPointDto,
+  MaterialUsageTrendPointDto,
+  QcSupplierRankingItemDto,
+  QcTrendPointDto,
+  TrendInterval,
+} from '../dto/trend-report.dto';
 
 @Injectable()
 export class ReportsRepository {
@@ -13,6 +21,35 @@ export class ReportsRepository {
   constructor(
     @Inject(ELASTICSEARCH_CLIENT) private readonly es: Client,
   ) {}
+
+  private normalizeInterval(interval?: string): TrendInterval {
+    if (interval === 'week' || interval === 'month') {
+      return interval;
+    }
+    return 'day';
+  }
+
+  private resolveTimeWindow(from?: Date, to?: Date, fallbackDays = 90) {
+    const toDate = to ?? new Date();
+    const fromDate =
+      from ??
+      new Date(toDate.getTime() - fallbackDays * 24 * 60 * 60 * 1000);
+
+    return {
+      fromDate,
+      toDate,
+    };
+  }
+
+  private getDateFormat(interval: TrendInterval): string {
+    if (interval === 'month') {
+      return 'yyyy-MM';
+    }
+    if (interval === 'week') {
+      return 'yyyy-ww';
+    }
+    return 'yyyy-MM-dd';
+  }
 
   /**
    * Query inventory_lots_* — aggregate by status, count lots and sum quantity.
@@ -175,5 +212,265 @@ export class ReportsRepository {
 
     this.logger.debug(`[getAuditTrail] returned ${entries.length} entries (page=${page}, size=${size})`);
     return entries;
+  }
+
+  async getInventoryTrend(
+    from?: Date,
+    to?: Date,
+    interval?: string,
+  ): Promise<InventoryTrendPointDto[]> {
+    const normalizedInterval = this.normalizeInterval(interval);
+    const { fromDate, toDate } = this.resolveTimeWindow(from, to, 120);
+
+    const response = await this.es.search({
+      index: 'inventory_lots_*',
+      size: 0,
+      query: {
+        range: {
+          modified_date: {
+            gte: fromDate.toISOString(),
+            lte: toDate.toISOString(),
+          },
+        },
+      },
+      aggs: {
+        by_period: {
+          date_histogram: {
+            field: 'modified_date',
+            calendar_interval: normalizedInterval,
+            min_doc_count: 0,
+            format: this.getDateFormat(normalizedInterval),
+          },
+          aggs: {
+            total_quantity: {
+              sum: {
+                field: 'quantity',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const buckets: any[] = (response.aggregations?.by_period as any)?.buckets ?? [];
+    return buckets.map((bucket) => ({
+      period: bucket.key_as_string,
+      lot_count: bucket.doc_count ?? 0,
+      total_quantity: bucket.total_quantity?.value ?? 0,
+    }));
+  }
+
+  async getMaterialUsageTrend(
+    from?: Date,
+    to?: Date,
+    interval?: string,
+    limit = 10,
+  ): Promise<MaterialUsageTrendPointDto[]> {
+    const normalizedInterval = this.normalizeInterval(interval);
+    const { fromDate, toDate } = this.resolveTimeWindow(from, to, 90);
+
+    const response = await this.es.search({
+      index: 'inventory_transactions_*',
+      size: 0,
+      query: {
+        range: {
+          transaction_date: {
+            gte: fromDate.toISOString(),
+            lte: toDate.toISOString(),
+          },
+        },
+      },
+      aggs: {
+        by_period: {
+          date_histogram: {
+            field: 'transaction_date',
+            calendar_interval: normalizedInterval,
+            min_doc_count: 0,
+            format: this.getDateFormat(normalizedInterval),
+          },
+          aggs: {
+            by_material: {
+              terms: {
+                field: 'material_id.keyword',
+                size: Math.max(1, limit),
+              },
+              aggs: {
+                total_quantity: {
+                  sum: {
+                    script: {
+                      source:
+                        "doc['quantity'].size() > 0 ? Double.parseDouble(doc['quantity'].value.toString()) : 0",
+                      lang: 'painless',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const points: MaterialUsageTrendPointDto[] = [];
+    const buckets: any[] = (response.aggregations?.by_period as any)?.buckets ?? [];
+
+    for (const periodBucket of buckets) {
+      const materialBuckets: any[] = periodBucket.by_material?.buckets ?? [];
+      for (const materialBucket of materialBuckets) {
+        points.push({
+          period: periodBucket.key_as_string,
+          material_id: materialBucket.key,
+          transaction_count: materialBucket.doc_count ?? 0,
+          total_quantity: materialBucket.total_quantity?.value ?? 0,
+        });
+      }
+    }
+
+    return points;
+  }
+
+  async getQcTrend(
+    from?: Date,
+    to?: Date,
+    interval?: string,
+    limit = 10,
+  ): Promise<{
+    points: QcTrendPointDto[];
+    supplier_rankings: QcSupplierRankingItemDto[];
+  }> {
+    const normalizedInterval = this.normalizeInterval(interval);
+    const { fromDate, toDate } = this.resolveTimeWindow(from, to, 90);
+
+    const response = await this.es.search({
+      index: 'qc_tests_*',
+      size: 0,
+      query: {
+        range: {
+          test_date: {
+            gte: fromDate.toISOString(),
+            lte: toDate.toISOString(),
+          },
+        },
+      },
+      aggs: {
+        by_period: {
+          date_histogram: {
+            field: 'test_date',
+            calendar_interval: normalizedInterval,
+            min_doc_count: 0,
+            format: this.getDateFormat(normalizedInterval),
+          },
+          aggs: {
+            pass_count: {
+              filter: {
+                term: { 'result_status.keyword': 'Pass' },
+              },
+            },
+            fail_count: {
+              filter: {
+                term: { 'result_status.keyword': 'Fail' },
+              },
+            },
+            pending_count: {
+              filter: {
+                term: { 'result_status.keyword': 'Pending' },
+              },
+            },
+          },
+        },
+        by_supplier: {
+          terms: {
+            field: 'supplier_name.keyword',
+            size: Math.max(1, limit),
+          },
+          aggs: {
+            pass_count: {
+              filter: {
+                term: { 'result_status.keyword': 'Pass' },
+              },
+            },
+            fail_count: {
+              filter: {
+                term: { 'result_status.keyword': 'Fail' },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const periodBuckets: any[] = (response.aggregations?.by_period as any)?.buckets ?? [];
+    const points: QcTrendPointDto[] = periodBuckets.map((bucket) => ({
+      period: bucket.key_as_string,
+      pass_count: bucket.pass_count?.doc_count ?? 0,
+      fail_count: bucket.fail_count?.doc_count ?? 0,
+      pending_count: bucket.pending_count?.doc_count ?? 0,
+    }));
+
+    const supplierBuckets: any[] = (response.aggregations?.by_supplier as any)?.buckets ?? [];
+    const supplier_rankings: QcSupplierRankingItemDto[] = supplierBuckets.map((bucket) => {
+      const pass_count = bucket.pass_count?.doc_count ?? 0;
+      const fail_count = bucket.fail_count?.doc_count ?? 0;
+      const total = pass_count + fail_count;
+      const quality_rate = total > 0 ? Math.round((pass_count / total) * 10000) / 100 : 0;
+
+      return {
+        supplier_name: bucket.key,
+        pass_count,
+        fail_count,
+        quality_rate,
+      };
+    });
+
+    return {
+      points,
+      supplier_rankings,
+    };
+  }
+
+  async getAuditTrend(
+    from?: Date,
+    to?: Date,
+    interval?: string,
+  ): Promise<AuditTrendPointDto[]> {
+    const normalizedInterval = this.normalizeInterval(interval);
+    const { fromDate, toDate } = this.resolveTimeWindow(from, to, 120);
+
+    const response = await this.es.search({
+      index: 'inventory_audit_reports_*',
+      size: 0,
+      query: {
+        range: {
+          modified_date: {
+            gte: fromDate.toISOString(),
+            lte: toDate.toISOString(),
+          },
+        },
+      },
+      aggs: {
+        by_period: {
+          date_histogram: {
+            field: 'modified_date',
+            calendar_interval: normalizedInterval,
+            min_doc_count: 0,
+            format: this.getDateFormat(normalizedInterval),
+          },
+          aggs: {
+            unique_users: {
+              cardinality: {
+                field: 'performed_by.keyword',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const buckets: any[] = (response.aggregations?.by_period as any)?.buckets ?? [];
+    return buckets.map((bucket) => ({
+      period: bucket.key_as_string,
+      activity_count: bucket.doc_count ?? 0,
+      unique_users: bucket.unique_users?.value ?? 0,
+    }));
   }
 }

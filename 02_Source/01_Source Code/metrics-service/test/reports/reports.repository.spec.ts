@@ -64,7 +64,7 @@ describe('ReportsRepository (ES queries)', () => {
       aggregations: {
         by_material: {
           buckets: [
-            { key: 'MAT-02', transaction_count: { value: 3 }, total_quantity: { value: 150 } },
+            { key: 'MAT-02', doc_count: 3, total_quantity: { value: 150 } },
           ],
         },
       },
@@ -169,5 +169,150 @@ describe('ReportsRepository (ES queries)', () => {
     mockEsSearch.mockResolvedValue({ hits: { hits: [] } });
     const entries = await repo.getAuditTrail();
     expect(entries).toEqual([]);
+  });
+
+  // ─── Trend Reports ────────────────────────────────────────────────────────
+
+  it('getInventoryTrend — maps period buckets into trend points', async () => {
+    mockEsSearch.mockResolvedValue({
+      aggregations: {
+        by_period: {
+          buckets: [
+            {
+              key_as_string: '2026-04-01',
+              doc_count: 12,
+              total_quantity: { value: 1440 },
+            },
+          ],
+        },
+      },
+    });
+
+    const points = await repo.getInventoryTrend(
+      new Date('2026-04-01T00:00:00Z'),
+      new Date('2026-04-30T23:59:59Z'),
+      'day',
+    );
+
+    expect(points).toEqual([
+      {
+        period: '2026-04-01',
+        lot_count: 12,
+        total_quantity: 1440,
+      },
+    ]);
+  });
+
+  it('getMaterialUsageTrend — flattens period/material buckets', async () => {
+    mockEsSearch.mockResolvedValue({
+      aggregations: {
+        by_period: {
+          buckets: [
+            {
+              key_as_string: '2026-04-01',
+              by_material: {
+                buckets: [
+                  {
+                    key: 'MAT-01',
+                    doc_count: 5,
+                    total_quantity: { value: 250 },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const points = await repo.getMaterialUsageTrend(
+      new Date('2026-04-01T00:00:00Z'),
+      new Date('2026-04-30T23:59:59Z'),
+      'day',
+      5,
+    );
+
+    expect(points).toEqual([
+      {
+        period: '2026-04-01',
+        material_id: 'MAT-01',
+        transaction_count: 5,
+        total_quantity: 250,
+      },
+    ]);
+  });
+
+  it('getQcTrend — returns trend points and supplier ranking', async () => {
+    mockEsSearch.mockResolvedValue({
+      aggregations: {
+        by_period: {
+          buckets: [
+            {
+              key_as_string: '2026-04-01',
+              pass_count: { doc_count: 9 },
+              fail_count: { doc_count: 1 },
+              pending_count: { doc_count: 2 },
+            },
+          ],
+        },
+        by_supplier: {
+          buckets: [
+            {
+              key: 'Supplier A',
+              pass_count: { doc_count: 9 },
+              fail_count: { doc_count: 1 },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await repo.getQcTrend(
+      new Date('2026-04-01T00:00:00Z'),
+      new Date('2026-04-30T23:59:59Z'),
+      'day',
+      5,
+    );
+
+    expect(result.points).toEqual([
+      {
+        period: '2026-04-01',
+        pass_count: 9,
+        fail_count: 1,
+        pending_count: 2,
+      },
+    ]);
+    expect(result.supplier_rankings[0].supplier_name).toBe('Supplier A');
+    expect(result.supplier_rankings[0].quality_rate).toBe(90);
+  });
+
+  it('getAuditTrend — maps activity and unique user counts', async () => {
+    mockEsSearch.mockResolvedValue({
+      aggregations: {
+        by_period: {
+          buckets: [
+            {
+              key_as_string: '2026-04-01',
+              doc_count: 15,
+              unique_users: { value: 4 },
+            },
+          ],
+        },
+      },
+    });
+
+    const points = await repo.getAuditTrend(
+      new Date('2026-04-01T00:00:00Z'),
+      new Date('2026-04-30T23:59:59Z'),
+      'day',
+    );
+
+    expect(points).toEqual([
+      {
+        period: '2026-04-01',
+        activity_count: 15,
+        unique_users: 4,
+      },
+    ]);
   });
 });

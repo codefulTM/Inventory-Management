@@ -26,11 +26,49 @@ interface AuditReportResponse {
   generated_at: string;
   entries: { action: string; entity: string; performed_by: string; performed_at: string; details: string }[];
 }
+interface InventoryTrendResponse {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: string;
+  points: { period: string; lot_count: number; total_quantity: number }[];
+}
+interface MaterialUsageTrendResponse {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: string;
+  points: {
+    period: string;
+    material_id: string;
+    transaction_count: number;
+    total_quantity: number;
+  }[];
+}
+interface QcTrendResponse {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: string;
+  points: { period: string; pass_count: number; fail_count: number; pending_count: number }[];
+  supplier_rankings: { supplier_name: string; pass_count: number; fail_count: number; quality_rate: number }[];
+}
+interface AuditTrendResponse {
+  generated_at: string;
+  from: string;
+  to: string;
+  interval: string;
+  points: { period: string; activity_count: number; unique_users: number }[];
+}
 interface MetricsReportsGrpc {
   GetInventoryStatus(data: object): Observable<InventoryStatusResponse>;
   GetMaterialUsage(data: { from?: string; to?: string }): Observable<MaterialUsageResponse>;
   GetQcPerformance(data: object): Observable<QcPerformanceResponse>;
   GetAuditReport(data: { page?: number; size?: number }): Observable<AuditReportResponse>;
+  GetInventoryTrend(data: { from?: string; to?: string; interval?: string }): Observable<InventoryTrendResponse>;
+  GetMaterialUsageTrend(data: { from?: string; to?: string; interval?: string; limit?: number }): Observable<MaterialUsageTrendResponse>;
+  GetQcTrend(data: { from?: string; to?: string; interval?: string; limit?: number }): Observable<QcTrendResponse>;
+  GetAuditTrend(data: { from?: string; to?: string; interval?: string }): Observable<AuditTrendResponse>;
 }
 
 /**
@@ -159,7 +197,7 @@ describe('MetricsReportsService (gRPC e2e)', () => {
         aggregations: {
           by_material: {
             buckets: [
-              { key: 'MAT-02', transaction_count: { value: 5 }, total_quantity: { value: 250 } },
+              { key: 'MAT-02', doc_count: 5, total_quantity: { value: 250 } },
             ],
           },
         },
@@ -261,6 +299,147 @@ describe('MetricsReportsService (gRPC e2e)', () => {
 
       // proto3 omits empty repeated fields — entries is undefined when empty
       expect(result.entries ?? []).toEqual([]);
+    });
+  });
+
+  // ─── Trend RPCs ───────────────────────────────────────────────────────────
+
+  describe('GetInventoryTrend', () => {
+    it('returns inventory trend points', async () => {
+      mockEs.search.mockResolvedValue({
+        aggregations: {
+          by_period: {
+            buckets: [
+              {
+                key_as_string: '2026-04-01',
+                doc_count: 11,
+                total_quantity: { value: 1200 },
+              },
+            ],
+          },
+        },
+      });
+
+      const result = await firstValueFrom(
+        reportsService.GetInventoryTrend({
+          from: '2026-04-01T00:00:00Z',
+          to: '2026-04-30T23:59:59Z',
+          interval: 'day',
+        }),
+      );
+
+      expect(result.points).toHaveLength(1);
+      expect(result.points[0].lot_count).toBe(11);
+      expect(result.points[0].total_quantity).toBe(1200);
+    });
+  });
+
+  describe('GetMaterialUsageTrend', () => {
+    it('returns material usage trend points', async () => {
+      mockEs.search.mockResolvedValue({
+        aggregations: {
+          by_period: {
+            buckets: [
+              {
+                key_as_string: '2026-04-01',
+                by_material: {
+                  buckets: [
+                    {
+                      key: 'MAT-01',
+                      doc_count: 5,
+                      total_quantity: { value: 250 },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      const result = await firstValueFrom(
+        reportsService.GetMaterialUsageTrend({
+          from: '2026-04-01T00:00:00Z',
+          to: '2026-04-30T23:59:59Z',
+          interval: 'day',
+          limit: 5,
+        }),
+      );
+
+      expect(result.points).toHaveLength(1);
+      expect(result.points[0].material_id).toBe('MAT-01');
+      expect(result.points[0].transaction_count).toBe(5);
+    });
+  });
+
+  describe('GetQcTrend', () => {
+    it('returns qc trend points and supplier rankings', async () => {
+      mockEs.search.mockResolvedValue({
+        aggregations: {
+          by_period: {
+            buckets: [
+              {
+                key_as_string: '2026-04-01',
+                pass_count: { doc_count: 8 },
+                fail_count: { doc_count: 2 },
+                pending_count: { doc_count: 1 },
+              },
+            ],
+          },
+          by_supplier: {
+            buckets: [
+              {
+                key: 'Supplier A',
+                pass_count: { doc_count: 8 },
+                fail_count: { doc_count: 2 },
+              },
+            ],
+          },
+        },
+      });
+
+      const result = await firstValueFrom(
+        reportsService.GetQcTrend({
+          from: '2026-04-01T00:00:00Z',
+          to: '2026-04-30T23:59:59Z',
+          interval: 'day',
+          limit: 5,
+        }),
+      );
+
+      expect(result.points).toHaveLength(1);
+      expect(result.supplier_rankings).toHaveLength(1);
+      expect(result.supplier_rankings[0].quality_rate).toBe(80);
+    });
+  });
+
+  describe('GetAuditTrend', () => {
+    it('returns audit trend points', async () => {
+      mockEs.search.mockResolvedValue({
+        aggregations: {
+          by_period: {
+            buckets: [
+              {
+                key_as_string: '2026-04-01',
+                doc_count: 25,
+                unique_users: { value: 5 },
+              },
+            ],
+          },
+        },
+      });
+
+      const result = await firstValueFrom(
+        reportsService.GetAuditTrend({
+          from: '2026-04-01T00:00:00Z',
+          to: '2026-04-30T23:59:59Z',
+          interval: 'day',
+        }),
+      );
+
+      expect(result.points).toHaveLength(1);
+      expect(result.points[0].activity_count).toBe(25);
+      expect(result.points[0].unique_users).toBe(5);
     });
   });
 });
