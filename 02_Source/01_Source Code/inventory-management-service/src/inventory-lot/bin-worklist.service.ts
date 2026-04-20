@@ -5,11 +5,11 @@ import { InventoryLotRepository } from './inventory-lot.repository';
 import { BinCountRecordRepository } from './bin-count-record.repository';
 import { MaterialRepository } from '../material/material.repository';
 import type { SubmitBinCountDto } from './dto/bin-worklist.dto';
-import { WarehouseSlipService } from '../warehouse-slip/warehouse-slip.service';
 import {
+  WarehouseSlipService,
   WarehouseSlipType,
   WarehouseSlipStatus,
-} from '../warehouse-slip/dto/create-warehouse-slip.dto';
+} from '../warehouse-slip';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
 import { MailService } from '../mail/mail.service';
@@ -145,7 +145,9 @@ export class BinWorklistService {
     ]);
 
     // compute inventory-lot arrays and last bin-count post date per bin
-    const locationIds = (docs || []).map((d: any) => d.location_id).filter(Boolean);
+    const locationIds = (docs || [])
+      .map((d: any) => d.location_id)
+      .filter(Boolean);
     let lotsMap = new Map<string, any[]>();
     let lastCountMap = new Map<string, any>();
 
@@ -175,7 +177,9 @@ export class BinWorklistService {
             },
           },
         ]);
-        lotsMap = new Map((lotsByLocation || []).map((r: any) => [r._id, r.lots || []]));
+        lotsMap = new Map(
+          (lotsByLocation || []).map((r: any) => [r._id, r.lots || []]),
+        );
       } catch (_) {
         // ignore aggregation errors and leave empty arrays
       }

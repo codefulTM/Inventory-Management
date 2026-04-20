@@ -20,7 +20,7 @@ import { BinWorklistService } from './bin-worklist.service';
 import { BinCountRecordRepository } from './bin-count-record.repository';
 import { InventoryTransactionModule } from '../inventory-transaction/inventory-transaction.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
-import { WarehouseSlipModule } from '../warehouse-slip/warehouse-slip.module';
+import { WarehouseSlipModule } from '../warehouse-slip';
 import { MailModule } from '../mail/mail.module';
 import { MaterialModule } from '../material/material.module';
 
