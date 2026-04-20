@@ -281,7 +281,7 @@ export default function OrderWorklistTable({
                                 top: menuPosition.top,
                                 left: menuPosition.left,
                               }}
-                              className="z-[9999] mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
+                              className="z-[9999] mt-2 w-44 overflow-hidden rounded-md border bg-white shadow-lg"
                             >
                               <button
                                 type="button"
@@ -290,9 +290,9 @@ export default function OrderWorklistTable({
                                   setMenuPosition(null);
                                   onViewDetail?.(slip.slip_id);
                                 }}
-                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-700 focus:text-gray-700 first:rounded-t-md last:rounded-b-md font-bold appearance-none bg-transparent"
                               >
-                                <span className="font-bold">Chi tiết</span>
+                                Chi tiết
                               </button>
 
                               <Link
@@ -301,7 +301,7 @@ export default function OrderWorklistTable({
                                   setOpenMenu(null);
                                   setMenuPosition(null);
                                 }}
-                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-700 visited:text-gray-700 focus:text-gray-700 first:rounded-t-md last:rounded-b-md"
                               >
                                 Preview
                               </Link>
@@ -311,7 +311,7 @@ export default function OrderWorklistTable({
                         ) : (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute right-0 z-[9999] mt-2 w-44 overflow-visible rounded-md border bg-white shadow-lg"
+                            className="absolute right-0 z-[9999] mt-2 w-44 overflow-hidden rounded-md border bg-white shadow-lg"
                           >
                             <button
                               type="button"
@@ -319,15 +319,15 @@ export default function OrderWorklistTable({
                                 setOpenMenu(null);
                                 onViewDetail?.(slip.slip_id);
                               }}
-                              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 focus:text-gray-700 first:rounded-t-md last:rounded-b-md font-bold appearance-none bg-transparent"
                             >
-                              <span className="font-bold">Chi tiết</span>
+                              Chi tiết
                             </button>
 
                             <Link
                               to={`${base}/warehouse-slips/${slip.slip_id}/print`}
                               onClick={() => setOpenMenu(null)}
-                              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-700 visited:text-gray-700 focus:text-gray-700 first:rounded-t-md last:rounded-b-md"
                             >
                               Preview
                             </Link>

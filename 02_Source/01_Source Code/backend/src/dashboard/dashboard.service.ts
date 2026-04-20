@@ -1,70 +1,100 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import {
-  InventoryTransactionDocument,
-  InventoryTransaction,
-} from '../schemas/inventory-transaction.schema';
-import {
-  InventoryLot,
-  InventoryLotDocument,
-} from '../schemas/inventory-lot.schema';
-import {
-  InventoryValuationSummary,
-  InventoryValuationSummaryDocument,
-} from '../schemas/inventory-valuation-summary.schema';
-import {
-  WarehouseSlip,
-  WarehouseSlipDocument,
-} from '../schemas/warehouse-slip.schema';
+import { InventoryTransaction } from '../schemas/inventory-transaction.schema';
+import { InventoryLot } from '../schemas/inventory-lot.schema';
+import { WarehouseSlip } from '../schemas/warehouse-slip.schema';
+import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repository';
+import { InventoryTransactionRepository } from '../inventory-transaction/inventory-transaction.repository';
+import { WarehouseSlipRepository } from '../warehouse-slip/warehouse-slip.repository';
 
 @Injectable()
 export class DashboardService {
+  /**
+   * DashboardService dùng các Repository để tách trách nhiệm DB ra khỏi logic báo cáo.
+   * Không dùng trực tiếp Model nữa theo yêu cầu — giúp dễ test và tái sử dụng.
+   */
   constructor(
-    @InjectModel(InventoryTransaction.name)
-    private readonly txModel: Model<InventoryTransactionDocument>,
-    @InjectModel(InventoryLot.name)
-    private readonly lotModel: Model<InventoryLotDocument>,
-    @InjectModel(InventoryValuationSummary.name)
-    private readonly valuationModel: Model<InventoryValuationSummaryDocument>,
-    @InjectModel(WarehouseSlip.name)
-    private readonly slipModel: Model<WarehouseSlipDocument>,
+    private readonly txRepo: InventoryTransactionRepository,
+    private readonly lotRepo: InventoryLotRepository,
+    private readonly slipRepo: WarehouseSlipRepository,
   ) {}
 
   // Minimal summary: totals and top materials
+  /**
+   * Lấy summary tổng quan cho dashboard.
+   * - Tính `total_quantity` từ `inventory_lots` (có filter theo kho nếu truyền vào).
+   * - Tính `total_value` thủ công: cho mỗi lô lấy `unit_price` gần nhất từ `warehouse_slips.lines` (nếu có),
+   *   rồi nhân với `quantity` để tính giá trị lô, sau đó cộng vào tổng theo material.
+   * Lý do: tránh phụ thuộc vào collection `inventory_valuation_summaries`.
+   */
   async getSummary(filters: { warehouseId?: string } = {}) {
     const match: any = {};
     if (filters.warehouseId) match.warehouse_id = filters.warehouseId;
 
-    const [lotAgg, valuationAgg] = await Promise.all([
-      this.lotModel
-        .aggregate([
-          { $match: match },
-          {
-            $group: {
-              _id: '$material_id',
-              total_quantity: { $sum: '$quantity' },
+    // Pipeline: nhóm theo material_id, tính tổng quantity và tổng value (dùng unit_price gần nhất của lô)
+    const pipeline = [
+      { $match: match },
+      {
+        $lookup: {
+          from: 'warehouse_slips',
+          let: { lotId: '$lot_id' },
+          pipeline: [
+            { $unwind: '$lines' },
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$lines.lot_id', '$$lotId'] },
+                    { $ne: ['$lines.unit_price', null] },
+                  ],
+                },
+              },
             },
+            { $sort: { confirmed_at: -1, created_date: -1 } },
+            { $limit: 1 },
+            { $project: { unit_price: '$lines.unit_price' } },
+          ],
+          as: 'latest_line',
+        },
+      },
+      {
+        $addFields: {
+          unit_price: {
+            $ifNull: [{ $arrayElemAt: ['$latest_line.unit_price', 0] }, 0],
           },
-        ])
-        .exec(),
-      this.valuationModel
-        .aggregate([
-          { $group: { _id: null, total_value: { $sum: '$total_value' } } },
-        ])
-        .exec(),
-    ]);
+          lot_value: {
+            $multiply: [
+              '$quantity',
+              {
+                $ifNull: [{ $arrayElemAt: ['$latest_line.unit_price', 0] }, 0],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$material_id',
+          total_quantity: { $sum: '$quantity' },
+          total_value: { $sum: '$lot_value' },
+        },
+      },
+    ];
 
-    const total_quantity = lotAgg.reduce(
+    const rows = await this.lotRepo.aggregate(pipeline);
+
+    const total_quantity = rows.reduce(
       (s, r) => s + (r.total_quantity || 0),
       0,
     );
-    const topMaterials = lotAgg
-      .sort((a, b) => b.total_quantity - a.total_quantity)
-      .slice(0, 10)
-      .map((r) => ({ material_id: r._id, total_quantity: r.total_quantity }));
+    const total_value = rows.reduce((s, r) => s + (r.total_value || 0), 0);
 
-    const total_value = valuationAgg[0]?.total_value ?? 0;
+    const topMaterials = rows
+      .sort((a: any, b: any) => b.total_quantity - a.total_quantity)
+      .slice(0, 10)
+      .map((r: any) => ({
+        material_id: r._id,
+        total_quantity: r.total_quantity,
+      }));
 
     return {
       total_quantity,
@@ -123,8 +153,8 @@ export class DashboardService {
     });
     pipeline.push({ $sort: { _id: 1 } });
 
-    const rows = await this.txModel.aggregate(pipeline).exec();
-    return rows.map((r) => ({
+    const rows = await this.txRepo.aggregate(pipeline);
+    return rows.map((r: any) => ({
       period: r._id,
       total_quantity: r.total_quantity,
     }));
@@ -170,8 +200,8 @@ export class DashboardService {
     ]);
 
     const [items, totalObj] = await Promise.all([
-      this.txModel.aggregate(agg).exec(),
-      this.txModel.aggregate(pipeline.concat([{ $count: 'total' }])).exec(),
+      this.txRepo.aggregate(agg),
+      this.txRepo.aggregate(pipeline.concat([{ $count: 'total' }])),
     ]);
 
     const total = totalObj[0]?.total ?? 0;
