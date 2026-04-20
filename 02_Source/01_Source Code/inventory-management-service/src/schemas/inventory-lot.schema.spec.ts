@@ -127,11 +127,15 @@ describe('InventoryLotSchema', () => {
         [{ created_date: -1 }, expect.any(Object)],
         [{ material_id: 1, status: 1 }, expect.any(Object)],
         [{ is_sample: 1, parent_lot_id: 1 }, expect.any(Object)],
+        // New indexes added: storage_location and compound modified_date+storage_location
+        [{ storage_location: 1 }, expect.any(Object)],
+        [{ modified_date: -1, storage_location: 1 }, expect.any(Object)],
       ]),
     );
   });
 
-  it('should define exactly seven custom indexes', () => {
-    expect(InventoryLotSchema.indexes()).toHaveLength(7);
+  it('should define expected number of custom indexes', () => {
+    // Schema now registers 9 indexes (including storage_location-related indexes)
+    expect(InventoryLotSchema.indexes()).toHaveLength(9);
   });
 });

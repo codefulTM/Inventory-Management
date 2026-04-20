@@ -408,9 +408,10 @@ describe('InventoryLotRepository', () => {
 
       const result = await repository.updateQuantity('LOT-001', '5');
 
+      // repository converts the delta to Number before applying $inc
       expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
         { lot_id: 'LOT-001' },
-        { $inc: { quantity: '5' } },
+        { $inc: { quantity: 5 } },
         { new: true },
       );
       expect(result?.quantity).toBe(105);

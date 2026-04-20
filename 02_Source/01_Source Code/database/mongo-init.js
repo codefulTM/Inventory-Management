@@ -130,6 +130,7 @@ db.createCollection("storage_locations", {
         warehouse_id: { bsonType: "string" },
         location_name: { bsonType: "string" },
         zone: { bsonType: ["string", "null"] },
+        expected_qty: { bsonType: ["int", "long", "double", "decimal", "null"] },
         is_active: { bsonType: "bool" },
         created_date: { bsonType: "date" },
         modified_date: { bsonType: "date" },
@@ -160,6 +161,7 @@ db.createCollection("inventory_lots", {
         manufacturer_name: { bsonType: "string" },
         manufacturer_lot: { bsonType: "string" },
         supplier_name: { bsonType: ["string", "null"] },
+        manufacture_date: { bsonType: ["date", "null"] },
         received_date: { bsonType: "date" },
         expiration_date: { bsonType: "date" },
         in_use_expiration_date: { bsonType: ["date", "null"] },
@@ -167,7 +169,7 @@ db.createCollection("inventory_lots", {
           bsonType: "string",
           enum: ["Quarantine", "Accepted", "Rejected", "Depleted"],
         },
-        quantity: { bsonType: "int" },
+        quantity: { bsonType: ["int", "long", "double", "decimal"] },
         unit_of_measure: { bsonType: "string" },
         warehouse_id: { bsonType: ["string", "null"] },
         storage_location: { bsonType: ["string", "null"] },
@@ -219,6 +221,8 @@ db.createCollection("inventory_transactions", {
         reference_number: { bsonType: ["string", "null"] },
         performed_by: { bsonType: "string" },
         notes: { bsonType: ["string", "null"] },
+        adjustment_id: { bsonType: ["string", "null"] },
+        adjustment_reason_code: { bsonType: ["string", "null"] },
         created_date: { bsonType: "date" },
         modified_date: { bsonType: "date" },
       },
@@ -338,6 +342,9 @@ db.createCollection("qc_tests", {
         verified_by: { bsonType: ["string", "null"] },
         reject_reason: { bsonType: ["string", "null"] },
         retry_count: { bsonType: ["int", "null"] },
+        label_id: { bsonType: ["string", "null"] },
+        approved_by: { bsonType: ["string", "null"] },
+        history: { bsonType: ["array", "null"] },
         created_date: { bsonType: "date" },
         modified_date: { bsonType: "date" },
       },
@@ -415,6 +422,22 @@ db.createCollection("import_export_orders", {
             },
           },
         },
+        blind_count_required: { bsonType: ["bool", "null"] },
+        confirmed_items: {
+          bsonType: ["array", "null"],
+          items: {
+            bsonType: "object",
+            required: ["material_id", "expected_quantity", "actual_quantity", "variance_quantity", "unit_of_measure"],
+            properties: {
+              material_id: { bsonType: "string" },
+              lot_id: { bsonType: ["string", "null"] },
+              expected_quantity: { bsonType: ["int", "long", "double", "decimal"] },
+              actual_quantity: { bsonType: ["int", "long", "double", "decimal"] },
+              variance_quantity: { bsonType: ["int", "long", "double", "decimal"] },
+              unit_of_measure: { bsonType: "string" },
+            },
+          },
+        },
         created_date: { bsonType: "date" },
         modified_date: { bsonType: "date" },
       },
@@ -466,10 +489,223 @@ db.createCollection("inventory_audit_reports", {
         signature_valid_to: { bsonType: ["date", "null"] },
         requested_by: { bsonType: "string" },
         approved_by: { bsonType: ["string", "null"] },
-        note: { bsonType: ["string", "null"] },
         failure_reason: { bsonType: ["string", "null"] },
         created_date: { bsonType: ["date", "null"] },
         modified_date: { bsonType: ["date", "null"] },
+      },
+    },
+  },
+});
+
+// --- Additional collections discovered in schemas ---
+
+// Inventory Adjustments
+db.createCollection("inventory_adjustments", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: [
+        "adjustment_id",
+        "lot_id",
+        "material_id",
+        "adjustment_quantity",
+        "quantity_before",
+        "quantity_after",
+        "reason_code",
+        "unit_cost_snapshot",
+        "valuation_before",
+        "valuation_after",
+        "valuation_delta",
+        "performed_by",
+        "linked_transaction_id",
+      ],
+      properties: {
+        adjustment_id: { bsonType: "string" },
+        lot_id: { bsonType: "string" },
+        material_id: { bsonType: "string" },
+        adjustment_quantity: { bsonType: ["int", "long", "double", "decimal"] },
+        quantity_before: { bsonType: ["int", "long", "double", "decimal"] },
+        quantity_after: { bsonType: ["int", "long", "double", "decimal"] },
+        reason_code: {
+          bsonType: "string",
+          enum: ["DAMAGED", "LOST", "EXPIRED", "COUNT_CORRECTION", "SYSTEM_CORRECTION", "OTHER"],
+        },
+        reason_note: { bsonType: ["string", "null"] },
+        unit_cost_snapshot: { bsonType: ["int", "long", "double", "decimal"] },
+        valuation_before: { bsonType: ["int", "long", "double", "decimal"] },
+        valuation_after: { bsonType: ["int", "long", "double", "decimal"] },
+        valuation_delta: { bsonType: ["int", "long", "double", "decimal"] },
+        performed_by: { bsonType: "string" },
+        approved_by: { bsonType: ["string", "null"] },
+        linked_transaction_id: { bsonType: "string" },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" },
+      },
+    },
+  },
+});
+
+// Counters (for sequence generators)
+db.createCollection("counters", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["name", "seq"],
+      properties: {
+        name: { bsonType: "string" },
+        seq: { bsonType: ["int", "long"] },
+      },
+    },
+  },
+});
+
+// Bin Count Records (bin_count_records)
+db.createCollection("bin_count_records", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["bin_code", "counted_by"],
+      properties: {
+        bin_code: { bsonType: "string" },
+        counted_by: { bsonType: "string" },
+        counted_at: { bsonType: "date" },
+        entries: { bsonType: ["array", "null"] },
+        flag_review: { bsonType: "bool" },
+        notes: { bsonType: ["string", "null"] },
+        attachments: { bsonType: ["array", "null"] },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" },
+      },
+    },
+  },
+});
+
+// Warehouse hierarchical locations
+db.createCollection("warehouse_locations", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["location_code", "location_name", "level"],
+      properties: {
+        location_code: { bsonType: "string" },
+        location_name: { bsonType: "string" },
+        level: { bsonType: "string" },
+        parent_code: { bsonType: ["string", "null"] },
+        description: { bsonType: ["string", "null"] },
+        capacity: { bsonType: ["int", "long", "double", "decimal", "null"] },
+        is_active: { bsonType: "bool" },
+        notes: { bsonType: ["string", "null"] },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" },
+      },
+    },
+  },
+});
+
+// Warehouse slips (in/out slips)
+db.createCollection("warehouse_slips", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["slip_id", "slip_number", "type", "warehouse_id"],
+      properties: {
+        slip_id: { bsonType: "string" },
+        slip_number: { bsonType: "string" },
+        type: { bsonType: "string", enum: ["IN", "OUT"] },
+        warehouse_id: { bsonType: "string" },
+        status: { bsonType: "string", enum: ["PENDING", "CONFIRMED", "REJECTED"] },
+        confirmed_by: { bsonType: ["string", "null"] },
+        confirmed_at: { bsonType: ["date", "null"] },
+        rejected_by: { bsonType: ["string", "null"] },
+        rejected_at: { bsonType: ["date", "null"] },
+        reject_reason: { bsonType: ["string", "null"] },
+        locked: { bsonType: "bool" },
+        processed_transactions: { bsonType: ["array", "null"] },
+        reference_number: { bsonType: ["string", "null"] },
+        total_quantity: { bsonType: ["int", "long", "double", "decimal", "null"] },
+        total_value: { bsonType: ["int", "long", "double", "decimal", "null"] },
+        created_by: { bsonType: ["string", "null"] },
+        notes: { bsonType: ["string", "null"] },
+        lines: { bsonType: ["array", "null"] },
+        attachments: { bsonType: ["array", "null"] },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" },
+      },
+    },
+  },
+});
+
+// Label templates
+db.createCollection("label_templates", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["template_id", "template_name", "label_type", "template_content", "width", "height"],
+      properties: {
+        template_id: { bsonType: "string" },
+        template_name: { bsonType: "string" },
+        label_type: { bsonType: "string" },
+        template_content: { bsonType: "string" },
+        width: { bsonType: ["int", "long", "double", "decimal"] },
+        height: { bsonType: ["int", "long", "double", "decimal"] },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" },
+      },
+    },
+  },
+});
+
+// Password reset tokens
+db.createCollection("password_reset_tokens", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["token", "user_id", "email", "expires_at"],
+      properties: {
+        token: { bsonType: "string" },
+        user_id: { bsonType: "string" },
+        email: { bsonType: "string" },
+        expires_at: { bsonType: "date" },
+        used: { bsonType: "bool" },
+      },
+    },
+  },
+});
+
+// Audit logs
+db.createCollection("audit_logs", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["username", "action"],
+      properties: {
+        username: { bsonType: "string" },
+        user_id: { bsonType: ["string", "null"] },
+        action: { bsonType: "string" },
+        ip: { bsonType: ["string", "null"] },
+        user_agent: { bsonType: ["string", "null"] },
+        details: { bsonType: ["object", "null"] },
+        timestamp: { bsonType: "date" },
+      },
+    },
+  },
+});
+
+// Inventory valuation summaries
+db.createCollection("inventory_valuation_summaries", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["material_id", "unit_cost_reference", "total_quantity", "total_value"],
+      properties: {
+        material_id: { bsonType: "string" },
+        unit_cost_reference: { bsonType: ["int", "long", "double", "decimal"] },
+        total_quantity: { bsonType: ["int", "long", "double", "decimal"] },
+        total_value: { bsonType: ["int", "long", "double", "decimal"] },
+        last_adjustment_id: { bsonType: ["string", "null"] },
+        last_updated_by: { bsonType: ["string", "null"] },
+        created_date: { bsonType: "date" },
+        modified_date: { bsonType: "date" },
       },
     },
   },
@@ -546,6 +782,44 @@ db.inventory_audit_reports.createIndex({ report_id: 1 }, { unique: true });
 db.inventory_audit_reports.createIndex({ status: 1, created_date: -1 });
 db.inventory_audit_reports.createIndex({ requested_by: 1, created_date: -1 });
 db.inventory_audit_reports.createIndex({ period_from: 1, period_to: 1 });
+
+// Indexes for additional collections discovered in schemas
+db.inventory_adjustments.createIndex({ adjustment_id: 1 }, { unique: true });
+db.inventory_adjustments.createIndex({ lot_id: 1, created_date: -1 });
+db.inventory_adjustments.createIndex({ material_id: 1, created_date: -1 });
+db.inventory_adjustments.createIndex({ reason_code: 1, created_date: -1 });
+db.inventory_adjustments.createIndex({ performed_by: 1, created_date: -1 });
+
+db.counters.createIndex({ name: 1 }, { unique: true });
+
+db.bin_count_records.createIndex({ bin_code: 1 });
+db.bin_count_records.createIndex({ counted_at: -1 });
+db.bin_count_records.createIndex({ flag_review: 1 });
+
+db.warehouse_locations.createIndex({ location_code: 1 }, { unique: true });
+db.warehouse_locations.createIndex({ level: 1 });
+db.warehouse_locations.createIndex({ parent_code: 1 });
+db.warehouse_locations.createIndex({ is_active: 1 });
+
+db.warehouse_slips.createIndex({ slip_number: 1 }, { unique: true });
+db.warehouse_slips.createIndex({ warehouse_id: 1, status: 1 });
+db.warehouse_slips.createIndex({ slip_id: 1 }, { unique: true });
+
+db.label_templates.createIndex({ template_id: 1 }, { unique: true });
+db.label_templates.createIndex({ label_type: 1 });
+db.label_templates.createIndex({ template_name: "text" });
+db.label_templates.createIndex({ created_date: -1 });
+
+db.password_reset_tokens.createIndex({ token: 1 }, { unique: true });
+db.password_reset_tokens.createIndex({ user_id: 1 });
+db.password_reset_tokens.createIndex({ email: 1 });
+
+db.audit_logs.createIndex({ timestamp: -1 });
+db.audit_logs.createIndex({ username: 1 });
+db.audit_logs.createIndex({ action: 1 });
+
+db.inventory_valuation_summaries.createIndex({ material_id: 1 }, { unique: true });
+db.inventory_valuation_summaries.createIndex({ modified_date: -1 });
 
 print(">>> All indexes created successfully");
 
@@ -753,6 +1027,26 @@ db.users.insertMany([
     is_active: false,
     last_login: new Date("2026-02-15T10:30:00Z"),
     created_date: new Date("2025-04-20"),
+    modified_date: new Date("2026-03-15"),
+  },
+  {
+    user_id: "USR-021",
+    username: "admin_operator",
+    email: "admin.operator@pharmacy.com",
+    role: "Operator",
+    is_active: true,
+    last_login: null,
+    created_date: new Date("2026-03-15"),
+    modified_date: new Date("2026-03-15"),
+  },
+  {
+    user_id: "USR-022",
+    username: "operator_01",
+    email: "operator01@pharmacy.com",
+    role: "Operator",
+    is_active: true,
+    last_login: null,
+    created_date: new Date("2026-03-15"),
     modified_date: new Date("2026-03-15"),
   },
 ]);
@@ -3876,7 +4170,7 @@ db.import_export_orders.insertMany([
     order_id: "7b4e7a2b-3f83-4b14-8e2b-000000000003",
     order_type: "Inbound",
     status: "Confirmed",
-    warehouse_id: "WH-HN-02",
+    warehouse_id: "WH-HN-01",
     reason: "Nhập thành phẩm từ xưởng đóng gói",
     reference_number: "REF-US24-003",
     created_by: "admin_operator",
@@ -4145,6 +4439,146 @@ db.inventory_audit_reports.insertMany([
     note: "Bao cao tong hop ton kho thang 02/2026 tat ca kho",
     created_date: new Date("2026-03-03T15:00:00Z"),
     modified_date: new Date("2026-03-03T15:20:00Z"),
+  },
+]);
+
+// ---- ADDITIONAL SEED DATA FOR NEW COLLECTIONS ----
+
+// Counters for sequence generators
+db.counters.insertMany([
+  { name: "user_seq", seq: 20 },
+  { name: "material_seq", seq: 25 },
+  { name: "lot_seq", seq: 30 },
+  { name: "transaction_seq", seq: 35 },
+  { name: "adjustment_seq", seq: 1 },
+  { name: "batch_seq", seq: 25 },
+  { name: "component_seq", seq: 30 },
+  { name: "qc_test_seq", seq: 30 },
+  { name: "import_export_order_seq", seq: 8 },
+  { name: "slip_seq", seq: 1 },
+]);
+
+// Inventory Adjustments
+db.inventory_adjustments.insertMany([
+  {
+    adjustment_id: "ADJ-001",
+    lot_id: "LOT-001",
+    material_id: "MAT-001",
+    adjustment_quantity: -5,
+    quantity_before: 100,
+    quantity_after: 95,
+    reason_code: "DAMAGED",
+    reason_note: "Tổn thất do vỡ during transfer",
+    unit_cost_snapshot: 10.5,
+    valuation_before: 1050,
+    valuation_after: 997.5,
+    valuation_delta: -52.5,
+    performed_by: "operator_01",
+    approved_by: "manager_inventory",
+    linked_transaction_id: "TXN-001",
+    created_date: new Date("2026-03-15T10:00:00Z"),
+    modified_date: new Date("2026-03-15T10:05:00Z"),
+  },
+]);
+
+// Bin Count Records
+db.bin_count_records.insertMany([
+  {
+    bin_code: "BIN-001",
+    counted_by: "operator_01",
+    counted_at: new Date("2026-04-01T08:00:00Z"),
+    entries: [
+      { material_id: "MAT-001", lot_id: "LOT-001", counted_quantity: 95 },
+    ],
+    flag_review: false,
+    notes: "Kiem ke nhanh",
+    attachments: [],
+    created_date: new Date("2026-04-01T08:05:00Z"),
+    modified_date: new Date("2026-04-01T08:05:00Z"),
+  },
+]);
+
+// Warehouse Locations
+db.warehouse_locations.insertMany([
+  {
+    location_code: "WH-HN-01/ZONE-A/RACK-1",
+    location_name: "Rack 1 - Zone A",
+    level: "rack",
+    parent_code: "WH-HN-01/ZONE-A",
+    capacity: 1000,
+    is_active: true,
+    created_date: new Date("2025-01-01T00:00:00Z"),
+    modified_date: new Date("2026-03-01T00:00:00Z"),
+  },
+]);
+
+// Warehouse Slips
+db.warehouse_slips.insertMany([
+  {
+    slip_id: "SLIP-001",
+    slip_number: "SLIP-2026-0001",
+    type: "IN",
+    warehouse_id: "WH-HN-01",
+    status: "CONFIRMED",
+    confirmed_by: "admin_operator",
+    confirmed_at: new Date("2026-03-15T11:00:00Z"),
+    processed_transactions: [],
+    total_quantity: 100,
+    total_value: 1050,
+    created_date: new Date("2026-03-15T10:50:00Z"),
+    modified_date: new Date("2026-03-15T11:00:00Z"),
+  },
+]);
+
+// Label Templates
+db.label_templates.insertMany([
+  {
+    template_id: "TPL-001",
+    template_name: "Standard 4x6",
+    label_type: "barcode",
+    template_content: "<svg>...</svg>",
+    width: 400,
+    height: 600,
+    created_date: new Date("2025-06-01T00:00:00Z"),
+    modified_date: new Date("2026-01-01T00:00:00Z"),
+  },
+]);
+
+// Password Reset Tokens
+db.password_reset_tokens.insertMany([
+  {
+    token: "tok-0001",
+    user_id: "USR-002",
+    email: "manager.inv@pharmacy.com",
+    expires_at: new Date(new Date().getTime() + 1000 * 60 * 60),
+    used: false,
+  },
+]);
+
+// Audit Logs
+db.audit_logs.insertMany([
+  {
+    username: "admin_pharmacy",
+    user_id: "USR-001",
+    action: "INIT_DB",
+    ip: "127.0.0.1",
+    user_agent: "init-script/1.0",
+    details: { note: "Initial DB seed" },
+    timestamp: new Date(),
+  },
+]);
+
+// Inventory Valuation Summaries
+db.inventory_valuation_summaries.insertMany([
+  {
+    material_id: "MAT-001",
+    unit_cost_reference: 10.5,
+    total_quantity: 95,
+    total_value: 997.5,
+    last_adjustment_id: "ADJ-001",
+    last_updated_by: "manager_inventory",
+    created_date: new Date("2026-03-15T10:05:00Z"),
+    modified_date: new Date("2026-03-15T10:05:00Z"),
   },
 ]);
 

@@ -7,6 +7,55 @@ import {
   ConflictException,
 } from '@nestjs/common';
 
+// Mock XLSX used by exportToExcel
+jest.mock('xlsx', () => ({
+  utils: {
+    json_to_sheet: jest.fn().mockReturnValue({}),
+    book_new: jest.fn().mockReturnValue({}),
+    book_append_sheet: jest.fn(),
+  },
+  write: jest.fn().mockReturnValue(Buffer.from([1, 2, 3])),
+}));
+
+// Mock pdfkit used by exportToPDF
+jest.mock('pdfkit', () => {
+  class FakePdfDoc {
+    private callbacks: Record<string, Function> = {};
+    private bufs: Buffer[] = [];
+
+    on(event: string, cb: Function) {
+      this.callbacks[event] = cb;
+      return this;
+    }
+
+    fontSize() {
+      return this;
+    }
+    font() {
+      return this;
+    }
+    text(t: any) {
+      this.bufs.push(Buffer.from(String(t)));
+      return this;
+    }
+    moveDown() {
+      return this;
+    }
+    addPage() {
+      return this;
+    }
+    end() {
+      const chunks = this.bufs.length ? this.bufs : [Buffer.from('pdf')];
+      if (this.callbacks['data']) {
+        for (const c of chunks) this.callbacks['data'](c);
+      }
+      if (this.callbacks['end']) this.callbacks['end']();
+    }
+  }
+
+  return { default: FakePdfDoc };
+});
+
 const sampleMaterial: any = {
   _id: '507f1f77bcf86cd799439011',
   material_id: 'MAT-001',
@@ -313,3 +362,36 @@ describe('getDistinctTypes', () => {
     expect(result).toEqual(['API', 'Excipient']);
   });
 });
+
+// ── getOptions / exports ───────────────────────────────────────────────────
+
+describe('getOptions', () => {
+  it('throws BadRequestException when page < 1', async () => {
+    await expect(
+      service.getOptions(undefined, undefined, 0, 20),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws BadRequestException when limit < 1', async () => {
+    await expect(
+      service.getOptions(undefined, undefined, 1, 0),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('calls repository.findOptions with capped limit', async () => {
+    repo.findOptions.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 100,
+    } as any);
+
+    await service.getOptions('q', 'active', 1, 200);
+
+    expect(repo.findOptions).toHaveBeenCalledWith('q', 'active', 1, 100);
+  });
+});
+// Note: exportToExcel and exportToPDF involve dynamic imports (xlsx/pdfkit)
+// which require experimental VM modules in this test runner. Those
+// integrations are covered via higher-level controller tests where the
+// exported buffers are mocked. Keep service tests focused on business logic.
