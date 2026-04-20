@@ -1,96 +1,110 @@
-## Chuẩn mã nguồn và quy ước phát triển dự án
+## Coding Standards - Inventory Management System (IMS)
 
-### 1. Mục tiêu
-Thiết lập các quy tắc và chuẩn mã nguồn nhằm đảm bảo chất lượng, tính nhất quán, dễ bảo trì và mở rộng cho dự án Quản lý Kho.
+### 1. Mục tiêu và phạm vi
+Tài liệu này định nghĩa chuẩn mã nguồn áp dụng cho hệ thống hiện tại, tập trung vào:
 
-### 2. Chuẩn mã nguồn chung
-- Sử dụng đặt tên biến, hàm, class rõ ràng, có ý nghĩa, theo chuẩn camelCase (JavaScript/TypeScript) hoặc snake_case (Python)
-- Đặt tên file, thư mục ngắn gọn, phản ánh đúng nội dung
-- Mỗi hàm chỉ thực hiện một nhiệm vụ (Single Responsibility)
-- Hạn chế lặp mã, ưu tiên tái sử dụng hàm, module
-- Viết chú thích rõ ràng cho các hàm phức tạp, class, module
-- Không sử dụng mã nguồn "cứng" (hard-code), thay vào đó dùng biến cấu hình
-- Đảm bảo mã nguồn không chứa thông tin nhạy cảm (mật khẩu, key...)
-- Sử dụng cấu trúc thư mục hợp lý: tách riêng các phần frontend, backend, database, tài liệu
+- `02_Source/01_Source Code/*` (các service chính đang vận hành)
+- `02_Source/05_Proof of Concept/*` (POC, áp dụng mức linh hoạt hơn)
 
-### 3. Quy ước mã nguồn cho từng công nghệ
-#### 3.1. JavaScript/TypeScript (React, Node.js, NestJS)
-- Sử dụng camelCase cho biến, hàm, thuộc tính
-- Sử dụng PascalCase cho tên class, component
-- Sử dụng const/let thay cho var
-- Ưu tiên sử dụng arrow function khi phù hợp
-- Sử dụng async/await thay cho callback
-- Đảm bảo kiểm tra null/undefined trước khi truy cập thuộc tính
-- Sử dụng TypeScript để kiểm tra kiểu dữ liệu
+Mục tiêu là đảm bảo tính nhất quán, dễ bảo trì, và phù hợp với hiện trạng triển khai thực tế.
 
-#### 3.2. Python
-- Sử dụng snake_case cho biến, hàm
-- Sử dụng PascalCase cho class
-- Viết docstring cho hàm, class
-- Tuân thủ PEP8 về khoảng trắng, độ dài dòng, đặt tên
+### 2. Chuẩn bắt buộc áp dụng ngay
 
-#### 3.3. SQL
-- Đặt tên bảng, cột rõ ràng, nhất quán
-- Sử dụng chữ thường, phân tách bằng dấu gạch dưới
-- Viết câu truy vấn ngắn gọn, dễ hiểu
+#### 2.1 Quy ước chung
 
-### 4. Công cụ đảm bảo chuẩn mã nguồn
-- **ESLint**: Kiểm tra và enforce quy tắc mã nguồn cho JavaScript/TypeScript
-- **Prettier**: Định dạng mã nguồn tự động, đảm bảo nhất quán
-- **EditorConfig**: Thiết lập quy tắc định dạng chung cho nhiều IDE
-- **Husky**: Thiết lập pre-commit hook để kiểm tra mã nguồn trước khi đẩy lên repository
-- **TypeScript**: Kiểm tra kiểu dữ liệu, giảm lỗi runtime
-- **PEP8 linter**: Kiểm tra chuẩn mã nguồn Python
-- **Git**: Quản lý phiên bản, kiểm tra lịch sử thay đổi
+- Code phải rõ ràng, ưu tiên dễ đọc và dễ bảo trì.
+- Tuân thủ DRY, KISS, Single Responsibility.
+- Không hard-code secrets trong mã nguồn runtime.
+- Biến môi trường phải được đọc qua config layer (`@nestjs/config`, `import.meta.env`, `.env`).
+- Mọi thay đổi phải qua Git và Pull Request.
 
-### 5. Quy trình kiểm tra mã nguồn
-1. Mã nguồn phải được kiểm tra bằng các công cụ lint trước khi commit
-2. Tất cả pull request phải được review bởi ít nhất một thành viên khác
-3. Không merge nếu có lỗi lint hoặc không đạt chuẩn mã nguồn
-4. Định kỳ kiểm tra lại các quy tắc và cập nhật nếu cần
-## Coding Standards Draft
+#### 2.2 Naming conventions
 
-### 1. General Principles
-- Code must be clear, readable, and maintainable.
-- Use English for code, comments, and documentation (except UI/UX text for end-users).
-- Follow DRY (Don't Repeat Yourself) and KISS (Keep It Simple, Stupid) principles.
-- Use version control (Git) for all source code.
+- Biến/hàm/thuộc tính: `camelCase`.
+- Class/React component/type/interface/enum: `PascalCase`.
+- Tên file backend: `kebab-case` (theo convention NestJS).
+- Tên file React component: `PascalCase.tsx` hoặc theo convention thư mục hiện có, nhưng phải nhất quán trong cùng module.
 
-### 2. Frontend (React, JavaScript, CSS)
-- Use functional components and React Hooks.
-- Use TypeScript for type safety.
-- Follow Airbnb JavaScript/React style guide.
-- Use SCSS or CSS Modules for styling; avoid inline styles.
-- Name components and files in PascalCase.
-- Use ESLint and Prettier for code formatting and linting.
-- Write meaningful commit messages.
+#### 2.3 TypeScript
 
-### 3. Backend (Node.js, NestJS, TypeScript)
-- Use TypeScript for all backend code.
-- Follow NestJS best practices for module, controller, and service structure.
-- Use dependency injection provided by NestJS.
-- Name files in kebab-case, classes in PascalCase, variables/functions in camelCase.
-- Validate all API inputs (DTOs, validation pipes).
-- Use async/await for asynchronous code.
-- Handle errors with try/catch and proper logging.
-- Use ESLint and Prettier for code formatting and linting.
+- Không dùng `var`; dùng `const` mặc định, `let` khi cần thay đổi giá trị.
+- Dùng `async/await` cho xử lý bất đồng bộ.
+- Bắt buộc validate input API qua DTO + validation pipes.
+- Không lạm dụng `any`; nếu bắt buộc phải dùng thì ghi rõ lý do.
 
-### 4. Database (MongoDB, MySQL)
-- Use clear, consistent naming for collections/tables and fields (snake_case or camelCase, be consistent).
-- Define indexes for frequently queried fields.
-- Use migrations for schema changes (where applicable).
-- Avoid storing sensitive data in plain text.
+#### 2.4 Backend (NestJS)
 
-### 5. Documentation & Comments
-- Write JSDoc/TSDoc comments for all public functions, classes, and modules.
-- Document API endpoints (e.g., with Swagger/OpenAPI for backend).
-- Use README files for module-level documentation.
-- Keep documentation up to date with code changes.
+- Tách lớp rõ ràng: controller -> service -> repository/data-access.
+- Xử lý lỗi có chủ đích (exception phù hợp), có logging đầy đủ ở luồng lỗi.
+- Không log dữ liệu nhạy cảm (password/token/secret/authorization header).
 
-### 6. Testing
-- Write unit tests for core logic (Jest for backend, React Testing Library for frontend).
-- Use descriptive test names and group related tests.
-- Ensure tests are repeatable and independent.
+#### 2.5 Frontend (React/Vite)
+
+- Ưu tiên functional components + hooks.
+- Quản lý gọi API tập trung qua `services/*` và interceptor.
+- Tránh business logic phức tạp trong component render.
+- Styling: ưu tiên theo hệ hiện có (CSS hiện tại + UI library đang dùng). Không ép buộc SCSS/CSS Modules nếu module đó không dùng.
+
+#### 2.6 Dữ liệu và persistence
+
+- Hệ thống hiện tại dùng MongoDB, Redis, Elasticsearch (không chuẩn hóa theo MySQL trong tài liệu này).
+- Đặt tên fields/collections rõ nghĩa, nhất quán theo module.
+- Các trường truy vấn nhiều phải có index phù hợp.
 
 ---
-*This draft should be reviewed and updated by the team to fit project-specific needs.*
+
+### 3. Tooling tiêu chuẩn
+
+#### 3.1 Bắt buộc cho code TypeScript
+
+- ESLint
+- Prettier
+- TypeScript compiler (`tsc`)
+- Jest cho backend tests
+
+#### 3.2 Trạng thái áp dụng theo repository hiện tại
+
+- `inventory-management-service`: có cấu hình lint rõ ràng, có test và đang là trọng tâm trong Jenkins pipeline.
+- `inventory-management-web-app`: có ESLint config, chưa có test runner trong scripts.
+- Một số microservices khác: có script lint/test nhưng cần chuẩn hóa thêm cấu hình lint để đồng nhất enforcement.
+
+#### 3.3 Mức khuyến nghị (roadmap)
+
+- Thêm `.editorconfig` ở root repo.
+- Thêm `.husky` + `lint-staged` để chạy lint/test tối thiểu trước commit.
+- Chuẩn hóa ESLint config cho toàn bộ microservices.
+- Bổ sung test runner frontend (Vitest + React Testing Library).
+
+---
+
+### 4. Chính sách bảo mật trong mã nguồn và tài liệu
+
+- Không commit secrets thật (API keys, client secrets, mật khẩu production).
+- Ví dụ credentials trong docs/compose chỉ dùng cho local/dev phải được ghi nhãn rõ `example only`.
+- Không để connection string production hoặc thông tin truy cập thật trong tài liệu kiến trúc.
+- Ưu tiên dùng `.env.example` để mô tả biến cấu hình thay vì ghi trực tiếp giá trị thật.
+
+---
+
+### 5. Quy trình kiểm tra trước merge
+
+1. Chạy lint cho package bị thay đổi.
+2. Chạy test cho package bị thay đổi (ít nhất unit test liên quan).
+3. Nếu thay đổi API/backend logic: cập nhật test hoặc giải trình lý do chưa có test.
+4. PR phải được review bởi ít nhất 1 thành viên khác.
+5. Không merge khi còn lỗi lint/test ở phạm vi thay đổi.
+
+---
+
+### 6. Quy tắc theo ngôn ngữ ngoài phạm vi chính
+
+- Python: hiện chưa là ngôn ngữ chính trong source production. Nếu bổ sung Python service mới thì áp dụng PEP8, type hints, và linter tương ứng.
+- SQL: chỉ áp dụng cho thành phần nào thực sự dùng SQL trong tương lai.
+
+---
+
+### 7. Chính sách cập nhật tài liệu chuẩn
+
+- Tài liệu này được review định kỳ theo mốc release.
+- Khi stack/tooling thay đổi, phải cập nhật chuẩn trong cùng sprint hoặc ngay sau release gần nhất.
+- Mọi rule mới nên ghi rõ trạng thái: `Bắt buộc ngay` hoặc `Khuyến nghị / roadmap`.

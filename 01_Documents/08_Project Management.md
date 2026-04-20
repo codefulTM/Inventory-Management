@@ -21,14 +21,14 @@ Bảng dưới đây liệt kê các module/chức năng chính và ước lư�
 | Module / Chức năng | Mô tả ngắn | Ước lượng (person-days) |
 |---|---:|---:|
 | 1. Authentication & Authorization | Đăng nhập, phân quyền, quản lý role | 20 |
-| 2. Product Management | CRUD sản phẩm, SKU, category | 30 |
-| 3. Warehouse & Location | Quản lý kho, vị trí, gán nhân viên | 20 |
-| 4. Inventory & Stock | InventoryRecord, kiểm kê, cảnh báo tồn | 40 |
-| 5. Purchase (PO) | Tạo PO, nhận hàng, liên kết supplier | 25 |
-| 6. Sales (SO) & Invoice | Tạo SO, reservation, hóa đơn | 30 |
-| 7. Stock Movements & Transfers | StockMove, điều chuyển giữa kho | 20 |
-| 8. Reporting & Export | Báo cáo nhập/xuất/tồn, xuất CSV/Excel | 20 |
-| 9. Audit & Logging | Audit log, history, activity feed | 10 |
+| 2. Material & Master Data | Quản lý material, mã hóa, phân loại | 30 |
+| 3. Warehouse & Location | Quản lý kho, vị trí, phân cấp kho | 20 |
+| 4. Inventory Lot & Transaction | Quản lý lô, nhập/xuất, điều chuyển và truy vết biến động | 40 |
+| 5. Import/Export Order | Tạo và xử lý phiếu nhập/xuất theo workflow | 25 |
+| 6. QC Test & Decision | Tạo phiếu QC, kết quả QC, quyết định Pass/Fail/Quarantine | 30 |
+| 7. Production Batch | Quản lý batch sản xuất và tiêu thụ lot | 20 |
+| 8. Reporting & Export | Báo cáo từ metrics-service/Elasticsearch, xuất CSV/Excel | 20 |
+| 9. Audit & Logging | Audit log, lịch sử thao tác, log quản trị | 10 |
 | 10. Frontend UI/UX & Integration | Layout, responsive, form validation | 25 |
 | 11. Testing & QA | Unit tests, e2e, manual testing | 15 |
 | 12. DevOps & Deployment | CI/CD, môi trường staging/production | 15 |
@@ -40,7 +40,9 @@ Bảng dưới đây liệt kê các module/chức năng chính và ước lư�
 
 ## 2. Giả định ước lượng
 - 1 person-day = 8 giờ làm việc.
-- Nhóm 6 người làm việc bán thời gian/đồ án: trung bình 4 ngày/tuần/người (tương đương 0.8 FTE nếu full-time 5 ngày/tuần) vì sinh viên có lịch học khác.
+- Nhóm 6 người làm việc bán thời gian/đồ án: trung bình **1.5 ngày/tuần/người** vì sinh viên có lịch học khác.
+- Công suất thực thi theo giả định mới: `6 * 1.5 * 12 = 108 person-days` cho chu kỳ 12 tuần.
+- Với giả định này, mốc 12 tuần phù hợp cho phạm vi MVP; phạm vi đầy đủ 240 PD cần kéo dài timeline hoặc tăng mức song song hóa nguồn lực.
 - Mức năng suất trung bình: 1 person-day = hoàn thành 1 PD theo ước lượng.
 - Không tính thời gian chờ phê duyệt từ bên ngoài (giảng viên, doanh nghiệp).
 - Không tính các chi phí khấu hao thiết bị cá nhân.
@@ -51,31 +53,31 @@ Bảng dưới đây liệt kê các module/chức năng chính và ước lư�
 ## 3. Lịch trình tổng thể (12 tuần)
 Giả sử ngày bắt đầu: Tuần 1 (T0). Mỗi tuần 5 ngày làm việc. Dưới đây là lịch trình theo tuần, mốc chính và phân công sơ bộ.
 
-- Tuần 1–2: Lập kế hoạch chi tiết, thiết kế system architecture và domain model, chuẩn bị môi trường dev
+- Tuần 1–2 (M1): Lập kế hoạch chi tiết, thiết kế system architecture và domain model, chuẩn bị môi trường dev
   - Deliverables: Tài liệu kiến trúc, domain model, môi trường repo & CI cơ bản
   - Người phụ trách: Nguyễn Thái Tân (PM/Lead), Nguyễn Tuấn Minh (Backend), Nguyễn Huy Tấn (Frontend)
 
-- Tuần 3–5: Phát triển backend core (auth, product, warehouse, inventory basic)
-  - Deliverables: API cơ bản, DB schema, test unit backend
+- Tuần 3–5 (M2): Phát triển backend core (auth, material, warehouse hierarchy, inventory lot/transaction, import-export order)
+  - Deliverables: Core APIs, DB schema, unit tests backend
   - Người phụ trách: Nguyễn Tuấn Minh (Backend Lead), Phạm Văn Minh (Backend), Nguyễn Ngọc Giang (QA hỗ trợ)
 
-- Tuần 4–7: Phát triển frontend (UI quản lý sản phẩm, kho, tồn kho), tích hợp với API
-  - Deliverables: Giao diện quản trị cơ bản, tích hợp CRUD
+- Tuần 4–7 (M3): Phát triển frontend (UI quản lý material, lot, transaction, QC), tích hợp với API
+  - Deliverables: Frontend MVP và tích hợp CRUD chính
   - Người phụ trách: Nguyễn Huy Tấn (Frontend Lead), Trần Gia Bảo (Frontend), Nguyễn Thái Tân (UX review)
 
-- Tuần 6–8: Tính năng Purchase Order & Sales Order, StockMove
-  - Deliverables: PO/SO flow, reservation, stock move
+- Tuần 6–8 (M4): Hoàn thiện QC test/decision, production batch, inventory adjustment/audit
+  - Deliverables: QC flow, batch flow, adjustment & audit APIs
   - Người phụ trách: Nguyễn Tuấn Minh, Phạm Văn Minh, Nguyễn Huy Tấn
 
-- Tuần 8–10: Reporting, Export, Invoice và Audit Log
-  - Deliverables: Báo cáo cơ bản, export CSV/Excel, audit trail
+- Tuần 8–10 (M5): Reporting, Export, Audit log và tích hợp metrics/analytics
+  - Deliverables: Báo cáo tồn kho/QC/audit, export CSV/Excel, audit trail
   - Người phụ trách: Nguyễn Ngọc Giang (QA), Trần Gia Bảo
 
-- Tuần 10–11: Testing tổng thể, fix bug, chuẩn bị demo
+- Tuần 10–11 (M6): Testing tổng thể, fix bug, chuẩn bị demo
   - Deliverables: Test report, bug list resolved, release candidate
   - Người phụ trách: Toàn bộ nhóm (QA dẫn dắt)
 
-- Tuần 12: Triển khai production (nếu có), hoàn thiện tài liệu, báo cáo và nộp đồ án
+- Tuần 12 (M6): Triển khai production (nếu có), hoàn thiện tài liệu, báo cáo và nộp đồ án
   - Deliverables: Deployment, README hoàn chỉnh, video demo
   - Người phụ trách: Nguyễn Thái Tân (Lead), DevOps: Phạm Văn Minh
 
@@ -99,9 +101,9 @@ Bảng dưới đây là đề xuất vai trò và tỉ lệ công việc.
 
 ## 5. Ước tính chi phí
 - Mức lương/chi phí sử dụng: 400.000 VND / person-day.
-- Tổng PD dùng cho ước tính thực tế: 240 PD (đã điều chỉnh song song) -> Nhân công = 240 * 400.000 = 96.000.000 VND
-- Chi phí hạ tầng & khác (10%): 9.600.000 VND
-- Tổng chi phí ước tính: 105.600.000 VND
+- Tổng PD dùng cho ước tính thực tế (theo giả định mục 2): 108 PD -> Nhân công = 108 * 400.000 = 43.200.000 VND
+- Chi phí hạ tầng & khác (10%): 4.320.000 VND
+- Tổng chi phí ước tính: 47.520.000 VND
 
 > Ghi chú: Chi phí này chỉ mang tính tham khảo cho đồ án (không tính thuế, chi phí văn phòng, thiết bị cá nhân). Nếu muốn chi tiết hơn, có thể phân tách chi phí hosting (Ví dụ: VPS, DB), domain, công cụ trả phí (Slack / Trello premium), và chi phí video/marketing.
 
@@ -112,26 +114,32 @@ Dưới đây là ít nhất 6 mốc quan trọng kèm ngày dự kiến (tính 
 
 1. Milestone 1 — Project Setup & Architecture (Kết thúc Tuần 2)
    - Ngày dự kiến: End of Week 2
+  - Mapping mục 3: Tuần 1–2 (M1)
    - Deliverables: Repo initialised, CI basic, domain model, ER diagram, môi trường dev
 
 2. Milestone 2 — Core Backend APIs (Kết thúc Tuần 5)
    - Ngày dự kiến: End of Week 5
-   - Deliverables: Auth, Product CRUD, Warehouse, Inventory basic APIs, unit tests
+  - Mapping mục 3: Tuần 3–5 (M2)
+  - Deliverables: Auth, Material, Warehouse hierarchy, Inventory lot/transaction, Import/Export APIs, unit tests
 
 3. Milestone 3 — Frontend MVP (Kết thúc Tuần 7)
    - Ngày dự kiến: End of Week 7
-   - Deliverables: UI cho quản lý sản phẩm/kho/tồn, tích hợp CRUD
+  - Mapping mục 3: Tuần 4–7 (M3)
+  - Deliverables: UI cho quản lý material/lot/transaction/QC, tích hợp CRUD
 
-4. Milestone 4 — PO/SO & Stock Movements (Kết thúc Tuần 8)
+4. Milestone 4 — QC, Production Batch & Adjustment/Audit (Kết thúc Tuần 8)
    - Ngày dự kiến: End of Week 8
-   - Deliverables: PurchaseOrder, SalesOrder flows, stock move logic
+  - Mapping mục 3: Tuần 6–8 (M4)
+  - Deliverables: QC flow, production batch flow, inventory adjustment/audit
 
-5. Milestone 5 — Reporting & Audit (Kết thúc Tuần 10)
+5. Milestone 5 — Reporting, Analytics & Audit (Kết thúc Tuần 10)
    - Ngày dự kiến: End of Week 10
-   - Deliverables: Báo cáo nhập/xuất/tồn, audit log, export CSV/Excel
+  - Mapping mục 3: Tuần 8–10 (M5)
+  - Deliverables: Báo cáo tồn kho/QC/audit, export CSV/Excel, tích hợp metrics-service
 
 6. Milestone 6 — Testing, Deployment & Demo (Kết thúc Tuần 12)
    - Ngày dự kiến: End of Week 12
+  - Mapping mục 3: Tuần 10–12 (M6)
    - Deliverables: Release candidate, deployment guide, video demo, báo cáo nộp
 
 ---
@@ -175,36 +183,20 @@ Dưới đây là ít nhất 6 mốc quan trọng kèm ngày dự kiến (tính 
 
 ---
 
-## 10. Mời tham gia hệ thống — Giao tiếp nội bộ (Slack / Discord)
-- Liên kết mời (placeholder): https://join.slack.com/your-team-invite OR https://discord.gg/YOUR_INVITE
-- Ảnh mời tham gia (placeholder): ![Invite screenshot](path/to/invite-communication.png)
-- Hướng dẫn chụp ảnh invite: Mở trang mời thành viên (Invite) trên Slack/Discord, chụp màn hình phần hiển thị link invite và role được gán (ví dụ: role = Admin hoặc role = Member). Lưu file dưới `docs/assets/invite-communication.png`.
-- Ghi chú về vai trò: Nếu bản free giới hạn số Admin, hãy mời với vai trò "User" và gán phân quyền quản lý nội tuyến (ví dụ: tạo channel #admins nội bộ hoặc dùng Discord với quyền elevated trên server riêng).
+## 10. Mời tham gia hệ thống — Giao tiếp nội bộ (Zalo)
+- Liên kết mời: https://zalo.me/g/istctp828
+- Ảnh mời tham gia (placeholder): ![Invite screenshot](Images/Project-management/team-member.png)
 
 ---
 
 ## 11. Mời tham gia hệ thống — Quản lý dự án (Trello / Jira / Asana)
-- Liên kết mời (placeholder): https://trello.com/invite/your-board OR https://yourdomain.atlassian.net/jira/your-invite
-- Ảnh mời tham gia (placeholder): ![Invite screenshot](path/to/invite-project.png)
-- Hướng dẫn chụp ảnh invite: Mở phần mời thành viên (Invite) trên Trello/Jira/Asana, chụp màn hình hiển thị quyền được cấp (Admin hoặc Member). Lưu file dưới `docs/assets/invite-project.png`.
-- Ghi chú về vai trò: Nếu công cụ miễn phí giới hạn số Admin, mời làm "Member" và phân quyền quản lý thông qua Board Admins hoặc nhóm dự án. Hoặc tạm sử dụng 1-2 admin chính và các thành viên còn lại là Member.
+- Liên kết mời (placeholder): https://dacnpm-22ktpm.atlassian.net/jira/software/projects/KAN/list?jql=project+%3D+KAN+ORDER+BY+cf%5B10019%5D+ASC&atlOrigin=eyJpIjoiNjUxZGE2YTQ3MjkyNDk2Njk3ZGI2OGNjMDM1NjU0YzkiLCJwIjoiaiJ9
+- Ảnh mời tham gia (placeholder): ![Invite screenshot](Images/Project-management/jira-invite.png)
 
 ---
 
 ## 12. Mời tham gia hệ thống — Quản lý lỗi (GitHub Issues / GitLab Issues)
-- Liên kết mời (placeholder): https://github.com/your-org/your-repo/invite OR https://gitlab.com/your-group/your-project/-/invite
-- Ảnh mời tham gia (placeholder): ![Invite screenshot](path/to/invite-issues.png)
-- Hướng dẫn chụp ảnh invite: Truy cập Settings -> Manage access (GitHub) hoặc Project Members (GitLab), chụp màn hình hộp thoại invite hiển thị role (Admin / Maintainer / Developer). Lưu file tại `docs/assets/invite-issues.png`.
-- Ghi chú về vai trò: Nên có 1-2 Maintainer/Admin chịu trách nhiệm merge và quản lý bảo mật; các dev khác có thể được cấp role Developer/Contributor. Nếu bản miễn phí giới hạn admin, sử dụng 1 admin chính và phân quyền bằng team.
+- Liên kết: https://github.com/nguyenthaitan/Inventory-Management
+- Ảnh mời tham gia (placeholder): ![Invite screenshot](Images/Project-management/githup-invite.png)
 
----
-
-## 13. Kết luận & Các bước tiếp theo
-1. Xác nhận ngày bắt đầu dự án và phê duyệt lịch trình (Ai bắt đầu từ tuần nào?)
-2. Chuẩn bị repository, CI cơ bản, và upload các placeholder invite screenshot vào `docs/assets/` theo hướng dẫn ở trên.
-3. Bắt tay vào Milestone 1: hoàn thiện kiến trúc, domain model và setup môi trường dev.
-
----
-
-*Phiên bản tài liệu: 08_Project Management - bản nháp. Vui lòng điều chỉnh ước lượng/chi phí theo thực tế và cập nhật link/ảnh invite khi có.*
 

@@ -1,363 +1,288 @@
-# Luồng workflow chính (chuẩn hóa theo nghiệp vụ)
-1. Manager tạo materials (entity: Materials)
-2. Operator nhận lô hàng (entity: InventoryLots, InventoryTransactions)
-3. QC kiểm tra lô hàng (entity: QCTests, InventoryLots.status)
-4. Manager tạo Production Batch (entity: ProductionBatches)
-5. Operator thêm material vào batch (entity: BatchComponents)
-6. Manager hoàn thành batch, sinh ra thành phẩm mới (entity: ProductionBatches.status, InventoryLots thành phẩm)
-7. Mỗi thay đổi số lượng đều sinh InventoryTransaction (entity: InventoryTransactions, traceability)
-
-> Lưu ý: Mọi thay đổi trạng thái, số lượng đều phải ghi nhận transaction và audit log để đảm bảo truy vết.
 # 02_Domain Model
 
-## Domain Knowledge
+## 1. Mục tiêu tài liệu
+Tài liệu này trình bày các thực thể nghiệp vụ trong đời sống thực của bài toán quản lý kho theo lô, cách phần mềm biểu diễn các thực thể đó, và mối liên hệ giữa chúng.
 
-### Material Management
-Quản lý vật tư (Materials): Manager tạo mới hoặc duyệt vật tư chuẩn. Mỗi material có part number duy nhất, material type, storage conditions, và specification document. Materials là nguồn gốc cho mọi lô hàng nhập kho và batch sản xuất.
-
-### Inventory Lot Tracking & Control
-- Operator nhận lô hàng, tạo InventoryLot cho material đã được Manager tạo.
-- Mỗi lô hàng (InventoryLot) có UUID duy nhất, liên kết với material_id.
-- Thông tin: manufacturer name, manufacturer lot number, supplier name, received date, expiration date
-- Lot Status: `Quarantine`, `Accepted`, `Rejected`, `Depleted` (QC cập nhật)
-- Traceability: theo dõi nguồn gốc, lịch sử giao dịch (InventoryTransactions)
-- Hỗ trợ sample lots (`is_sample: true`) để lấy mẫu kiểm tra chất lượng
-
-### Inventory Transactions
-Mỗi thay đổi số lượng (nhận, sử dụng, hoàn thành batch, điều chỉnh, chuyển kho, v.v.) đều được ghi lại qua InventoryTransactions:
-- Receipt: nhập hàng vào kho (Operator)
-- Usage: sử dụng vật tư (Operator khi thêm vào batch, Manager khi hoàn thành batch)
-- Split: chia tách lô hàng
-- Adjustment: điều chỉnh số lượng
-- Transfer: chuyển kho
-- Disposal: hủy bỏ
-> Transaction luôn được sinh tự động khi có thay đổi để đảm bảo traceability tuyệt đối.
-
-### Production Batch Management
-Manager tạo ProductionBatch mới, xác định sản phẩm đầu ra (product_id), batch size, ngày bắt đầu.
-- Mỗi batch có batch_number duy nhất, liên kết với product (Material) qua `product_id`.
-- Batch status: `In Progress`, `Complete`, `On Hold`, `Cancelled` (Manager xác nhận hoàn thành batch, sinh ra thành phẩm mới).
-- Batch size và unit of measure
-- Manufacture date và expiration date
-
-### Batch Components Tracking
-Operator thêm các material (InventoryLot) vào batch, nhập planned/actual quantity.
-- Liên kết ProductionBatch với InventoryLot
-- Planned quantity vs Actual quantity
-- Unit of measure
-- Addition date và người thêm vào
-
-### Quality Control Testing
-QC kiểm tra lô hàng inventory lot, cập nhật kết quả test, xác nhận pass/fail, cập nhật status lot.
-- Test types: Identity, Potency, Microbial, Growth Promotion, Physical, Chemical
-- Test method/SOP reference
-- Test result và acceptance criteria
-- Result status: `Pass`, `Fail`, `Pending`
-- Performed by và verified by
-
-### Label Generation & Printing
-Hệ thống label templates (LabelTemplates) để in nhãn:
-- Label types: Raw Material, Sample, Intermediate, Finished Product, API, Status
-- Template content với placeholders để populate dữ liệu
-- Width và height dimensions
-- Labels được generate tại nhiều điểm:
-  - Raw Material: khi nhận InventoryLot hoặc khi status thay đổi
-  - Sample: khi tạo sample lot (`is_sample: true`)
-  - Finished Product: khi ProductionBatch hoàn thành
-  - API: cho API materials
-  - Status: khi lot/batch status thay đổi
-  - Intermediate: cho intermediate products trong quá trình sản xuất
-
-### User Management & Security
-- Đăng nhập bằng username/password (bcrypt-hashed)
-- Role-based access control: Manager, Operator, Quality Control Technician, IT Administrator
-- Account status (is_active)
-- Last login tracking
-- Audit trail qua các trường `performed_by`, `added_by`, `verified_by`
-
-### Reporting
-- Báo cáo sử dụng vật tư: dựa trên InventoryTransactions
-- Kiểm soát chất lượng: dựa trên QCTests
-- Báo cáo tuân thủ quy định: traceability từ Materials → InventoryLots → ProductionBatches
-- Báo cáo batch components: theo dõi raw materials sử dụng trong production
+Phạm vi cập nhật dựa trên code hiện tại của hệ thống, tập trung vào các schema và nghiệp vụ đã triển khai thật.
 
 ---
 
-## Core Entities
+## 2. Bức tranh nghiệp vụ đời sống thực
 
-### 1. Users
-Quản lý người dùng và phân quyền hệ thống.
+### 2.1 Các thực thể đời sống thực chính
+- Vật tư hàng hóa: danh mục vật tư được doanh nghiệp quản lý (nguyên liệu, API, tá dược, vật tư kiểm nghiệm, v.v.).
+- Lô hàng: mỗi lần nhận hoặc hình thành thành phẩm đều tạo một lô riêng để truy vết.
+- Phiếu nhập/xuất: chứng từ nghiệp vụ ghi nhận nhu cầu nhập kho hoặc xuất kho trước khi được xác nhận chính thức.
+- Kiểm soát chất lượng: hoạt động kiểm định lô để ra quyết định đạt, không đạt, hoặc giữ lại.
+- Lệnh sản xuất theo mẻ: kế hoạch sản xuất thành phẩm từ nhiều lô nguyên liệu.
+- Thành phần mẻ sản xuất: các lô nguyên liệu và lượng sử dụng cho từng mẻ.
+- Kho và vị trí lưu trữ: kho, khu vực, kệ, ô chứa dùng để định vị hàng thật trong thực địa.
+- Giao dịch tồn kho: mọi thay đổi số lượng cần được ghi nhận để truy vết.
+- Điều chỉnh tồn kho: nghiệp vụ xử lý sai lệch, hư hỏng, mất mát, hết hạn.
+- Báo cáo kiểm kê chính thức: tài liệu kiểm toán theo kỳ, có trạng thái xử lý và file xuất.
+- Người dùng vận hành: Manager, Operator, Quality Control Technician, IT Administrator.
+- Nhật ký truy vết: lịch sử tác động quan trọng phục vụ audit và điều tra sự cố.
 
-**Attributes:**
-- `user_id` (STRING(36), PK): UUID primary key
-- `username` (STRING(50), UNIQUE, NOT NULL): Tên đăng nhập
-- `email` (STRING(100), UNIQUE, NOT NULL): Email (đã validate)
-- `password` (STRING(100), NOT NULL): Mật khẩu đã hash bằng bcrypt
-- `role` (ENUM, NOT NULL, default: 'Operator'): Manager, Operator, Quality Control Technician, IT Administrator
-- `is_active` (BOOLEAN, default: true): Trạng thái tài khoản (enabled/disabled)
-- `last_login` (DATE, nullable): Thời điểm đăng nhập cuối cùng
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
-
-### 2. Materials
-Master data cho raw materials, APIs, excipients, containers, closures, process chemicals, và testing materials.
-
-**Attributes:**
-- `material_id` (STRING(20), PK): Internal material ID
-- `part_number` (STRING(20), UNIQUE, NOT NULL): Part number (ví dụ: PART-12345)
-- `material_name` (STRING(100), NOT NULL): Tên hiển thị
-- `material_type` (ENUM, NOT NULL): API, Excipient, Dietary Supplement, Container, Closure, Process Chemical, Testing Material
-- `storage_conditions` (STRING(100), nullable): Điều kiện bảo quản (ví dụ: "2-8°C, protected from light")
-- `specification_document` (STRING(50), nullable): Tài liệu tham chiếu specification
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
-
-### 3. LabelTemplates
-Templates để in nhãn cho các loại khác nhau (raw material, sample, finished product, etc.).
-
-**Attributes:**
-- `template_id` (STRING(20), PK): Template identifier
-- `template_name` (STRING(100), NOT NULL): Tên hiển thị template
-- `label_type` (ENUM, NOT NULL): Raw Material, Sample, Intermediate, Finished Product, API, Status
-- `template_content` (TEXT, NOT NULL): Nội dung template/layout với placeholders
-- `width` (DECIMAL(5,2), NOT NULL): Chiều rộng nhãn (ví dụ: inches)
-- `height` (DECIMAL(5,2), NOT NULL): Chiều cao nhãn
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
-
-### 4. InventoryLots
-Các lô hàng riêng lẻ của một material (mỗi lần nhận hàng hoặc batch của material là một lot).
-
-**Attributes:**
-- `lot_id` (STRING(36), PK): UUID primary key
-- `material_id` (STRING(20), FK→Materials, NOT NULL): Material mà lot này thuộc về
-- `manufacturer_name` (STRING(100), NOT NULL): Tên nhà sản xuất
-- `manufacturer_lot` (STRING(50), NOT NULL): Số lô của nhà sản xuất
-- `supplier_name` (STRING(100), nullable): Tên nhà cung cấp
-- `received_date` (DATEONLY, NOT NULL): Ngày nhận hàng
-- `expiration_date` (DATEONLY, NOT NULL): Ngày hết hạn
-- `in_use_expiration_date` (DATEONLY, nullable): Ngày hết hạn sau khi mở (once-opened expiration)
-- `status` (ENUM, NOT NULL): Quarantine, Accepted, Rejected, Depleted
-- `quantity` (DECIMAL(10,3), NOT NULL): Số lượng hiện tại
-- `unit_of_measure` (STRING(10), NOT NULL): Đơn vị tính (ví dụ: kg, L, each)
-- `storage_location` (STRING(100), nullable): Vị trí lưu trữ trong kho
-- `is_sample` (BOOLEAN, default: false): Có phải là sample lot không
-- `parent_lot_id` (STRING(36), FK→InventoryLots, nullable): Lot cha (nếu là sample lot)
-- `notes` (TEXT, nullable): Ghi chú
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
-
-### 5. InventoryTransactions
-Ghi lại mọi giao dịch thay đổi số lượng trong kho.
-
-**Attributes:**
-- `transaction_id` (STRING(36), PK): UUID primary key
-- `lot_id` (STRING(36), FK→InventoryLots, NOT NULL): Lot được giao dịch
-- `transaction_type` (ENUM, NOT NULL): Receipt, Usage, Split, Adjustment, Transfer, Disposal
-- `quantity` (DECIMAL(10,3), NOT NULL): Số lượng thay đổi (dương cho Receipt, âm cho Usage/Disposal)
-- `unit_of_measure` (STRING(10), NOT NULL): Đơn vị tính
-- `transaction_date` (DATE, NOT NULL): Ngày giao dịch
-- `reference_number` (STRING(50), nullable): Số tham chiếu (PO number, batch number, etc.)
-- `performed_by` (STRING(50), NOT NULL): Người thực hiện
-- `notes` (TEXT, nullable): Ghi chú
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
-
-### 6. ProductionBatches
-Các lô sản xuất cho finished products.
-
-**Attributes:**
-- `batch_id` (STRING(36), PK): UUID primary key
-- `product_id` (STRING(20), FK→Materials, NOT NULL): Product (Material) được sản xuất
-- `batch_number` (STRING(50), UNIQUE, NOT NULL): Số batch (ví dụ: PB-2025-0001)
-- `batch_size` (DECIMAL(10,3), NOT NULL): Kích thước batch
-- `unit_of_measure` (STRING(10), NOT NULL): Đơn vị tính
-- `manufacture_date` (DATEONLY, NOT NULL): Ngày sản xuất
-- `expiration_date` (DATEONLY, NOT NULL): Ngày hết hạn
-- `status` (ENUM, NOT NULL): In Progress, Complete, On Hold, Cancelled
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
-
-### 7. BatchComponents
-Liên kết production batches với inventory lots (các raw materials/lots được sử dụng trong batch).
-
-**Attributes:**
-- `component_id` (STRING(36), PK): UUID primary key
-- `batch_id` (STRING(36), FK→ProductionBatches, NOT NULL): Production batch
-- `lot_id` (STRING(36), FK→InventoryLots, NOT NULL): Inventory lot được sử dụng
-- `planned_quantity` (DECIMAL(10,3), NOT NULL): Số lượng dự kiến sử dụng
-- `actual_quantity` (DECIMAL(10,3), nullable): Số lượng thực tế đã sử dụng
-- `unit_of_measure` (STRING(10), NOT NULL): Đơn vị tính (kg, L, etc.)
-- `addition_date` (DATE, nullable): Ngày thêm component vào batch
-- `added_by` (STRING(50), nullable): Người thêm vào
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
-
-### 8. QCTests
-Kết quả kiểm tra chất lượng cho inventory lots.
-
-**Attributes:**
-- `test_id` (STRING(36), PK): UUID primary key
-- `lot_id` (STRING(36), FK→InventoryLots, NOT NULL): Lot được kiểm tra
-- `test_type` (ENUM, NOT NULL): Identity, Potency, Microbial, Growth Promotion, Physical, Chemical
-- `test_method` (STRING(100), NOT NULL): Phương pháp kiểm tra hoặc SOP reference
-- `test_date` (DATEONLY, NOT NULL): Ngày thực hiện kiểm tra
-- `test_result` (STRING(100), NOT NULL): Giá trị hoặc mô tả kết quả
-- `acceptance_criteria` (STRING(200), nullable): Mô tả tiêu chí chấp nhận
-- `result_status` (ENUM, NOT NULL): Pass, Fail, Pending
-- `performed_by` (STRING(50), NOT NULL): Kỹ thuật viên/người thực hiện
-- `verified_by` (STRING(50), nullable): Người xem xét/verify
-- `created_date` (DATE, default: NOW): Ngày tạo record
-- `modified_date` (DATE, default: NOW): Ngày cập nhật cuối cùng
+### 2.2 Mapping đời sống thực sang phần mềm
+- Hệ thống dùng các schema MongoDB để biểu diễn domain entity.
+- Mỗi thực thể có business key riêng (material_id, lot_id, batch_number, order_id, adjustment_id, report_id...).
+- Các quan hệ nghiệp vụ chính được giữ bằng khóa tham chiếu logic (ID dạng string) và rule ở tầng service.
 
 ---
 
-## Entity Relationships
+## 3. Domain thực thể cốt lõi
 
-### Primary Relationships
+### 3.1 User
+Thực thể con người tham gia vận hành hệ thống.
+- Mã định danh nội bộ: user_id.
+- Liên kết danh tính ngoài hệ thống: keycloak_id.
+- Vai trò: Manager, Operator, Quality Control Technician, IT Administrator.
+- Trạng thái tài khoản: is_active, lock_type, lock_reason.
+- Ghi nhận hoạt động: last_login.
 
+Lưu ý hiện trạng: xác thực/mật khẩu không lưu trực tiếp trong user schema nghiệp vụ; hệ thống dùng Keycloak làm IdP.
+
+### 3.2 Material
+Danh mục chuẩn của vật tư/sản phẩm.
+- Business key: material_id, part_number (đều unique).
+- Thuộc tính nghiệp vụ: material_name, material_type, storage_conditions, specification_document.
+- Trạng thái duyệt danh mục: Pending, Approved, Rejected.
+- Truy vết thao tác: created_by, approved_by.
+
+### 3.3 InventoryLot
+Lô hàng thực tế trong kho.
+- Business key: lot_id (unique).
+- Gắn với vật tư: material_id.
+- Thông tin nguồn gốc: manufacturer_name, manufacturer_lot, supplier_name.
+- Thời gian vòng đời: manufacture_date, received_date, expiration_date, in_use_expiration_date.
+- Tồn thực tế: quantity, unit_of_measure.
+- Định vị thực địa: warehouse_id, storage_location.
+- Trạng thái lô: Quarantine, Accepted, Rejected, Depleted.
+- Truy vết mẫu thử: is_sample, parent_lot_id.
+- Truy vết thao tác: received_by, qc_by, history.
+
+### 3.4 InventoryTransaction
+Sổ cái biến động tồn kho.
+- Business key: transaction_id (unique).
+- Lô bị tác động: lot_id, related_lot_id (khi cần liên kết lô khác).
+- Loại giao dịch: Receipt, Usage, Split, Adjustment, Transfer, Disposal.
+- Giá trị thay đổi: quantity, unit_of_measure, transaction_date.
+- Chứng từ liên quan: reference_number.
+- Người thao tác: performed_by.
+- Liên kết điều chỉnh: adjustment_id, adjustment_reason_code.
+
+### 3.5 ImportExportOrder
+Phiếu nhập/xuất ở tầng chứng từ nghiệp vụ.
+- Business key: order_id.
+- Loại phiếu: Inbound, Outbound.
+- Trạng thái xử lý: PendingConfirmation, Confirmed, Rejected.
+- Kho áp dụng: warehouse_id.
+- Thông tin người tạo/duyệt: created_by, confirmed_by, confirmed_at.
+- Dữ liệu xử lý đối soát: blind_count_required, confirmed_items.
+- Danh sách dòng phiếu: items (material_id, lot_id, quantity, unit_of_measure, expected_location).
+- Đính kèm chứng từ: attachments (file metadata, source camera/upload, uploaded_by).
+
+### 3.6 QCTest
+Kết quả kiểm nghiệm chất lượng cho lô.
+- Business key: test_id.
+- Lô kiểm tra: lot_id.
+- Loại test: Identity, Potency, Microbial, Growth Promotion, Physical, Chemical.
+- Kết quả test: test_method, test_date, test_result, acceptance_criteria, result_status.
+- Truy vết trách nhiệm: performed_by, verified_by, approved_by.
+- Xử lý lỗi: reject_reason.
+- Lịch sử nghiệp vụ: history.
+
+### 3.7 ProductionBatch
+Mẻ sản xuất thành phẩm.
+- Business key: batch_id, batch_number (đều unique).
+- Sản phẩm mục tiêu: product_id (tham chiếu material thành phẩm).
+- Quy mô mẻ: batch_size, unit_of_measure.
+- Thiết lập shelf-life: shelf_life_value, shelf_life_unit.
+- Trạng thái mẻ: In Progress, Complete, On Hold, Cancelled.
+- Truy vết thao tác: created_by, approved_by, completed_by.
+
+### 3.8 BatchComponent
+Thành phần nguyên liệu của mẻ sản xuất.
+- Business key: component_id.
+- Thuộc mẻ: batch_id.
+- Lô nguyên liệu dùng: lot_id.
+- Định lượng: planned_quantity, actual_quantity, unit_of_measure.
+- Truy vết thêm dữ liệu: addition_date, added_by.
+
+### 3.9 Warehouse, StorageLocation, WarehouseLocation
+Ba thực thể mô tả không gian kho.
+
+Warehouse:
+- warehouse_id, warehouse_name, is_active.
+
+StorageLocation:
+- location_id, warehouse_id, location_name, zone, is_active.
+
+WarehouseLocation (mô hình phân cấp cây):
+- location_code, location_name, level (warehouse/zone/shelf/bin), parent_code, capacity, notes, is_active.
+
+Ghi chú: hệ thống đang tồn tại đồng thời mô hình location theo mã kho-vị trí và mô hình cây warehouse hierarchy.
+
+### 3.10 InventoryAdjustment
+Phiếu điều chỉnh tồn kho sau đối soát.
+- Business key: adjustment_id.
+- Lô và vật tư bị điều chỉnh: lot_id, material_id.
+- Lượng điều chỉnh: adjustment_quantity.
+- Trạng thái trước/sau: quantity_before, quantity_after.
+- Lý do điều chỉnh: reason_code, reason_note.
+- Giá trị tồn kho: unit_cost_snapshot, valuation_before, valuation_after, valuation_delta.
+- Người thao tác/phê duyệt: performed_by, approved_by.
+- Liên kết giao dịch gốc: linked_transaction_id.
+
+### 3.11 InventoryValuationSummary
+Bảng tổng hợp giá trị tồn kho theo vật tư.
+- Key: material_id (unique).
+- Dữ liệu tổng hợp: total_quantity, unit_cost_reference, total_value.
+- Truy vết cập nhật: last_adjustment_id, last_updated_by.
+
+### 3.12 InventoryAuditReport
+Báo cáo kiểm kê chính thức theo kỳ.
+- Business key: report_id.
+- Kỳ báo cáo: period_from, period_to.
+- Phạm vi kho: scope_warehouse_ids.
+- Trạng thái xử lý: PENDING, PROCESSING, READY, FAILED.
+- Kết quả tổng hợp: summary_total_items, summary_total_quantity, summary_total_value.
+- File đầu ra: file_storage_key, file_sha256, file_size_bytes, pdf_version.
+- Chữ ký và metadata: signed_at, signature_provider, signature_serial_number, signature_valid_from, signature_valid_to.
+- Trách nhiệm xử lý: requested_by, approved_by.
+- Lỗi xử lý: failure_reason.
+
+### 3.13 LabelTemplate
+Mẫu nội dung nhãn cho lô/mẻ.
+- Key: template_id.
+- Loại nhãn: Raw Material, Sample, Intermediate, Finished Product, API, Status.
+- Nội dung template: template_content.
+- Kích thước: width, height.
+
+Ghi chú hiện trạng: hệ thống hiện generate nội dung nhãn theo template, chưa có schema riêng để lưu một thực thể Label đã phát hành.
+
+### 3.14 AuditLog và AppLog
+AuditLog:
+- Theo dõi hành vi nghiệp vụ và bảo mật (login, logout, user update, inventory_lot_updated...).
+
+AppLog:
+- Theo dõi log kỹ thuật hệ thống (error_code, session_id, module, stack...).
+
+Hai nhóm log này là thực thể truy vết phục vụ vận hành và kiểm toán, không phải thực thể hàng hóa.
+
+### 3.15 Counter (hỗ trợ hạ tầng domain)
+- Lưu bộ đếm sinh số thứ tự (name, seq), dùng hỗ trợ tạo mã nghiệp vụ theo quy tắc hệ thống.
+
+---
+
+## 4. Mối liên hệ giữa các thực thể
+
+### 4.1 Quan hệ lõi nghiệp vụ
+- Material 1-N InventoryLot.
+- InventoryLot 1-N InventoryTransaction.
+- InventoryLot 1-N QCTest.
+- ProductionBatch 1-N BatchComponent.
+- InventoryLot 1-N BatchComponent.
+- Material 1-N ProductionBatch (qua product_id).
+- Warehouse 1-N StorageLocation.
+- Warehouse 1-N ImportExportOrder (qua warehouse_id).
+- ImportExportOrderItem tham chiếu vị trí kỳ vọng qua expected_location (mã vị trí dạng string).
+- InventoryLot 1-N InventoryAdjustment.
+- Material 1-1 hoặc 1-N InventoryValuationSummary (thực tế mỗi material có một summary hiện tại).
+- InventoryAuditReport tham chiếu tập InventoryLot/InventoryAdjustment/InventoryTransaction theo kỳ thời gian.
+- User 1-N tác động lên gần như mọi entity qua các trường performed_by, created_by, approved_by, verified_by.
+
+### 4.2 Quan hệ tự tham chiếu
+- InventoryLot (parent_lot_id) 1-N InventoryLot cho sample lot.
+- WarehouseLocation (parent_code) 1-N WarehouseLocation để tạo cây warehouse -> zone -> shelf -> bin.
+
+### 4.3 Sơ đồ quan hệ tổng quan (mức domain)
+```mermaid
+erDiagram
+  USER ||--o{ IMPORT_EXPORT_ORDER : creates_or_confirms
+  USER ||--o{ INVENTORY_TRANSACTION : performs
+  USER ||--o{ QC_TEST : performs_or_verifies
+  USER ||--o{ INVENTORY_ADJUSTMENT : performs
+  USER ||--o{ INVENTORY_AUDIT_REPORT : requests_or_approves
+  USER ||--o{ AUDIT_LOG : triggers
+
+  MATERIAL ||--o{ INVENTORY_LOT : has
+  MATERIAL ||--o{ PRODUCTION_BATCH : product_of
+  MATERIAL ||--|| INVENTORY_VALUATION_SUMMARY : summarized_by
+
+  INVENTORY_LOT ||--o{ INVENTORY_TRANSACTION : records
+  INVENTORY_LOT ||--o{ QC_TEST : tested_by
+  INVENTORY_LOT ||--o{ BATCH_COMPONENT : consumed_as_component
+  INVENTORY_LOT ||--o{ INVENTORY_ADJUSTMENT : adjusted_by
+  INVENTORY_LOT ||--o{ INVENTORY_LOT : sample_child
+
+  PRODUCTION_BATCH ||--o{ BATCH_COMPONENT : contains
+
+  WAREHOUSE ||--o{ STORAGE_LOCATION : contains
+  WAREHOUSE_LOCATION ||--o{ WAREHOUSE_LOCATION : hierarchy
+
+  IMPORT_EXPORT_ORDER ||--o{ INVENTORY_TRANSACTION : confirms_into
+  INVENTORY_ADJUSTMENT ||--|| INVENTORY_TRANSACTION : links
 ```
-Materials ──1:N──> InventoryLots ──1:N──> InventoryTransactions
-    │                    │
-    │                    ├──1:N──> QCTests
-    │                    │
-    │                    └──1:N──> BatchComponents <──N:1── ProductionBatches
-    │                                                              │
-    └──────────────────1:N (product_id)───────────────────────────┘
-
-LabelTemplates ──used by──> InventoryLots (Raw Material, Sample, API, Status labels)
-LabelTemplates ──used by──> ProductionBatches (Finished Product, Intermediate labels)
-Users (standalone)
-```
-
-### Detailed Associations
-
-| From Model           | Association | To Model             | Foreign Key      | Description                                    |
-| -------------------- | ----------- | -------------------- | ---------------- | ---------------------------------------------- |
-| Material             | hasMany     | InventoryLot         | material_id      | Một material có nhiều lots                    |
-| InventoryLot         | belongsTo   | Material             | material_id      | Mỗi lot thuộc về một material                 |
-| InventoryLot         | hasMany     | InventoryTransaction | lot_id           | Mỗi lot có nhiều transactions                 |
-| InventoryTransaction | belongsTo   | InventoryLot         | lot_id           | Mỗi transaction thuộc về một lot              |
-| InventoryLot         | hasMany     | QCTest               | lot_id           | Mỗi lot có thể có nhiều QC tests              |
-| QCTest               | belongsTo   | InventoryLot         | lot_id           | Mỗi QC test thuộc về một lot                  |
-| ProductionBatch      | hasMany     | BatchComponent       | batch_id         | Một batch có nhiều components                 |
-| BatchComponent       | belongsTo   | ProductionBatch      | batch_id         | Mỗi component thuộc về một batch              |
-| BatchComponent       | belongsTo   | InventoryLot         | lot_id           | Mỗi component sử dụng một lot                 |
-| InventoryLot         | hasMany     | BatchComponent       | lot_id           | Một lot có thể được dùng trong nhiều batches |
-| ProductionBatch      | belongsTo   | Material             | product_id       | Mỗi batch sản xuất một product (Material)     |
-| Material             | hasMany     | ProductionBatch      | product_id       | Một product có nhiều production batches       |
-| InventoryLot         | belongsTo   | InventoryLot         | parent_lot_id    | Sample lot có thể có parent lot               |
-| InventoryLot         | hasMany     | InventoryLot         | parent_lot_id    | Một lot có thể có nhiều sample lots          |
-
-**Note:** LabelTemplates không có foreign key trực tiếp, nhưng được sử dụng để generate labels cho InventoryLots và ProductionBatches dựa trên `label_type`.
 
 ---
 
-## Business Rules
+## 5. Quy tắc miền quan trọng (as-is)
 
-### Material Management
-- Mỗi material phải có `part_number` duy nhất
-- `material_type` phải là một trong các giá trị enum được định nghĩa
-- Material có thể được sử dụng như raw material (trong InventoryLots) hoặc như finished product (trong ProductionBatches)
+### 5.1 Vòng đời vật tư và lô
+- Material có vòng đời phê duyệt: Pending -> Approved hoặc Rejected.
+- InventoryLot có vòng đời chất lượng: Quarantine -> Accepted/Rejected/Depleted.
+- Rejected và Depleted là trạng thái kết thúc trong rule chuyển trạng thái hiện tại.
 
-### Inventory Lot Control
-- Lot status workflow: `Quarantine` → QC Testing → `Accepted`/`Rejected` → `Depleted`
-- Lot mới nhận phải có status `Quarantine` ban đầu
-- Lot chỉ chuyển sang `Accepted` sau khi tất cả QC tests required đều `Pass`
-- Lot `Rejected` không được phép sử dụng trong production
-- Lot `Depleted` khi `quantity` = 0
-- Sample lots (`is_sample: true`) có thể được tạo từ parent lot để kiểm tra chất lượng
-- Sample lot có thể có `parent_lot_id` để traceability
+### 5.2 Quy tắc phiếu nhập/xuất
+- Phiếu luôn khởi tạo ở PendingConfirmation.
+- Chỉ Manager được confirm hoặc reject.
+- Confirm sẽ cập nhật tồn lô và sinh InventoryTransaction.
+- Inbound có thể cấp trước lot_id theo cơ chế reserve.
+- Outbound bắt buộc kiểm tra lot và kho/vị trí phù hợp trước confirm.
 
-### Inventory Transactions
-- Mọi thay đổi số lượng phải qua InventoryTransaction
-- Transaction type `Receipt`: quantity dương, tăng số lượng lot
-- Transaction type `Usage`: quantity âm, giảm số lượng lot (thường từ production)
-- Transaction type `Split`: chia tách lot thành nhiều lots nhỏ hơn
-- Transaction type `Adjustment`: điều chỉnh số lượng (có thể dương hoặc âm)
-- Transaction type `Transfer`: chuyển kho
-- Transaction type `Disposal`: hủy bỏ, quantity âm
-- Không cho phép số lượng âm (negative stock) sau transaction
-- Mỗi transaction phải có `performed_by` để audit trail
+### 5.3 Quy tắc sản xuất
+- BatchComponent chỉ được thêm/sửa/xóa khi batch đang On Hold.
+- Khi batch chuyển Complete, hệ thống:
+  - kiểm tra đủ tồn nguyên liệu,
+  - trừ kho nguyên liệu,
+  - tạo lot thành phẩm mới (status mặc định Quarantine).
 
-### Production Batch Management
-- Mỗi batch phải có `batch_number` duy nhất
-- Batch status workflow: `In Progress` → `Complete`/`On Hold`/`Cancelled`
-- Batch `Complete` khi tất cả components đã được thêm và production hoàn thành
-- Batch `Cancelled` không được phép sử dụng
-- Batch phải liên kết với một Material (product) qua `product_id`
+### 5.4 Quy tắc điều chỉnh tồn
+- adjustment_quantity không được bằng 0.
+- Không cho phép quantity sau điều chỉnh < 0.
+- Bắt buộc lý do và lưu valuation delta.
+- Mỗi adjustment liên kết một transaction điều chỉnh.
 
-### Batch Components Tracking
-- Khi thêm component vào batch, tạo InventoryTransaction type `Usage` để giảm số lượng lot
-- `actual_quantity` có thể khác `planned_quantity` (variance tracking)
-- Component phải thuộc về một InventoryLot đã được `Accepted`
-- Component không được sử dụng lot có status `Quarantine` hoặc `Rejected`
-
-### Quality Control Testing
-- Lot mới nhận (`Quarantine`) phải có ít nhất một QC test trước khi chuyển status
-- Test types: Identity, Potency, Microbial, Growth Promotion, Physical, Chemical
-- Result status: `Pass`, `Fail`, `Pending`
-- Tất cả required tests phải `Pass` trước khi lot chuyển sang `Accepted`
-- Nếu có test `Fail`, lot phải chuyển sang `Rejected`
-- Test phải có `performed_by` và có thể có `verified_by` để review
-
-### Label Generation
-- Labels được generate bằng cách chọn LabelTemplate phù hợp dựa trên `label_type`
-- Template content được populate với dữ liệu từ entity liên quan (InventoryLot hoặc ProductionBatch)
-- Raw Material labels: generate khi nhận InventoryLot hoặc khi status thay đổi
-- Sample labels: generate khi tạo sample lot (`is_sample: true`)
-- Finished Product labels: generate khi ProductionBatch status = `Complete`
-- API labels: tương tự Raw Material cho API materials
-- Status labels: generate khi lot/batch status thay đổi (Quarantine → Accepted, etc.)
-- Intermediate labels: cho intermediate products trong quá trình production
-
-### User Management & Security
-- Username và email phải unique
-- Password phải được hash bằng bcrypt trước khi lưu
-- Role-based access control:
-  - `Manager`: Quản lý tổng thể, xem dashboard và báo cáo, phê duyệt phiếu nhập-xuất, tra cứu lịch sử giao dịch
-  - `Operator`: Nhân viên kho, thực hiện receiving, picking, transfer, count, cập nhật tồn kho, scan barcode/QR
-  - `Quality Control Technician`: Quản lý QC tests, verify results, lưu hình ảnh và kết quả kiểm tra, workflow Pending → Check → Approve/Reject/Hold
-  - `IT Administrator`: Quản lý người dùng & RBAC, audit log, backup/restore, giám sát hệ thống, cấu hình kho và templates
-- Account `is_active = false` không được phép đăng nhập
-- Mọi thao tác quan trọng phải ghi `performed_by`, `added_by`, `verified_by` để audit trail
-
-### Data Integrity & Traceability
-- Không được xóa (hard delete) các records quan trọng, chỉ soft delete hoặc archive
-- Mọi thay đổi quan trọng phải ghi `modified_date`
-- Traceability chain: Material → InventoryLot → InventoryTransaction → ProductionBatch → BatchComponent
-- QC test results phải được lưu trữ để compliance reporting
-- Batch components phải trace được về InventoryLot và Material gốc
-
-### Reporting & Compliance
-- Report sử dụng vật tư: dựa trên InventoryTransactions (type Usage)
-- Report kiểm soát chất lượng: dựa trên QCTests và lot status
-- Report tuân thủ: traceability từ Materials → InventoryLots → ProductionBatches
-- Report batch components: theo dõi raw materials sử dụng trong production batches
-- Report expiration tracking: lots và batches sắp hết hạn dựa trên `expiration_date`
+### 5.5 Quy tắc bảo mật và định danh
+- Hệ thống dùng Keycloak cho authN/authZ trung tâm.
+- User entity nội bộ đóng vai trò hồ sơ nghiệp vụ và ánh xạ vai trò cho domain.
+- Truy vết nghiệp vụ dùng audit log + các trường actor trong entity.
 
 ---
 
-## Example Data Flow
-
-1. **Material Creation**: Tạo Material `MAT-001` (Vitamin D3 100K) với part_number `PART-10001`, material_type `API`.
-
-2. **Receipt**: Nhận InventoryLot `lot-uuid-001` cho `MAT-001` với 25.5 kg → Tạo InventoryTransaction type `Receipt` +25.5 kg, status = `Quarantine`.
-
-3. **Label Generation**: Generate Raw Material label sử dụng LabelTemplate `TPL-RM-01` (label_type: 'Raw Material'). Template content được populate với dữ liệu từ `lot-uuid-001` (material_name, lot_id, manufacturer_lot, expiration_date, storage_location, etc.) và in ra để dán lên lô hàng.
-
-4. **QC Testing**: Tạo QCTest records (Identity, Potency) cho `lot-uuid-001`. Khi tất cả tests đều `Pass`, chuyển lot status sang `Accepted`.
-
-5. **Sample Lot**: Nếu cần, tạo sample lot từ `lot-uuid-001` (is_sample: true, parent_lot_id = lot-uuid-001) → Generate Sample label sử dụng LabelTemplate với label_type: 'Sample'.
-
-6. **Production Batch**: Tạo ProductionBatch `batch-uuid-001` cho product `PROD-001` (Material), batch_number `PB-2025-0001`, status = `In Progress`.
-
-7. **Batch Component**: Thêm BatchComponent liên kết `batch-uuid-001` với `lot-uuid-001`, planned_quantity = 2 kg, actual_quantity = 2 kg → Tạo InventoryTransaction type `Usage` -2 kg trên `lot-uuid-001`.
-
-8. **Batch Completion**: Khi production hoàn thành, chuyển `batch-uuid-001` status sang `Complete` → Generate Finished Product label sử dụng LabelTemplate với label_type: 'Finished Product', populate với batch data (batch_number, product_name, manufacture_date, expiration_date, batch_size, etc.).
-
-9. **Status Label**: Nếu QC test results thay đổi lot status, generate Status label sử dụng LabelTemplate với label_type: 'Status' để hiển thị status hiện tại (Quarantine, Accepted, Rejected) trên physical lot.
-
-10. **User Actions**: Users đăng nhập và thực hiện các actions; `performed_by`/`added_by`/`verified_by` lưu username hoặc user_id để audit trail.
+## 6. Chuỗi truy vết điển hình trong đời sống thực
+Ví dụ một lô nguyên liệu đi qua hệ thống:
+1. Material được tạo/duyệt trong danh mục.
+2. Operator tạo ImportExportOrder Inbound.
+3. Manager confirm phiếu, hệ thống tạo/cập nhật InventoryLot và ghi InventoryTransaction Receipt.
+4. QC tạo QCTest và ra quyết định cho lot.
+5. Lot Accepted được đưa vào ProductionBatch thông qua BatchComponent.
+6. Khi batch Complete, hệ thống trừ nguyên liệu và tạo lot thành phẩm mới.
+7. Nếu có chênh lệch, Manager tạo InventoryAdjustment và cập nhật valuation summary.
+8. Cuối kỳ, InventoryAuditReport tổng hợp dữ liệu và phát hành file phục vụ kiểm toán.
 
 ---
+
+## 7. Các khác biệt quan trọng so với mô tả domain cũ
+- User không lưu password bcrypt trong schema nghiệp vụ hiện tại; auth do Keycloak xử lý.
+- ProductionBatch không lưu trực tiếp manufacture_date/expiration_date; hệ thống dùng shelf_life để tính expiration cho lot thành phẩm khi complete batch.
+- Chưa có thực thể Label lưu phát hành nhãn, chỉ có LabelTemplate và nghiệp vụ generate nội dung nhãn.
+- Domain đã mở rộng đáng kể với ImportExportOrder, InventoryAdjustment, InventoryAuditReport, Warehouse/Location, ValuationSummary.
+
+---
+
+## 8. Kết luận
+Domain hiện tại đã phản ánh đầy đủ chuỗi nghiệp vụ kho theo lô, kiểm soát chất lượng, nhập-xuất có phê duyệt, điều chỉnh tồn và báo cáo kiểm kê.
+
+Tài liệu này là baseline as-is để nhóm tiếp tục chuẩn hóa to-be domain (nâng cao offline flow, automation vận hành, và chuẩn hóa sâu hơn ở lớp location/label lifecycle).

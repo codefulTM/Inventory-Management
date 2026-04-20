@@ -1,0 +1,1 @@
+Tài liệu này để trình bày công cụ và các prompts chính nhóm đã dùng để tạo và cập nhật sản phẩm 01_Product Requirements Document.md.

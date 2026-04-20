@@ -1,0 +1,217 @@
+# 01. 01_Product Requirements Document
+
+## 1. Bối cảnh nghiệp vụ
+Nhiều doanh nghiệp vừa và nhỏ vẫn vận hành kho bằng giấy tờ hoặc Excel rời rạc, dẫn đến sai lệch tồn kho, khó truy vết lô hàng và tăng rủi ro kiểm toán.
+
+Hệ thống Inventory Management hiện tại được xây dựng để số hóa chuỗi nghiệp vụ kho theo lô: nhập hàng -> kiểm soát chất lượng -> lưu kho -> xuất kho -> kiểm kê/điều chỉnh -> báo cáo.
+
+Ghi chú cập nhật: tài liệu này đã được rà soát theo code thực tế đang chạy trong monorepo.
+
+---
+
+## 2. Vấn đề nghiệp vụ
+Các vấn đề cốt lõi cần giải quyết:
+- Không có bức tranh tồn kho tin cậy theo lô và theo vai trò.
+- Truy vết chất lượng chưa nhất quán giữa nhận hàng, QC và xuất kho.
+- Sai sót thủ công khi nhập liệu, đối soát, ký duyệt.
+- Khó đáp ứng yêu cầu audit trail và báo cáo tuân thủ.
+- Thiếu chuẩn hóa vận hành hệ thống (phân quyền, log, giám sát).
+
+---
+
+## 3. Kiến trúc triển khai thực tế
+Hệ thống đang dùng kiến trúc nhiều service, có gateway:
+
+- api-gateway
+  - Xử lý auth route qua gRPC đến keycloak-service.
+  - Xử lý reports route qua gRPC đến metrics-service.
+  - Proxy phần lớn REST nghiệp vụ về inventory-management-service.
+  - Proxy route AI sang ai-service.
+
+- inventory-management-service (service nghiệp vụ chính)
+  - Domain chính: material, inventory-lot, inventory-transaction, qc-test, production-batch, import-export-order, inventory-adjustment, inventory-audit-report, barcode, user, audit-log, monitoring, logs.
+
+- keycloak-service
+  - Đăng nhập, refresh, logout, quên/đặt lại mật khẩu.
+  - Đồng bộ thông tin user với hệ nghiệp vụ.
+
+- analytics-indexer-service + metrics-service
+  - Đồng bộ dữ liệu từ MongoDB sang Elasticsearch theo lịch cron.
+  - Trả báo cáo tổng hợp inventory/qc/audit cho manager và IT admin.
+
+- inventory-management-web-app
+  - Route tách theo role: manager, operator, quality-control, it_admin.
+
+---
+
+## 4. Vai trò, vấn đề và mục tiêu (theo trạng thái code hiện tại)
+
+### 4.1 Manager (Quản lý)
+Pain points:
+- Cần duyệt nhanh luồng nhập/xuất và kiểm soát biến động tồn kho.
+- Cần báo cáo tổng hợp, truy vết và tài liệu kiểm toán.
+
+Mục tiêu nghiệp vụ:
+- Quản trị phê duyệt phiếu nhập/xuất.
+- Điều chỉnh tồn kho theo lý do có kiểm soát.
+- Tạo và tải báo cáo kiểm kê chính thức.
+- Theo dõi transaction/audit để hậu kiểm.
+
+Khả năng đã có trong code:
+- Confirm/reject import-export order (Manager).
+- Inventory adjustment với reason code, valuation delta.
+- Inventory audit report (create, list, download PDF).
+
+### 4.2 Quality Control Technician (QC)
+Pain points:
+- Cần workflow QC rõ ràng cho từng lot với bằng chứng và quyết định.
+- Cần xử lý nhanh các tình huống reject/retest/quarantine.
+
+Mục tiêu nghiệp vụ:
+- Tạo test, ra quyết định Accepted/Rejected/Hold.
+- Re-test để Extend hoặc Discard.
+- Theo dõi KPI QC và hiệu suất nhà cung cấp.
+
+Khả năng đã có trong code:
+- qc-tests: create/update/delete, submit decision theo lot.
+- Re-test decision: extend expiry hoặc chuyển depleted.
+- Bulk quarantine cho nhiều lot.
+
+### 4.3 Operator / Warehouse Staff (Nhân viên kho)
+Pain points:
+- Nhiều tác vụ nhận/xuất, cần giảm sai sót và thao tác tay.
+- Cần worklist và lịch sử cá nhân để đối soát trách nhiệm.
+
+Mục tiêu nghiệp vụ:
+- Tạo phiếu nhập/xuất ở trạng thái chờ duyệt.
+- Scan/resolve lot-material khi thao tác tại kho.
+- Upload chứng từ, cập nhật số thực tế.
+- Theo dõi lịch sử transaction cá nhân.
+
+Khả năng đã có trong code:
+- Tạo/cập nhật import-export order (pending).
+- Resolve scan code theo lot_id/manufacturer_lot/material_id/part_number.
+- Upload attachment cho phiếu.
+- Xem my-history transaction.
+
+### 4.4 IT Administrator (Quản trị hệ thống)
+Pain points:
+- Cần kiểm soát user/role và audit rõ ràng.
+- Cần quan sát sức khỏe hệ thống và log tập trung.
+
+Mục tiêu nghiệp vụ:
+- Quản lý user lifecycle và quyền truy cập.
+- Theo dõi system metrics, alert threshold.
+- Quản trị log và audit export.
+
+Khả năng đã có trong code:
+- User management (cùng Manager trên nhiều chức năng, delete dành cho IT Admin).
+- System monitoring (CPU/RAM/disk/alerts/thresholds).
+- Log management và audit log CSV export.
+
+---
+
+## 5. Luồng quy trình nghiệp vụ chính (as-is theo code)
+
+### 5.1 Luồng nhập/xuất kho có phê duyệt
+1) Operator/Manager tạo import-export order -> trạng thái mặc định PendingConfirmation.
+2) Hệ thống chuẩn hóa item theo order_type:
+- Inbound: kiểm tra material, reserve lot_id, kiểm tra expected_location thuộc warehouse.
+- Outbound: kiểm tra lot/material/unit/location/warehouse và số lượng khả dụng.
+3) Manager confirm:
+- Đối soát confirmed_items (blind count).
+- Cập nhật tồn lot (+ với inbound, - với outbound).
+- Sinh inventory transaction tương ứng (Receipt/Usage).
+- Chuyển trạng thái phiếu sang Confirmed.
+4) Manager reject:
+- Chuyển trạng thái phiếu sang Rejected, lưu lý do.
+
+### 5.2 Luồng QC cho lô hàng
+1) QC tạo test hoặc khởi tạo test từ production batch.
+2) QC submit decision theo lot:
+- Accepted -> lot status = Accepted.
+- Rejected -> lot status = Rejected (yêu cầu reject_reason).
+- Hold/Pending -> giữ trạng thái quarantine/pending.
+3) Re-test:
+- extend: cập nhật expiry mới, lot về Accepted.
+- discard: lot về Depleted.
+4) QC/Manager có thể bulk-quarantine nhiều lot khi cần.
+
+### 5.3 Luồng production batch
+1) Tạo production batch (thường bắt đầu On Hold).
+2) Thêm/sửa/xóa batch component chỉ khi batch ở On Hold.
+3) Khi chuyển batch sang Complete:
+- Verify đủ tồn cho component.
+- Trừ kho nguyên liệu đã dùng.
+- Tạo lot thành phẩm mới với trạng thái Quarantine.
+
+### 5.4 Luồng điều chỉnh tồn kho
+1) Manager tạo inventory adjustment (bắt buộc reason code; reason note bắt buộc khi OTHER).
+2) Hệ thống kiểm tra không làm tồn âm.
+3) Sinh transaction Adjustment, lưu before/after quantity và valuation.
+
+### 5.5 Luồng báo cáo kiểm kê chính thức
+1) Manager tạo yêu cầu report (draft -> processing).
+2) Hệ thống dựng snapshot dữ liệu, render PDF, ký metadata.
+3) Report chuyển READY hoặc FAILED.
+4) Manager tải file PDF theo report id.
+
+### 5.6 Luồng báo cáo phân tích qua ES
+1) analytics-indexer-service sync dữ liệu định kỳ sang Elasticsearch (mặc định 10 phút).
+2) metrics-service tổng hợp:
+- inventory status
+- material usage
+- qc performance
+- audit report
+3) api-gateway expose nhóm /reports cho Manager và IT Administrator.
+
+---
+
+## 6. Luồng liên vai trò (handoff)
+- Receiving -> Manager Approval: Operator tạo phiếu, Manager xác nhận để ghi nhận tồn thực tế chính thức.
+- Receiving/Stock -> QC: lot được đưa vào trạng thái phù hợp để QC kiểm định trước khi khai thác tiếp.
+- QC Reject -> Manager/Operator: lot bị chặn theo trạng thái, cần quyết định xử lý trả hàng/hủy.
+- Inventory Count/Adjustment -> Manager: điều chỉnh tồn phải do Manager thực hiện/phê duyệt.
+- Incident -> IT Admin -> Manager/QA: IT xử lý hệ thống, lưu log và phối hợp đánh giá ảnh hưởng nghiệp vụ.
+
+---
+
+## 7. Quy trình nghiệp vụ thủ công (vẫn cần song hành)
+1) Biên bản kiểm nhận hàng hóa khi có chênh lệch hoặc hư hỏng.
+2) Phiếu giấy dự phòng khi thiết bị scan hoặc mạng gián đoạn.
+3) Niêm phong/quarantine vật lý cho lot lỗi hoặc lot nghi ngờ.
+4) Lưu chứng từ gốc (invoice, COA, PO) theo quy định pháp lý.
+5) Ký tay hoặc ký số nội bộ cho các báo cáo/biên bản bắt buộc.
+
+---
+
+## 8. Tiêu chí chấp nhận (đã cập nhật theo mức triển khai)
+
+Functional (đã có trong code):
+- RBAC cho 4 vai trò chính.
+- Luồng import-export pending -> confirmed/rejected có kiểm soát blind count.
+- Inventory lot lifecycle cơ bản: Quarantine/Accepted/Rejected/Depleted.
+- QC workflow: decision, retest, supplier performance.
+- Inventory adjustment có reason và transaction liên kết.
+- Audit logs, system logs, monitoring metrics.
+- Báo cáo inventory/qc/audit qua metrics-service.
+
+Functional (đang là mục tiêu mở rộng hoặc mới một phần):
+- Backup/restore end-to-end tự động theo chuẩn vận hành doanh nghiệp.
+- Offline workflow hoàn chỉnh cho toàn bộ tác vụ kho.
+- Một số cảnh báo realtime cấp UI nâng cao.
+
+KPI mục tiêu:
+- Thời gian tạo báo cáo: < 30s (dataset chuẩn).
+- API response: < 20s cho truy vấn chuẩn.
+- Uptime: >= 99.9%.
+- Tỷ lệ hài lòng người dùng: >= 90%.
+
+Lưu ý: báo cáo analytics hiện tại mang tính near-real-time theo chu kỳ sync, không phải streaming real-time.
+
+---
+
+## 9. Kết luận
+Inventory Management System hiện đã triển khai được các chuỗi nghiệp vụ cốt lõi cho quản trị kho theo lô và kiểm soát chất lượng theo vai trò, đồng thời giữ khả năng mở rộng cho báo cáo và vận hành hệ thống.
+
+Tài liệu này phản ánh trạng thái as-is theo code hiện tại, đồng thời giữ các mục tiêu to-be để nhóm tiếp tục hoàn thiện trong các vòng phát triển tiếp theo.
