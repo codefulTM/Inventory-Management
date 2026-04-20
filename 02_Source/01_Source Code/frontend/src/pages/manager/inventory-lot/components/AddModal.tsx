@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { useEffect, useRef } from "react";
 import {
   X,
   Save,
@@ -15,6 +16,7 @@ import { FormField } from "./FormField";
 import { useMaterials } from "../hooks/useMaterials";
 import SelectMenu from "../../../../components/SelectMenu";
 import { useWarehouseList } from "../../../../hooks/useWarehouseList";
+import { useBinWorklist } from "../hooks/useBinWorklist";
 
 interface AddModalProps {
   isOpen: boolean;
@@ -68,6 +70,21 @@ export function AddModal({
     loading: warehousesLoading,
     error: warehousesError,
   } = useWarehouseList();
+
+  const warehouseId = watch("warehouse_id");
+  const {
+    bins,
+    loading: binsLoading,
+    error: binsError,
+  } = useBinWorklist(warehouseId || undefined);
+
+  const prevWarehouseRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (prevWarehouseRef.current && prevWarehouseRef.current !== warehouseId) {
+      setValue("storage_location", "");
+    }
+    prevWarehouseRef.current = warehouseId;
+  }, [warehouseId]);
 
   if (!isOpen) return null;
 
@@ -307,15 +324,49 @@ export function AddModal({
                   label="Vị trí lưu trữ *"
                   error={errors.storage_location?.message}
                 >
-                  <input
-                    {...register("storage_location", {
-                      required: "Bắt buộc nhập",
-                    })}
-                    className={
-                      errors.storage_location ? INPUT_ERR_CLS : INPUT_CLS
-                    }
-                    placeholder="WH-A-Cold-01"
-                  />
+                  {!warehouseId ? (
+                    <div className="text-sm text-gray-500">
+                      Vui lòng chọn kho trước
+                    </div>
+                  ) : binsLoading ? (
+                    <div className="flex items-center py-2">
+                      <Loader
+                        size={14}
+                        className="animate-spin text-gray-400"
+                      />
+                      <span className="text-sm text-gray-500 ml-2">
+                        Đang tải vị trí...
+                      </span>
+                    </div>
+                  ) : binsError ? (
+                    <div className="flex items-center gap-2 p-2 bg-red-50 text-red-600 rounded text-sm">
+                      <AlertCircle size={14} /> Lỗi: {String(binsError)}
+                    </div>
+                  ) : (
+                    <>
+                      <SelectMenu
+                        items={bins.map((b) => ({
+                          id: b.bin_code,
+                          label: b.bin_code,
+                        }))}
+                        value={watch("storage_location") ?? ""}
+                        onChange={(v) =>
+                          setValue("storage_location", String(v))
+                        }
+                        placeholder="-- Chọn vị trí --"
+                        showSearch
+                        searchPlaceholder="Tìm vị trí..."
+                        selectClassName={INPUT_CLS}
+                        loading={binsLoading}
+                      />
+                      <input
+                        type="hidden"
+                        {...register("storage_location", {
+                          required: "Bắt buộc chọn",
+                        })}
+                      />
+                    </>
+                  )}
                 </FormField>
               </div>
             </section>

@@ -47,6 +47,7 @@ export class BinWorklistController {
       bin_code: string;
       warehouse_id?: string;
       location_name?: string;
+      expected_qty?: number;
     },
   ) {
     return await this.service.createBin(body);
@@ -60,6 +61,7 @@ export class BinWorklistController {
       warehouse_id?: string;
       location_name?: string;
       is_active?: boolean;
+      expected_qty?: number;
     },
   ) {
     return await this.service.updateBin(bin_code, body);

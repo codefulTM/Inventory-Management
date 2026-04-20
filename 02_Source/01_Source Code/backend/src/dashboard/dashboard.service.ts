@@ -144,15 +144,61 @@ export class DashboardService {
     );
     const total_value = rows.reduce((s, r) => s + (r.total_value || 0), 0);
 
-    // Lấy top materials theo total_quantity giảm dần, giới hạn 10
-    const topMaterials = rows
-      .sort((a: any, b: any) => b.total_quantity - a.total_quantity)
-      .slice(0, 10)
-      .map((r: any) => ({
-        material_id: r._id,
-        material_name: r.material_name || r._id,
-        total_quantity: r.total_quantity,
-      }));
+    // Lấy top materials dựa trên transactions trong khoảng from/to (nếu có)
+    // Vì `inventory_lots` thể hiện snapshot hiện tại, Top Materials theo hoạt động
+    // (receipts/usages) nên ta tổng hợp từ `inventory_transactions` để phản ánh khoảng thời gian.
+    const txMatch: any = {};
+    if (filters.from || filters.to) txMatch.transaction_date = {};
+    if (filters.from) txMatch.transaction_date.$gte = new Date(filters.from);
+    if (filters.to) txMatch.transaction_date.$lte = new Date(filters.to);
+
+    const txPipeline: any[] = [];
+    if (Object.keys(txMatch).length) txPipeline.push({ $match: txMatch });
+
+    // Join inventory_lots to get material_id and (optionally) filter by warehouse
+    txPipeline.push({
+      $lookup: {
+        from: 'inventory_lots',
+        localField: 'lot_id',
+        foreignField: 'lot_id',
+        as: 'lot_docs',
+      },
+    });
+    txPipeline.push({ $unwind: '$lot_docs' });
+    if (filters.warehouseId) {
+      txPipeline.push({ $match: { 'lot_docs.warehouse_id': filters.warehouseId } });
+    }
+
+    txPipeline.push({
+      $group: {
+        _id: '$lot_docs.material_id',
+        total_quantity: { $sum: '$quantity' },
+      },
+    });
+    txPipeline.push({ $sort: { total_quantity: -1 } });
+    txPipeline.push({ $limit: 10 });
+    txPipeline.push({
+      $lookup: {
+        from: 'materials',
+        localField: '_id',
+        foreignField: 'material_id',
+        as: 'material_docs',
+      },
+    });
+    txPipeline.push({
+      $addFields: {
+        material_name: { $arrayElemAt: ['$material_docs.material_name', 0] },
+      },
+    });
+    txPipeline.push({ $project: { material_docs: 0 } });
+
+    const topTxRows = await this.txRepo.aggregate(txPipeline);
+
+    const topMaterials = (topTxRows || []).map((r: any) => ({
+      material_id: r._id,
+      material_name: r.material_name || r._id,
+      total_quantity: r.total_quantity,
+    }));
 
     // Trả về object summary cho frontend
     return {

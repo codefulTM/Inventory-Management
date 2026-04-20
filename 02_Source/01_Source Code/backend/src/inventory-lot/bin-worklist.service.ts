@@ -33,27 +33,19 @@ export class BinWorklistService {
     bin_code: string;
     warehouse_id?: string;
     location_name?: string;
+    expected_qty?: number;
   }) {
-    if (!body || !body.bin_code)
-      throw new BadRequestException('bin_code required');
+    if (!body || !body.bin_code) throw new BadRequestException('bin_code required');
     const location_id = body.bin_code.trim();
-    const warehouse_id =
-      body.warehouse_id || process.env.DEFAULT_WAREHOUSE_ID || 'default';
+    const warehouse_id = body.warehouse_id || process.env.DEFAULT_WAREHOUSE_ID || 'default';
     const location_name = body.location_name || location_id;
+    const expected_qty = typeof (body as any).expected_qty === 'number' ? Number((body as any).expected_qty) : undefined;
+
+    const setOnInsert: any = { location_id, warehouse_id, location_name, is_active: true };
+    if (expected_qty !== undefined) setOnInsert.expected_qty = expected_qty;
 
     const created = await this.storageLocationModel
-      .findOneAndUpdate(
-        { location_id },
-        {
-          $setOnInsert: {
-            location_id,
-            warehouse_id,
-            location_name,
-            is_active: true,
-          },
-        },
-        { upsert: true, new: true },
-      )
+      .findOneAndUpdate({ location_id }, { $setOnInsert: setOnInsert }, { upsert: true, new: true })
       .lean()
       .exec();
 
@@ -66,6 +58,7 @@ export class BinWorklistService {
       warehouse_id?: string;
       location_name?: string;
       is_active?: boolean;
+      expected_qty?: number;
     },
   ) {
     if (!bin_code) throw new BadRequestException('bin_code required');
@@ -77,6 +70,9 @@ export class BinWorklistService {
       update.location_name = body.location_name;
     if (body.is_active !== undefined)
       update.is_active = Boolean(body.is_active);
+    if ((body as any).expected_qty !== undefined) {
+      update.expected_qty = Number((body as any).expected_qty);
+    }
 
     const updated = await this.storageLocationModel
       .findOneAndUpdate({ location_id }, { $set: update }, { new: true })
@@ -105,7 +101,12 @@ export class BinWorklistService {
 
     const [docs, total] = await Promise.all([
       this.storageLocationModel
-        .find(query, { location_id: 1, warehouse_id: 1, location_name: 1, modified_date: 1 })
+        .find(query, {
+          location_id: 1,
+          warehouse_id: 1,
+          location_name: 1,
+          modified_date: 1,
+        })
         .sort({ location_id: 1 })
         .skip(skip)
         .limit(limit)

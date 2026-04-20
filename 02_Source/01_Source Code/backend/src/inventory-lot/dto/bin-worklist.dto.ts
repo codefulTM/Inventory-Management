@@ -13,10 +13,12 @@ export class BinWorklistQueryDto {
   warehouse_id?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }

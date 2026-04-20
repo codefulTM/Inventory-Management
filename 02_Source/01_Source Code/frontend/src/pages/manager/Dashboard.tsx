@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Alert,
   Button,
@@ -131,6 +131,49 @@ export default function DashboardManager() {
 
     void load();
   }, []);
+
+  // mountedRef prevents the auto-refresh effect running on initial mount
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+  }, []);
+
+  // Helper: fetch summary + trends for a given range and warehouse
+  const fetchDashboardForRange = async (fromIso: string, toIso: string, warehouseId?: string) => {
+    try {
+      setLoading(true);
+      const sumResp = await getDashboardSummary(warehouseId, fromIso, toIso);
+      if (sumResp.data) setSummary(sumResp.data);
+      const interval = computeInterval(fromIso, toIso);
+      const inResp = await getDashboardTrends("in", fromIso, toIso, interval, warehouseId);
+      const outResp = await getDashboardTrends("out", fromIso, toIso, interval, warehouseId);
+      if (inResp.data) setTrendsIn(inResp.data);
+      if (outResp.data) setTrendsOut(outResp.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to refresh dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-refresh Top Materials and trends when dateRange or warehouse changes (debounced)
+  // Only auto-apply when the user has selected both start and end dates to avoid
+  // firing requests while the user is still picking the range.
+  useEffect(() => {
+    if (!mountedRef.current) return;
+
+    // Require both start and end to be selected for auto-refresh
+    if (!dateRange || !dateRange[0] || !dateRange[1]) return;
+
+    const from = dateRange[0].toISOString();
+    const to = dateRange[1].toISOString();
+
+    const timer = setTimeout(() => {
+      void fetchDashboardForRange(from, to, filterWarehouse);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [dateRange, filterWarehouse]);
 
   const lowStockItems = useMemo(
     () =>
