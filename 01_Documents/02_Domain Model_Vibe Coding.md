@@ -18,7 +18,7 @@ Domain Model không viết tách rời, mà được xây dựng dựa trên PRD
 4. Tài liệu kiến trúc có thể bám chắc vào miền nghiệp vụ.
 
 ## 2. Công cụ nhóm sử dụng
-- GitHub Copilot Chat (GPT-5.3-Codex):
+- GitHub Copilot Chat (GPT-5.3-Codex, Claude sonnet 4.5):
   - Trích xuất entity từ yêu cầu trong PRD.
   - Gợi ý relationship và state transition.
   - Chuẩn hóa mô tả domain rule theo ngôn ngữ nghiệp vụ.
@@ -38,28 +38,28 @@ Nguyên tắc sử dụng công cụ:
 2. Domain Model là cầu nối giữa PRD và kiến trúc kỹ thuật.
 
 ## 3. Prompt mẫu đã dùng
-### 3.1 Pha xuất phát từ PRD
+### 3.1 Giai đoạn xuất phát từ PRD
 ### Prompt 1 - Trích yêu cầu sang thực thể
 "Dựa trên [01_Product Requirements Document.md](01_Product Requirements Document.md), trích các yêu cầu nghiệp vụ chính và đề xuất domain entities tương ứng cho từng yêu cầu."
 
 ### Prompt 2 - Tạo bảng trace PRD -> Domain
 "Lập bảng mapping Requirement ID/nhóm yêu cầu trong PRD sang Entity, Value Object, Domain Rule và trạng thái nghiệp vụ liên quan."
 
-### 3.2 Pha mô hình hóa thực thể
+### 3.2 Giai đoạn mô hình hóa thực thể
 ### Prompt 3 - Trích xuất thực thể miền
 "Dựa trên IMS hiện tại, liệt kê toàn bộ domain entities quan trọng (Material, InventoryLot, InventoryTransaction, QCTest, ProductionBatch...) và vai trò của từng thực thể trong nghiệp vụ."
 
 ### Prompt 4 - Mô tả quan hệ
 "Viết mapping quan hệ 1-N hoặc tự tham chiếu giữa các entity trong kho theo lô, kèm giải thích nghiệp vụ ngắn gọn."
 
-### 3.3 Pha mô hình hóa quy tắc
+### 3.3 Giai đoạn mô hình hóa quy tắc
 ### Prompt 5 - Quy tắc miền
 "Tổng hợp các domain rules đang áp dụng trong code: vòng đời trạng thái lot, phiếu nhập/xuất pending -> confirmed, quy tắc adjustment, quy tắc production batch completion."
 
 ### Prompt 6 - Chuẩn hóa transition
 "Viết state transition cho từng thực thể quan trọng theo dạng: current_state -> action -> next_state, kèm điều kiện hợp lệ."
 
-### 3.4 Pha rà soát nhất quán
+### 3.4 Giai đoạn rà soát nhất quán
 ### Prompt 7 - So khớp 3 tài liệu
 "Đối chiếu Domain Model với PRD và Architecture, chỉ ra điểm lệch thuật ngữ, lệch luồng, lệch trạng thái, và đề xuất chỉnh sửa ưu tiên."
 
@@ -82,7 +82,7 @@ Nguyên tắc sử dụng công cụ:
 7. Rà soát chéo với PRD, Architecture, Backlog để thống nhất thuật ngữ.
 8. Chốt version Domain Model theo sprint cùng rationale thay đổi.
 
-### 4.1 Quy trình xây dựng từ PRD (gợi ý áp dụng thực tế)
+### 4.1 Quy trình xây dựng từ PRD
 1. Bước 1 - Từ PRD chọn luồng nghiệp vụ chính:
 	- Ví dụ: nhập kho, QC, xuất kho, kiểm kê.
 2. Bước 2 - Với mỗi luồng, xác định:

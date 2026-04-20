@@ -713,6 +713,16 @@ JEN --> BE : deploy pipeline
 ```
 
 ---
+### 🌐 Hosted Environment Information
+* **Hosted frontend url:** `https://inventory-system.cloud/`
+* **API Gateway url:** `https://api.inventory-system.cloud/`
+* **Keycloak (SSO/Auth) url:** `https://keycloak.inventory-system.cloud`
+* **Grafana:** `https://grafana.inventory-system.cloud`
+* **Jenkins CI/CD:** `https://jenkins.inventory-system.cloud`
+* **Kibana:** `https://kibana.inventory-system.cloud/`
+---
+
+---
 
 ## 4. Công nghệ và công cụ được lựa chọn
 
