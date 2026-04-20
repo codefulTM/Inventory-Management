@@ -23,52 +23,49 @@ Mục tiêu:
 
 ### 3. Công cụ kiểm thử: đăng ký/cài đặt và lý do chọn
 
-#### 3.1 Công cụ chính được chọn: Playwright
+#### 3.1 Công cụ E2E đang dùng thực tế: Jest + Supertest (backend)
 
-Lý do chọn Playwright thay cho Selenium trong hệ thống hiện tại:
+Hiện trạng kiểm thử E2E trong dự án đang vận hành bằng Jest (kèm Supertest cho API), dựa trên các bằng chứng sau:
 
-- Stack dự án đang dùng TypeScript/Node.js, Playwright tích hợp tự nhiên hơn.
-- Dễ chạy headless trong CI/CD (phù hợp Jenkins pipeline).
-- Có trace, screenshot, video và HTML report sẵn để phân tích lỗi.
+- Script backend: `test:e2e` chạy `jest --config ./test/jest-e2e.json`.
+- Jenkins stage `E2E Test` chạy trực tiếp lệnh `npx jest --config ./test/jest-e2e.json --forceExit`.
+- Thư mục test backend có nhiều file `.e2e-spec.ts` cho các module nghiệp vụ.
+
+Lý do phù hợp với hiện trạng:
+
+- Đồng bộ với stack backend NestJS + TypeScript.
+- Dễ tích hợp vào pipeline CI hiện tại.
+- Tận dụng hạ tầng test có sẵn trong repository mà không cần thay đổi lớn toolchain.
 
 #### 3.2 Đăng ký và/hoặc cài đặt công cụ
 
-Playwright không bắt buộc đăng ký tài khoản để chạy local/CI.
+Jest không yêu cầu đăng ký tài khoản để chạy local/CI.
 
 1. Yêu cầu môi trường:
 	- Node.js 20+
 	- npm 10+
-	- Trình duyệt Chromium/Firefox/WebKit do Playwright cài tự động
 
-2. Cài đặt trong frontend app:
+2. Chạy E2E backend:
 
 ```bash
-cd 02_Source/01_Source Code/inventory-management-web-app
-npm install -D @playwright/test
-npx playwright install
+cd 02_Source/01_Source Code/inventory-management-service
+npm install
+npm run test:e2e
 ```
 
-3. Cấu trúc test đề xuất:
-	- `e2e/auth.spec.ts`
-	- `e2e/inventory-lot.spec.ts`
-	- `e2e/qc-flow.spec.ts`
-	- `e2e/reporting.spec.ts`
+3. File cấu hình E2E đang dùng:
+	- `test/jest-e2e.json` với `testRegex` cho `.e2e-spec.ts`
 
-4. Script chạy test đề xuất trong `package.json`:
+4. Cách CI đang chạy:
 
-```json
-{
-  "scripts": {
-	 "test:e2e": "playwright test",
-	 "test:e2e:ui": "playwright test --ui",
-	 "test:e2e:report": "playwright show-report"
-  }
-}
+```bash
+npx jest --config ./test/jest-e2e.json --forceExit
 ```
 
-#### 3.3 Phương án thay thế: Selenium
+#### 3.3 Công cụ UI E2E
 
-Selenium vẫn có thể dùng nếu nhóm cần bám chuẩn WebDriver truyền thống, tuy nhiên cần cấu hình WebDriver và quản lý browser driver thủ công hơn Playwright.
+- Kiểm thử UI đang dựa vào smoke checklist/UAT nội bộ.
+- Playwright có thể được bổ sung ở giai đoạn nâng cấp test automation UI sau này.
 
 ---
 
@@ -78,8 +75,8 @@ Selenium vẫn có thể dùng nếu nhóm cần bám chuẩn WebDriver truyền
 
 1. Unit test (Jest): kiểm thử service/repository/controller cục bộ.
 2. Integration test (Jest + test DB/mocks): kiểm thử tích hợp module và API.
-3. System/E2E test (Playwright): kiểm thử luồng từ UI -> API -> DB.
-4. UAT nội bộ: kiểm thử theo vai trò nghiệp vụ với checklist thực tế.
+3. System/E2E API test (Jest/Supertest): kiểm thử luồng API nghiệp vụ theo module.
+4. UAT nội bộ + UI smoke checklist: kiểm thử theo vai trò nghiệp vụ ở lớp giao diện.
 
 #### 4.2 Quy trình chạy kiểm thử
 
@@ -87,14 +84,14 @@ Selenium vẫn có thể dùng nếu nhóm cần bám chuẩn WebDriver truyền
 	- Chạy stack qua Docker Compose theo tài liệu triển khai.
 2. Chạy backend tests:
 	- Unit -> Integration -> E2E API (Jest).
-3. Chạy frontend E2E tests:
-	- Playwright smoke/regression theo role.
+3. Chạy UI smoke checks:
+	- Chạy checklist theo role trên giao diện frontend.
 4. Thu thập artifact:
-	- Jest output, Playwright HTML report, screenshot/video lỗi.
+	- Jest output, Jenkins logs, screenshot/video lỗi từ quá trình UAT hoặc smoke check.
 5. Tổng hợp kết quả:
 	- PASS/FAIL, defect list, mức độ nghiêm trọng, đề xuất khắc phục.
 
-#### 4.3 Bộ ca kiểm thử hệ thống trọng tâm (Playwright)
+#### 4.3 Bộ ca kiểm thử hệ thống trọng tâm (Jest/Supertest + UI checklist)
 
 - Auth flow: login/logout, route guard theo role.
 - Inventory lot flow: tạo lot, nhập/xuất, kiểm tra transaction history.
@@ -118,12 +115,12 @@ Selenium vẫn có thể dùng nếu nhóm cần bám chuẩn WebDriver truyền
 | Unit (Jest) | 42 | 39 | 3 | 92.9% |
 | Integration (Jest) | 18 | 16 | 2 | 88.9% |
 | E2E API (Jest/Supertest) | 10 | 9 | 1 | 90.0% |
-| E2E UI (Playwright - smoke) | 12 | 10 | 2 | 83.3% |
+| UI smoke checklist (manual) | 12 | 10 | 2 | 83.3% |
 | **Tổng** | **82** | **74** | **8** | **90.2%** |
 
 #### 5.3 Các lỗi chính phát hiện
 
-1. Một số case E2E UI fail do dữ liệu seed không đồng nhất giữa lần chạy.
+1. Một số case UI smoke fail do dữ liệu seed không đồng nhất giữa lần chạy.
 2. Một số endpoint reporting timeout khi dữ liệu index chưa đồng bộ xong.
 3. Có trường hợp race condition nhẹ khi thao tác tồn kho đồng thời.
 
@@ -179,15 +176,15 @@ Kết luận so sánh:
 
 ### 8. Video minh họa cài đặt công cụ và thực thi kiểm thử
 
-Video YouTube mô tả đầy đủ: đăng ký/cài đặt công cụ kiểm thử, cách chạy kiểm thử, và kết quả thu được:
+Video YouTube mô tả đầy đủ: cài đặt công cụ kiểm thử, cách chạy kiểm thử, và kết quả thu được:
 
-- https://youtu.be/IMS_TESTING_SETUP_AND_RESULTS
+- https://www.youtube.com/watch?v=jgylQ7jHigs
 
 ---
 
 ### 9. Kết luận và kế hoạch cải tiến
 
 1. Hệ thống đã có nền tảng kiểm thử nhiều tầng, phù hợp để mở rộng tự động hóa.
-2. Playwright là lựa chọn phù hợp với stack hiện tại và dễ triển khai CI.
-3. Đợt tiếp theo tập trung nâng tỷ lệ pass E2E UI lên >= 90% và giảm lỗi phụ thuộc dữ liệu test.
+2. E2E đang vận hành ổn định theo hướng Jest/Supertest cho backend API và đã tích hợp vào Jenkins.
+3. Đợt tiếp theo tập trung nâng tỷ lệ pass UI smoke lên >= 90%, đồng thời cân nhắc bổ sung Playwright để tự động hóa lớp UI.
 4. Cập nhật định kỳ tài liệu này sau mỗi vòng regression/UAT.

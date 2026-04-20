@@ -57,11 +57,6 @@ Mục tiêu nghiệp vụ:
 - Tạo và tải báo cáo kiểm kê chính thức.
 - Theo dõi transaction/audit để hậu kiểm.
 
-Khả năng đã có trong code:
-- Confirm/reject import-export order (Manager).
-- Inventory adjustment với reason code, valuation delta.
-- Inventory audit report (create, list, download PDF).
-
 ### 4.2 Quality Control Technician (QC)
 Pain points:
 - Cần workflow QC rõ ràng cho từng lot với bằng chứng và quyết định.
@@ -72,10 +67,6 @@ Mục tiêu nghiệp vụ:
 - Re-test để Extend hoặc Discard.
 - Theo dõi KPI QC và hiệu suất nhà cung cấp.
 
-Khả năng đã có trong code:
-- qc-tests: create/update/delete, submit decision theo lot.
-- Re-test decision: extend expiry hoặc chuyển depleted.
-- Bulk quarantine cho nhiều lot.
 
 ### 4.3 Operator / Warehouse Staff (Nhân viên kho)
 Pain points:
@@ -88,11 +79,6 @@ Mục tiêu nghiệp vụ:
 - Upload chứng từ, cập nhật số thực tế.
 - Theo dõi lịch sử transaction cá nhân.
 
-Khả năng đã có trong code:
-- Tạo/cập nhật import-export order (pending).
-- Resolve scan code theo lot_id/manufacturer_lot/material_id/part_number.
-- Upload attachment cho phiếu.
-- Xem my-history transaction.
 
 ### 4.4 IT Administrator (Quản trị hệ thống)
 Pain points:
@@ -103,11 +89,6 @@ Mục tiêu nghiệp vụ:
 - Quản lý user lifecycle và quyền truy cập.
 - Theo dõi system metrics, alert threshold.
 - Quản trị log và audit export.
-
-Khả năng đã có trong code:
-- User management (cùng Manager trên nhiều chức năng, delete dành cho IT Admin).
-- System monitoring (CPU/RAM/disk/alerts/thresholds).
-- Log management và audit log CSV export.
 
 ---
 
@@ -185,7 +166,7 @@ Khả năng đã có trong code:
 
 ---
 
-## 8. Tiêu chí chấp nhận (đã cập nhật theo mức triển khai)
+## 8. Tiêu chí chấp nhận
 
 Functional (đã có trong code):
 - RBAC cho 4 vai trò chính.
