@@ -210,14 +210,20 @@ export default function DashboardManager() {
           qcTrendData,
           auditTrendData,
         ] = await Promise.all([
-          getInventoryStatusReport(),
-          getMaterialUsageReport(range.from, range.to),
-          getQcPerformanceReport(),
-          getAuditReport(),
-          getInventoryTrendReport(range.from, range.to, interval),
-          getMaterialUsageTrendReport(range.from, range.to, interval, 8),
-          getQcTrendReport(range.from, range.to, interval, 8),
-          getAuditTrendReport(range.from, range.to, interval),
+          getInventoryStatusReport(range.from, range.to, filterWarehouse),
+          getMaterialUsageReport(range.from, range.to, filterWarehouse),
+          getQcPerformanceReport(range.from, range.to, filterWarehouse),
+          getAuditReport(range.from, range.to, filterWarehouse),
+          getInventoryTrendReport(range.from, range.to, interval, filterWarehouse),
+          getMaterialUsageTrendReport(
+            range.from,
+            range.to,
+            interval,
+            8,
+            filterWarehouse,
+          ),
+          getQcTrendReport(range.from, range.to, interval, 8, filterWarehouse),
+          getAuditTrendReport(range.from, range.to, interval, filterWarehouse),
         ]);
 
         setInventoryStatus(inventory);
@@ -232,20 +238,20 @@ export default function DashboardManager() {
         void (async () => {
           try {
             const [dashSum, inT, outT, whs] = await Promise.all([
-              getDashboardSummary(undefined, range.from, range.to),
+              getDashboardSummary(filterWarehouse, range.from, range.to),
               getDashboardTrends(
                 "in",
                 range.from,
                 range.to,
                 interval,
-                undefined,
+                filterWarehouse,
               ),
               getDashboardTrends(
                 "out",
                 range.from,
                 range.to,
                 interval,
-                undefined,
+                filterWarehouse,
               ),
               fetchWarehouses(1, 200),
             ]);
@@ -269,13 +275,32 @@ export default function DashboardManager() {
     };
 
     void load();
-  }, [fromDate, toDate, interval, refreshToken]);
+  }, [fromDate, toDate, interval, refreshToken, filterWarehouse]);
 
   // mountedRef prevents accidental auto-apply when wiring RangePicker
   const mountedRef = useRef(false);
   useEffect(() => {
     mountedRef.current = true;
   }, []);
+
+  // Auto-apply filters when user changes the range/warehouse/interval (skip initial mount)
+  useEffect(() => {
+    if (!mountedRef.current) return;
+    void applyRangeAndWarehouse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange, filterWarehouse, interval]);
+
+  function formatDateShort(iso?: string): string {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = String(d.getFullYear() % 100).padStart(2, "0");
+    const hours = String(d.getHours()).padStart(2, "0");
+    const mins = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}-${mm}-${yy}, ${hours}:${mins}`;
+  }
 
   function computeInterval(fromIso?: string, toIso?: string): TrendInterval {
     if (!fromIso || !toIso) return "day";
@@ -446,32 +471,23 @@ export default function DashboardManager() {
           title="Analytics Filters"
           className="hover:shadow-md transition-shadow duration-200"
         >
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <label className="text-xs font-semibold text-gray-600">
-              From
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(event) => setFromDate(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
+              Date Range (Start - End)
+              <div className="mt-1">
+                <DatePicker.RangePicker
+                  value={dateRange as any}
+                  onChange={(dates: any) => setDateRange(dates)}
+                  style={{ width: "100%" }}
+                />
+              </div>
             </label>
-            <label className="text-xs font-semibold text-gray-600">
-              To
-              <input
-                type="date"
-                value={toDate}
-                onChange={(event) => setToDate(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
-            </label>
+
             <label className="text-xs font-semibold text-gray-600">
               Interval
               <select
                 value={interval}
-                onChange={(event) =>
-                  setInterval(event.target.value as TrendInterval)
-                }
+                onChange={(event) => setInterval(event.target.value as TrendInterval)}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
                 <option value="day">day</option>
@@ -479,25 +495,6 @@ export default function DashboardManager() {
                 <option value="month">month</option>
               </select>
             </label>
-            <div className="flex items-end">
-              <Button
-                type="primary"
-                className="w-full"
-                onClick={() => setRefreshToken((value) => value + 1)}
-              >
-                Refresh Dashboard
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <DatePicker.RangePicker
-                value={dateRange as any}
-                onChange={(dates: any) => setDateRange(dates)}
-                style={{ width: "100%" }}
-              />
-            </div>
 
             <div>
               <Select
@@ -511,32 +508,19 @@ export default function DashboardManager() {
                 }))}
                 style={{ width: "100%" }}
               />
-            </div>
 
-            <div className="flex items-end">
-              <Button
-                type="default"
-                className="w-full"
-                onClick={() => {
-                  setDateRange(null);
-                  setFilterWarehouse(undefined);
-                }}
-              >
-                Reset
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div />
-            <div />
-            <div className="flex justify-end">
-              <Button
-                type="primary"
-                onClick={() => void applyRangeAndWarehouse()}
-              >
-                Apply
-              </Button>
+              <div className="mt-2">
+                <Button
+                  type="default"
+                  className="w-full"
+                  onClick={() => {
+                    setDateRange(null);
+                    setFilterWarehouse(undefined);
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
@@ -754,16 +738,34 @@ export default function DashboardManager() {
           className="hover:shadow-md transition-shadow duration-200"
         >
           <Table
-            rowKey={(record) =>
-              `${record.entity}-${record.performed_at}-${record.action}`
+            rowKey={(record: any, index?: number) =>
+              record && (record.entity || record.performed_at || record.action)
+                ? `${record.entity || 'x'}-${record.performed_at || record.timestamp || (index ?? 0)}-${record.action || 'x'}`
+                : String(index ?? 0)
             }
             pagination={{ pageSize: 8 }}
             dataSource={(auditReport?.entries || []).slice(0, 40)}
             columns={[
-              { title: "Action", dataIndex: "action" },
-              { title: "Entity", dataIndex: "entity" },
-              { title: "By", dataIndex: "performed_by" },
-              { title: "At", dataIndex: "performed_at" },
+              {
+                title: "Action",
+                render: (_: any, record: any) =>
+                  record.action || record.verb || record.event || (record.details && (record.details.action as string)) || "-",
+              },
+              {
+                title: "Entity",
+                render: (_: any, record: any) =>
+                  record.entity || record.entity_name || record.target || (record.details && (record.details.entity as string)) || "-",
+              },
+              {
+                title: "By",
+                render: (_: any, record: any) =>
+                  record.performed_by || record.user || record.actor || (record.details && (record.details.user as string)) || "-",
+              },
+              {
+                title: "At",
+                render: (_: any, record: any) =>
+                  formatDateShort(record.performed_at || record.performedAt || record.timestamp),
+              },
             ]}
             size="middle"
           />

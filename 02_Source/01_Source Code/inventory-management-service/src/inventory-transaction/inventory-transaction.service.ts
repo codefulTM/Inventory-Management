@@ -54,7 +54,13 @@ export class InventoryTransactionService {
     return this.repo.findAll(filters, paging);
   }
   async getOne(id: string) {
-    return this.repo.findOne(id);
+    const byId = await this.repo.findOne(id);
+    if (byId) return byId;
+
+    const byTxId = await this.repo.findOneByTransactionId(id);
+    if (byTxId) return byTxId;
+
+    throw new NotFoundException('Inventory transaction not found');
   }
 
   async getMyHistory(

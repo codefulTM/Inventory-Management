@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { useWarehouseList } from "../../hooks";
 
 export default function BinEditModal({
   open,
@@ -8,25 +9,41 @@ export default function BinEditModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSave: (payload: { bin_code: string; expected_qty?: number }) => void;
-  initial?: { bin_code: string; expected_qty?: number } | null;
+  onSave: (payload: {
+    bin_code: string;
+    expected_qty?: number;
+    warehouse_id?: string;
+  }) => void;
+  initial?: {
+    bin_code: string;
+    expected_qty?: number;
+    warehouse_id?: string;
+  } | null;
 }) {
-  const [binCode, setBinCode] = useState('');
-  const [expectedQty, setExpectedQty] = useState<number | ''>('');
+  const [binCode, setBinCode] = useState("");
+  const [expectedQty, setExpectedQty] = useState<number | "">("");
+  const [warehouseId, setWarehouseId] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const { warehouses } = useWarehouseList(1, 200);
 
   useEffect(() => {
     if (open) {
-      setBinCode(initial?.bin_code ?? '');
+      setBinCode(initial?.bin_code ?? "");
       setExpectedQty(
-        typeof initial?.expected_qty === 'number' ? initial!.expected_qty : '',
+        typeof initial?.expected_qty === "number" ? initial!.expected_qty : "",
       );
+      setWarehouseId(initial?.warehouse_id);
     }
   }, [open, initial]);
 
   function validate(): string | null {
-    if (!binCode || binCode.trim().length === 0) return 'Vui lòng nhập mã vị trí kệ.';
-    if (expectedQty !== '' && (Number.isNaN(Number(expectedQty)) || Number(expectedQty) < 0)) return 'Số lượng dự kiến phải là số >= 0.';
+    if (!binCode || binCode.trim().length === 0)
+      return "Vui lòng nhập mã vị trí kệ.";
+    if (
+      expectedQty !== "" &&
+      (Number.isNaN(Number(expectedQty)) || Number(expectedQty) < 0)
+    )
+      return "Số lượng dự kiến phải là số >= 0.";
     return null;
   }
 
@@ -38,7 +55,11 @@ export default function BinEditModal({
     }
     setSaving(true);
     try {
-      await onSave({ bin_code: binCode.trim(), expected_qty: expectedQty === '' ? undefined : Number(expectedQty) });
+      await onSave({
+        bin_code: binCode.trim(),
+        expected_qty: expectedQty === "" ? undefined : Number(expectedQty),
+        warehouse_id: warehouseId,
+      });
     } finally {
       setSaving(false);
     }
@@ -49,7 +70,9 @@ export default function BinEditModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="bg-white rounded shadow-lg z-10 w-[520px] p-6">
-        <h3 className="text-lg font-bold mb-4">{initial ? 'Chỉnh sửa vị trí kệ' : 'Thêm vị trí kệ'}</h3>
+        <h3 className="text-lg font-bold mb-4">
+          {initial ? "Chỉnh sửa vị trí kệ" : "Thêm vị trí kệ"}
+        </h3>
         <div className="space-y-3">
           <div>
             <label className="text-sm font-bold">Mã vị trí kệ</label>
@@ -66,20 +89,47 @@ export default function BinEditModal({
             <input
               type="number"
               value={expectedQty as any}
-              onChange={(e) => setExpectedQty(e.target.value === '' ? '' : Number(e.target.value))}
+              onChange={(e) =>
+                setExpectedQty(
+                  e.target.value === "" ? "" : Number(e.target.value),
+                )
+              }
               className="w-full border rounded px-3 py-2 mt-1"
               placeholder="Để trống nếu không xác định"
               min={0}
             />
           </div>
+          <div>
+            <label className="text-sm font-bold">Kho chứa</label>
+            <select
+              value={warehouseId ?? ""}
+              onChange={(e) => setWarehouseId(e.target.value || undefined)}
+              className="w-full border rounded px-3 py-2 mt-1"
+            >
+              <option value="">-- Chọn kho (không bắt buộc) --</option>
+              {warehouses.map((w) => (
+                <option key={w._id} value={w.warehouse_id}>
+                  {w.warehouse_id} - {w.warehouse_name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button className="px-4 py-2 border rounded" onClick={onClose} disabled={saving}>
+          <button
+            className="px-4 py-2 border rounded"
+            onClick={onClose}
+            disabled={saving}
+          >
             Hủy
           </button>
-          <button className="px-4 py-2 bg-emerald-600 text-white rounded" onClick={handleSave} disabled={saving}>
-            {saving ? 'Đang lưu...' : 'Lưu'}
+          <button
+            className="px-4 py-2 bg-emerald-600 text-white rounded"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Đang lưu..." : "Lưu"}
           </button>
         </div>
       </div>

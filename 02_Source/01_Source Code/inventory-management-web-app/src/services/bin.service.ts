@@ -3,6 +3,7 @@ import { apiClient } from "./apiClient";
 export interface BinWorklistItem {
   bin_code: string;
   expected_qty: number;
+  warehouse_id?: string;
   lots: Array<{ lot_id: string; material_id: string; qty: number }>;
   last_count_date?: string;
 }
@@ -54,19 +55,45 @@ export class BinAPI {
     return { result: data, error: null };
   }
 
-  static async fetchCounts(bin_code: string, params?: { page?: number; limit?: number }) {
-    const { data, error } = await apiClient.get(`/bins/${encodeURIComponent(bin_code)}/counts`, { params });
-    if (error) return { items: [], total: 0, page: params?.page ?? 1, limit: params?.limit ?? 20, error };
-    return { items: data.data || [], total: data.total || 0, page: data.page || 1, limit: data.limit || 20, error: null };
+  static async fetchCounts(
+    bin_code: string,
+    params?: { page?: number; limit?: number },
+  ) {
+    const { data, error } = await apiClient.get(
+      `/bins/${encodeURIComponent(bin_code)}/counts`,
+      { params },
+    );
+    if (error)
+      return {
+        items: [],
+        total: 0,
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+        error,
+      };
+    return {
+      items: data.data || [],
+      total: data.total || 0,
+      page: data.page || 1,
+      limit: data.limit || 20,
+      error: null,
+    };
   }
 
-  static async createBin(payload: { bin_code: string; expected_qty?: number }) {
+  static async createBin(payload: {
+    bin_code: string;
+    expected_qty?: number;
+    warehouse_id?: string;
+  }) {
     const { data, error } = await apiClient.post(`/bins`, payload);
     if (error) return { result: null, error };
     return { result: data, error: null };
   }
 
-  static async updateBin(bin_code: string, payload: { expected_qty?: number }) {
+  static async updateBin(
+    bin_code: string,
+    payload: { expected_qty?: number; warehouse_id?: string },
+  ) {
     const { data, error } = await apiClient.put(
       `/bins/${encodeURIComponent(bin_code)}`,
       payload,

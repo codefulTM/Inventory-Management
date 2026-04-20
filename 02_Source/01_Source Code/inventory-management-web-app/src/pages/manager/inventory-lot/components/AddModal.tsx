@@ -286,7 +286,7 @@ export function AddModal({
                     placeholder="kg / each"
                   />
                 </FormField>
-                <FormField label="Kho chứa">
+                <FormField label="Kho chứa *">
                   {warehousesLoading ? (
                     <div className="flex items-center py-2">
                       <Loader

@@ -206,6 +206,8 @@ export class BinWorklistService {
     const data = (docs || []).map((d: any) => ({
       bin_code: d.location_id,
       expected_qty: d.expected_qty ?? undefined,
+      warehouse_id: d.warehouse_id ?? undefined,
+      location_name: d.location_name ?? undefined,
       // array of lot summaries (lot_id, material_id, qty)
       lots: lotsMap.get(d.location_id) ?? [],
       // use the last posted bin count date, or null if none

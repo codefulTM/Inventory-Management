@@ -7,7 +7,7 @@ import {
   Body,
   Param,
   Query,
-  ParseUUIDPipe,
+  
   UsePipes,
   ValidationPipe,
   UseGuards,
@@ -105,7 +105,7 @@ export class InventoryTransactionController {
 
   @Get(':id')
   @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+  async findOne(@Param('id') id: string) {
     return this.service.getOne(id);
   }
 
@@ -127,7 +127,7 @@ export class InventoryTransactionController {
   @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateInventoryTransactionDto,
   ) {
     return this.service.update(id, dto);
@@ -135,7 +135,7 @@ export class InventoryTransactionController {
 
   @Delete(':id')
   @Roles(UserRole.MANAGER, UserRole.QC_TECHNICIAN)
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  async remove(@Param('id') id: string) {
     return this.service.remove(id);
   }
 }

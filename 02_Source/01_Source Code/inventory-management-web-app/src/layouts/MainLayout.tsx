@@ -226,11 +226,11 @@ export default function Layout() {
             icon: <FlaskConical size={20} />,
             label: "Tạo sản phẩm",
           },
-          {
-            to: "/manager/production-batches",
-            icon: <FlaskConical size={20} />,
-            label: "Lô sản xuất",
-          },
+          // {
+          //   to: "/manager/production-batches",
+          //   icon: <FlaskConical size={20} />,
+          //   label: "Lô sản xuất",
+          // },
           {
             to: "/ai/console",
             icon: <Bot size={20} />,

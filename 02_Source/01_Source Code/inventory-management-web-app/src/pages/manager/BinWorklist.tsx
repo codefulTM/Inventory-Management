@@ -22,6 +22,7 @@ export default function BinWorklist() {
   const [editingBin, setEditingBin] = useState<{
     bin_code: string;
     expected_qty?: number;
+    warehouse_id?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -44,6 +45,12 @@ export default function BinWorklist() {
       title: "Mã vị trí kệ",
       dataIndex: "bin_code",
       key: "bin_code",
+    },
+    {
+      title: "Mã kho",
+      dataIndex: "warehouse_id",
+      key: "warehouse_id",
+      render: (v) => v ?? "-",
     },
     {
       title: "Số lượng dự kiến",
@@ -79,6 +86,7 @@ export default function BinWorklist() {
               setEditingBin({
                 bin_code: record.bin_code,
                 expected_qty: record.expected_qty,
+                warehouse_id: (record as any).warehouse_id,
               });
               setEditModalOpen(true);
             }}
@@ -108,6 +116,7 @@ export default function BinWorklist() {
   async function handleCreate(payload: {
     bin_code: string;
     expected_qty?: number;
+    warehouse_id?: string;
   }) {
     const { result, error } = await BinAPI.createBin(payload);
     if (error)
@@ -119,7 +128,7 @@ export default function BinWorklist() {
 
   async function handleUpdate(
     bin_code: string,
-    payload: { expected_qty?: number },
+    payload: { expected_qty?: number; warehouse_id?: string },
   ) {
     const { result, error } = await BinAPI.updateBin(bin_code, payload);
     if (error)
@@ -217,6 +226,7 @@ export default function BinWorklist() {
           if (editingBin) {
             await handleUpdate(editingBin.bin_code, {
               expected_qty: payload.expected_qty,
+              warehouse_id: payload.warehouse_id,
             });
           } else {
             await handleCreate(payload);

@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 import type {
   AuditReport,
   AuditTrendReport,
@@ -9,7 +9,7 @@ import type {
   QcPerformanceReport,
   QcTrendReport,
   TrendInterval,
-} from '../types/reports';
+} from "../types/reports";
 
 function unwrapOrThrow<T>(
   data: T | null,
@@ -25,63 +25,100 @@ function unwrapOrThrow<T>(
   return data;
 }
 
-export async function getInventoryStatusReport(): Promise<InventoryStatusReport> {
+export async function getInventoryStatusReport(
+  from?: string,
+  to?: string,
+  warehouseId?: string,
+): Promise<InventoryStatusReport> {
+  const params: Record<string, string> = {};
+  if (from) params.from = from;
+  if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
+
   const { data, error } = await apiClient.get<InventoryStatusReport>(
-    '/reports/inventory-status',
+    "/reports/inventory-status",
+    { params: Object.keys(params).length > 0 ? params : undefined },
   );
-  return unwrapOrThrow(data, error, 'Unable to load inventory status report');
+
+  return unwrapOrThrow(data, error, "Unable to load inventory status report");
 }
 
 export async function getMaterialUsageReport(
   from?: string,
   to?: string,
+  warehouseId?: string,
 ): Promise<MaterialUsageReport> {
   const params: Record<string, string> = {};
   if (from) params.from = from;
   if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
 
   const { data, error } = await apiClient.get<MaterialUsageReport>(
-    '/reports/material-usage',
+    "/reports/material-usage",
     { params: Object.keys(params).length > 0 ? params : undefined },
   );
 
-  return unwrapOrThrow(data, error, 'Unable to load material usage report');
+  return unwrapOrThrow(data, error, "Unable to load material usage report");
 }
 
-export async function getQcPerformanceReport(): Promise<QcPerformanceReport> {
+export async function getQcPerformanceReport(
+  from?: string,
+  to?: string,
+  warehouseId?: string,
+): Promise<QcPerformanceReport> {
+  const params: Record<string, string> = {};
+  if (from) params.from = from;
+  if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
+
   const { data, error } = await apiClient.get<QcPerformanceReport>(
-    '/reports/qc-performance',
+    "/reports/qc-performance",
+    { params: Object.keys(params).length > 0 ? params : undefined },
   );
-  return unwrapOrThrow(data, error, 'Unable to load QC performance report');
+  return unwrapOrThrow(data, error, "Unable to load QC performance report");
 }
 
-export async function getAuditReport(): Promise<AuditReport> {
-  const { data, error } = await apiClient.get<AuditReport>('/reports/audit');
-  return unwrapOrThrow(data, error, 'Unable to load audit report');
+export async function getAuditReport(
+  from?: string,
+  to?: string,
+  warehouseId?: string,
+): Promise<AuditReport> {
+  const params: Record<string, string> = {};
+  if (from) params.from = from;
+  if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
+
+  const { data, error } = await apiClient.get<AuditReport>("/reports/audit", {
+    params: Object.keys(params).length > 0 ? params : undefined,
+  });
+  return unwrapOrThrow(data, error, "Unable to load audit report");
 }
 
 export async function getInventoryTrendReport(
   from?: string,
   to?: string,
-  interval: TrendInterval = 'day',
+  interval: TrendInterval = "day",
+  warehouseId?: string,
 ): Promise<InventoryTrendReport> {
   const params: Record<string, string> = { interval };
   if (from) params.from = from;
   if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
 
   const { data, error } = await apiClient.get<InventoryTrendReport>(
-    '/reports/inventory-trend',
+    "/reports/inventory-trend",
     { params },
   );
 
-  return unwrapOrThrow(data, error, 'Unable to load inventory trend report');
+  return unwrapOrThrow(data, error, "Unable to load inventory trend report");
 }
 
 export async function getMaterialUsageTrendReport(
   from?: string,
   to?: string,
-  interval: TrendInterval = 'day',
+  interval: TrendInterval = "day",
   limit = 10,
+  warehouseId?: string,
 ): Promise<MaterialUsageTrendReport> {
   const params: Record<string, string> = {
     interval,
@@ -89,20 +126,26 @@ export async function getMaterialUsageTrendReport(
   };
   if (from) params.from = from;
   if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
 
   const { data, error } = await apiClient.get<MaterialUsageTrendReport>(
-    '/reports/material-usage-trend',
+    "/reports/material-usage-trend",
     { params },
   );
 
-  return unwrapOrThrow(data, error, 'Unable to load material usage trend report');
+  return unwrapOrThrow(
+    data,
+    error,
+    "Unable to load material usage trend report",
+  );
 }
 
 export async function getQcTrendReport(
   from?: string,
   to?: string,
-  interval: TrendInterval = 'day',
+  interval: TrendInterval = "day",
   limit = 10,
+  warehouseId?: string,
 ): Promise<QcTrendReport> {
   const params: Record<string, string> = {
     interval,
@@ -110,26 +153,35 @@ export async function getQcTrendReport(
   };
   if (from) params.from = from;
   if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
 
-  const { data, error } = await apiClient.get<QcTrendReport>('/reports/qc-trend', {
-    params,
-  });
+  const { data, error } = await apiClient.get<QcTrendReport>(
+    "/reports/qc-trend",
+    {
+      params,
+    },
+  );
 
-  return unwrapOrThrow(data, error, 'Unable to load QC trend report');
+  return unwrapOrThrow(data, error, "Unable to load QC trend report");
 }
 
 export async function getAuditTrendReport(
   from?: string,
   to?: string,
-  interval: TrendInterval = 'day',
+  interval: TrendInterval = "day",
+  warehouseId?: string,
 ): Promise<AuditTrendReport> {
   const params: Record<string, string> = { interval };
   if (from) params.from = from;
   if (to) params.to = to;
+  if (warehouseId) params.warehouse_id = warehouseId;
 
-  const { data, error } = await apiClient.get<AuditTrendReport>('/reports/audit-trend', {
-    params,
-  });
+  const { data, error } = await apiClient.get<AuditTrendReport>(
+    "/reports/audit-trend",
+    {
+      params,
+    },
+  );
 
-  return unwrapOrThrow(data, error, 'Unable to load audit trend report');
+  return unwrapOrThrow(data, error, "Unable to load audit trend report");
 }
