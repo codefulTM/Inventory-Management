@@ -35,14 +35,39 @@ Thư mục code chính: `02_Source/01_Source Code`
    docker compose up --build -d
    ```
 
-   > Lưu ý: nếu bạn chạy stack bằng `docker compose`, tạo file `.env` nằm cùng cấp với `docker-compose.yml` và thêm:
+   > Lưu ý: nếu chạy stack bằng `docker compose`, tạo file `.env` nằm cùng cấp với `docker-compose.yml` và thêm các biến môi trường cần thiết (xem mẫu bên dưới). Các service sẽ tham chiếu biến này khi khởi chạy.:
 
    ```text
-   MAIL_USER=your@gmail.com
-   MAIL_PASS=<your_smtp_app_password>
-   ```
+   # .env.example — mẫu cấu hình môi trường (không chứa secret thật)
+   # Sao chép file này thành ".env" hoặc ".env.local" và điền giá trị phù hợp.
+   # LƯU Ý: Không commit file chứa secret vào VCS. Sử dụng .env.local hoặc secret manager cho môi trường production.
 
-   Các dịch vụ (ví dụ `inventory-management-service`) sẽ tham chiếu các biến này từ `docker-compose.yml`.
+   # HuggingFace API key cho AI agents (để trống nếu không dùng)
+   HUGGINGFACE_API_KEY=
+
+   # Google API key (ví dụ: Maps, Vision, v.v.)
+   GOOGLE_API_KEY=
+
+   # Elasticsearch: username/password để kết nối cluster
+   ELASTICSEARCH_USERNAME=
+   ELASTICSEARCH_PASSWORD=
+
+   # Elasticsearch TLS CA:
+   # - Có thể là đường dẫn tới file PEM (ví dụ: ./certs/ca.pem)
+   # - Hoặc lưu trực tiếp nội dung CA (PEM) hoặc base64-encoded.
+   # Để trống nếu không dùng TLS.
+   ELASTICSEARCH_TLS_CA=
+
+   # Redis password (để trống nếu Redis không yêu cầu mật khẩu)
+   REDIS_PASSWORD=
+
+   # Mail (SMTP) — dùng để gửi email (reset password, thông báo, v.v.)
+   # MAIL_USER: địa chỉ email hoặc tài khoản SMTP
+   # MAIL_PASS: mật khẩu ứng dụng (app password) hoặc mật khẩu SMTP.
+   # Với Gmail, tạo "App Password" thay vì dùng mật khẩu tài khoản chính.
+   MAIL_USER=
+   MAIL_PASS=
+   ```
 
 3. Kiểm tra logs / trạng thái:
    ```bash
@@ -130,3 +155,22 @@ Nếu bạn gặp lỗi thiếu biến môi trường cho service khi chạy tro
 ## 8. Video hướng dẫn cài đặt và chạy hệ thống
 
 - Xem video hướng dẫn chi tiết quá trình: [https://www.youtube.com/watch?v=example](https://www.youtube.com/watch?v=example) (thay bằng link thực tế)
+
+## 9. Truy cập Hệ thống Source Control (GitHub)
+
+- Để truy cập vào mã nguồn của dự án, các thầy/cô vui lòng truy cập đường dẫn sau: [Link](https://github.com/nguyenthaitan/Inventory-Management). Chúng em đã gửi lời mời tham gia với vai trò Admin (Quản trị viên - quyền cao nhất cho phép quản lý mã nguồn và thiết lập dự án) tới email của các thầy/cô. Vui lòng kiểm tra hộp thư đến hoặc mục "Invitations" trên GitHub để chấp nhận.
+
+- Ảnh chụp:
+  ![Ảnh 1](./image1.jpg)
+  ![Ảnh 2](./image2.jpg)
+
+## 10. Truy cập Hệ thống Build và Tích hợp (Jenkins)
+
+- Để theo dõi và quản lý các quy trình Build và Deployment, thầy/cô truy cập vào hệ thống Jenkins tại: [Link](https://jenkins.inventory-system.cloud).
+
+- Chúng em đã khởi tạo tài khoản cho thầy/cô với quyền Admin. Thầy/cô có thể đăng nhập bằng thông tin sau:
+  - Username: admin
+  - Password: admin
+
+- Ảnh chụp:
+  ![Ảnh 3](./image3.png)
