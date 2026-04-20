@@ -44,36 +44,64 @@ Thư mục code chính: `02_Source/01_Source Code`
 
    Các dịch vụ (ví dụ `inventory-management-service`) sẽ tham chiếu các biến này từ `docker-compose.yml`.
 
-3. Một số endpoint & port mặc định (theo `docker-compose.yml`):
-
-- MongoDB: `localhost:27017`
-- Keycloak (admin): `http://localhost:8080`
-- API Gateway: `http://localhost:3000`
-- Backend (inventory-management-service): `http://localhost:3001` (gRPC: 50052)
-- AI service: `http://localhost:3003`
-- Frontend (Vite dev server): `http://localhost:5173`
-- Elasticsearch: `http://localhost:9200`
-- Redis: `localhost:6379`
-
-4. Kiểm tra logs / trạng thái:
+3. Kiểm tra logs / trạng thái:
    ```bash
    docker compose ps
    docker compose logs -f inventory-management-service api-gateway inventory-management-web-app
    ```
-5. Dừng và xoá containers:
+4. Dừng và xoá containers:
    ```bash
    docker compose down
    ```
 
 ## 4. Chạy test / seed dữ liệu
 
-- Unit / e2e (backend):
+- Hướng dẫn test:
 
-  ```bash
-  cd inventory-management-service
-  npm run test         # unit
-  npm run test:e2e     # e2e (cần infra up)
-  ```
+### Test toàn bộ microservices trên Docker
+
+1. Từ `02_Source/01_Source Code` dựng và khởi chạy infra cần thiết (Mongo, Keycloak, Redis, Elasticsearch):
+
+```bash
+cd "02_Source/01_Source Code"
+docker compose up --build -d mongo keycloak redis elasticsearch
+```
+
+2. Build các image service (nếu chưa có) và khởi chạy chúng trong chế độ background:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+3. Chạy test từng service bên trong container (ví dụ các service chính):
+
+```bash
+# Backend (inventory-management-service)
+docker compose exec inventory_backend sh -c "cd /usr/src/app && npm ci && npm run test"
+
+# API Gateway
+docker compose exec inventory_api_gateway sh -c "cd /usr/src/app && npm ci && npm run test"
+
+# Analytics indexer
+docker compose exec inventory_analytics_indexer sh -c "cd /usr/src/app && npm ci && npm run test"
+
+# Metrics service (gRPC tests may need extra setup)
+docker compose exec inventory_metrics_service sh -c "cd /usr/src/app && npm ci && npm run test"
+```
+
+Notes:
+
+- Container names come từ `docker-compose.yml` (`inventory_backend`, `inventory_api_gateway`, `inventory_analytics_indexer`, `inventory_metrics_service`, ...). Nếu khác, dùng `docker compose ps` để xem tên.
+- `npm ci` đảm bảo devDependencies cho test được cài trong container image; nếu image already contains node_modules you can skip it.
+
+4. Sau khi test xong, dừng và xóa containers nếu muốn:
+
+```bash
+docker compose down
+```
+
+Nếu bạn gặp lỗi thiếu biến môi trường cho service khi chạy trong container, đảm bảo `.env` (cùng cấp với `docker-compose.yml`) đã chứa `MAIL_USER`/`MAIL_PASS` và các biến khác cần thiết.
 
 - Seed sample data (scripts có sẵn):
   ```bash
