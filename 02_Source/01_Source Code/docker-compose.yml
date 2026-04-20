@@ -1,4 +1,4 @@
-version: '3.9'
+version: "3.9"
 
 services:
   # ─── Infrastructure ────────────────────────────────────────────────────────
@@ -7,7 +7,7 @@ services:
     container_name: inventory_mongo
     restart: unless-stopped
     ports:
-      - '27017:27017'
+      - "27017:27017"
     volumes:
       - mongo_data:/data/db
       - ./database/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
@@ -27,7 +27,7 @@ services:
       KC_HOSTNAME_URL: http://localhost:8080
       KC_HOSTNAME_ADMIN_URL: http://localhost:8080
     ports:
-      - '8080:8080'
+      - "8080:8080"
     volumes:
       - ./database/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     networks:
@@ -38,7 +38,7 @@ services:
     container_name: inventory_redis
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -50,10 +50,10 @@ services:
     restart: unless-stopped
     environment:
       discovery.type: single-node
-      xpack.security.enabled: 'false'
-      ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
     ports:
-      - '9200:9200'
+      - "9200:9200"
     volumes:
       - es_data:/usr/share/elasticsearch/data
     networks:
@@ -74,6 +74,9 @@ services:
       PORT: 3002
       GRPC_PORT: 50051
       MONGODB_URI: mongodb://mongo:27017/inventory
+      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_REALM: inventory
       KEYCLOAK_CLIENT_ID: inventory-backend
@@ -85,8 +88,8 @@ services:
       JWT_SECRET: super-secret-jwt-key-change-in-production
       JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
     ports:
-      - '3002:3002'
-      - '50051:50051'
+      - "3002:3002"
+      - "50051:50051"
     networks:
       - inventory_net
 
@@ -111,7 +114,7 @@ services:
       JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
       JWT_ISSUER: http://localhost:8080/realms/inventory
     ports:
-      - '3000:3000'
+      - "3000:3000"
     networks:
       - inventory_net
 
@@ -138,8 +141,8 @@ services:
       JWT_SECRET: super-secret-jwt-key-change-in-production
       KEYCLOAK_SERVICE_GRPC_URL: keycloak-service:50051
     ports:
-      - '3001:3001'
-      - '50052:50052'
+      - "3001:3001"
+      - "50052:50052"
     networks:
       - inventory_net
 
@@ -156,12 +159,15 @@ services:
       PORT: 3003
       BACKEND_GRPC_URL: inventory-management-service:50052
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_TIMEOUT_MS: ${EMBEDDING_TIMEOUT_MS:-10000}
+      EMBEDDING_VECTOR_DIMS: ${EMBEDDING_VECTOR_DIMS:-384}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GEMINI_ROUTER_MODEL: ${GEMINI_ROUTER_MODEL:-gemini-2.5-flash}
       GEMINI_AGENT_MODEL: ${GEMINI_AGENT_MODEL:-gemini-2.5-flash}
       USE_GEMINI_ROUTER: ${USE_GEMINI_ROUTER:-false}
     ports:
-      - '3003:3003'
+      - "3003:3003"
     networks:
       - inventory_net
 
@@ -185,9 +191,19 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      REDIS_TLS: 'false'
+      REDIS_TLS: "false"
       SYNC_INTERVAL_CRON: ${SYNC_INTERVAL_CRON:-*/10 * * * *}
       SYNC_BATCH_SIZE: ${SYNC_BATCH_SIZE:-500}
+      RAG_PHASE2_ENABLED: ${RAG_PHASE2_ENABLED:-true}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2}
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+      EMBEDDING_TIMEOUT_MS: ${EMBEDDING_TIMEOUT_MS:-10000}
+      EMBEDDING_CACHE_TTL_SECONDS: ${EMBEDDING_CACHE_TTL_SECONDS:-86400}
+      EMBEDDING_VECTOR_DIMS: ${EMBEDDING_VECTOR_DIMS:-384}
+      RAG_MARKDOWN_ROOT_DIR: ${RAG_MARKDOWN_ROOT_DIR:-/workspace/01_Documents}
+    volumes:
+      - ../../01_Documents:/workspace/01_Documents:ro
     networks:
       - inventory_net
 
@@ -207,7 +223,7 @@ services:
       ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
       ELASTICSEARCH_TLS_CA: ${ELASTICSEARCH_TLS_CA:-}
     ports:
-      - '6741:6741'
+      - "6741:6741"
     networks:
       - inventory_net
 
@@ -222,7 +238,7 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:3000
     ports:
-      - '5173:5173'
+      - "5173:5173"
     networks:
       - inventory_net
 

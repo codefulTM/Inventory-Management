@@ -28,6 +28,8 @@ service InventoryGatewayService {
  *   createInventoryLot       → CreateInventoryLotDto → InventoryLotResponseDto
  *   findInventoryLotById     → { id: string } → InventoryLotResponseDto
  *   updateInventoryLot       → { id: string, ...UpdateInventoryLotDto } → InventoryLotResponseDto
+ *   semanticSearch           → { query, top_k?, source_collections? } → { query, top_k, total, hits[] }
+ *   hybridSearch             → { query, embedding[], top_k?, source_collections? } → { query, top_k, total, hits[] }
  */
 service AiDataService {
   rpc ExecuteAction (AiDataRequest) returns (AiDataResponse);

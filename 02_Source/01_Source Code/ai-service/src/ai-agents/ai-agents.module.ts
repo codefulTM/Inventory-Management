@@ -7,12 +7,14 @@ import { WarehouseOperatorAgent } from './agents/warehouse-operator.agent';
 import { QcComplianceCheckerAgent } from './agents/qc-compliance-checker.agent';
 import { SupervisorAgent } from './agents/supervisor.agent';
 import { AiAgentsController } from './ai-agents.controller';
+import { QueryEmbeddingService } from './services/query-embedding.service';
 
 @Module({
   imports: [ConfigModule, BackendClientModule],
   controllers: [AiAgentsController],
   providers: [
     AgentLlmService,
+    QueryEmbeddingService,
     InventoryAnalystAgent,
     WarehouseOperatorAgent,
     QcComplianceCheckerAgent,
