@@ -217,4 +217,12 @@ export class InventoryTransactionRepository {
   async deleteByLotId(lot_id: string): Promise<DeleteResult> {
     return this.model.deleteMany({ lot_id }).exec();
   }
+
+  /**
+   * Chạy aggregation pipeline trực tiếp trên collection inventory_transactions.
+   * Dùng khi cần các báo cáo/thống kê phức tạp không thể tách ra bằng các phương thức repository hiện có.
+   */
+  async aggregate<T = any>(pipeline: any[]): Promise<T[]> {
+    return this.model.aggregate<T>(pipeline).exec();
+  }
 }

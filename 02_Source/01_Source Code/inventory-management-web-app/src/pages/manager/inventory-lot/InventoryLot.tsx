@@ -70,7 +70,6 @@ export default function InventoryLot() {
   const currentUser = getCurrentUser();
   const isManager = currentUser?.role === "Manager";
 
-
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInventoryLot, setSelectedInventoryLot] =
     useState<InventoryLot | null>(null);
@@ -182,7 +181,9 @@ export default function InventoryLot() {
       manufacturer_name: values.manufacturer_name,
       manufacturer_lot: values.manufacturer_lot,
       supplier_name: values.supplier_name,
-      ...(values.manufacture_date ? { manufacture_date: values.manufacture_date } : {}),
+      ...(values.manufacture_date
+        ? { manufacture_date: values.manufacture_date }
+        : {}),
       received_date: values.received_date,
       expiration_date: values.expiration_date,
       ...(values.in_use_expiration_date
@@ -192,6 +193,7 @@ export default function InventoryLot() {
       quantity: values.quantity,
       unit_of_measure: values.unit_of_measure,
       storage_location: values.storage_location,
+      warehouse_id: values.warehouse_id,
       is_sample: values.is_sample,
       parent_lot_id: values.parent_lot_id,
       notes: values.notes,
@@ -218,7 +220,9 @@ export default function InventoryLot() {
       manufacturer_name: values.manufacturer_name,
       manufacturer_lot: values.manufacturer_lot,
       supplier_name: values.supplier_name,
-      ...(values.manufacture_date ? { manufacture_date: values.manufacture_date } : {}),
+      ...(values.manufacture_date
+        ? { manufacture_date: values.manufacture_date }
+        : {}),
       received_date: values.received_date,
       expiration_date: values.expiration_date,
       ...(values.in_use_expiration_date
@@ -228,6 +232,7 @@ export default function InventoryLot() {
       quantity: values.quantity,
       unit_of_measure: values.unit_of_measure,
       storage_location: values.storage_location,
+      warehouse_id: values.warehouse_id,
       is_sample: values.is_sample,
       parent_lot_id: values.parent_lot_id,
       notes: values.notes,

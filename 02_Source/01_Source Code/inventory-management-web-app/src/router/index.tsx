@@ -15,8 +15,10 @@ import InboundControl from "../pages/qc/InboundControl";
 import InventoryQC from "../pages/qc/InventoryQC";
 import ProductInspection from "../pages/qc/ProductInspection";
 import ReportTraceability from "../pages/qc/ReportTraceability";
-import DashboardManager from "../pages/manager/Dashboard";
+import Dashboard from "../pages/manager/Dashboard";
 import MaterialManagementManager from "../pages/manager/MaterialManagement";
+import BinWorklist from "../pages/manager/BinWorklist";
+import WarehouseManagement from "../pages/manager/WarehouseManagement";
 import ProductManagementManager from "../pages/manager/ProductManagement";
 import ReportsManager from "../pages/manager/Reports";
 import UserManagementManager from "../pages/manager/UserManagement";
@@ -32,6 +34,10 @@ import StockOutOperator from "../pages/operator/StockOut";
 import InventoryTransactionListOperator from "../pages/operator/InventoryTransactionListOperator";
 import TransactionHistoryOperator from "../pages/operator/TransactionHistory";
 import LabelPrintOperator from "../pages/operator/LabelPrint";
+import WarehouseSlipList from "../pages/operator/WarehouseSlipList";
+import WarehouseSlipCreate from "../pages/operator/WarehouseSlipCreate";
+import WarehouseSlipDetailPage from "../pages/operator/WarehouseSlipDetailPage";
+import WarehouseSlipPrint from "../pages/operator/WarehouseSlipPrint";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import ForgotPassword from "../pages/auth/ForgotPassword";
@@ -203,7 +209,7 @@ export const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       // IT ADMIN - Chỉ allow role 'it_admin'
-      { path: "/admin/dashboard", element: requireAdminAuth(<DashboardIT />) },
+      // { path: "/admin/dashboard", element: requireAdminAuth(<DashboardIT />) },
       {
         path: "/admin/monitoring",
         element: requireAdminAuth(<SystemMonitoring />),
@@ -215,7 +221,7 @@ export const router = createBrowserRouter([
       { path: "/admin/audit", element: requireAdminAuth(<AuditLog />) },
 
       // QC - Chỉ allow role 'quality-control'
-      { path: "/qc/dashboard", element: requireQCAuth(<DashboardQC />) },
+      // { path: "/qc/dashboard", element: requireQCAuth(<DashboardQC />) },
       { path: "/qc/inbound", element: requireQCAuth(<InboundControl />) },
       { path: "/qc/inventory", element: requireQCAuth(<InventoryQC />) },
       { path: "/qc/inspection", element: requireQCAuth(<ProductInspection />) },
@@ -227,7 +233,7 @@ export const router = createBrowserRouter([
       // Manager - Chỉ allow role 'manager'
       {
         path: "/manager/dashboard",
-        element: requireManagerAuth(<DashboardManager />),
+        element: requireManagerAuth(<Dashboard />),
       },
       {
         path: "/manager/inventory",
@@ -236,6 +242,10 @@ export const router = createBrowserRouter([
       {
         path: "/manager/materials",
         element: requireManagerAuth(<MaterialManagementManager />),
+      },
+      {
+        path: "/manager/warehouses",
+        element: requireManagerAuth(<WarehouseManagement />),
       },
       {
         path: "/manager/product",
@@ -252,6 +262,10 @@ export const router = createBrowserRouter([
       {
         path: "/manager/in-out",
         element: requireManagerAuth(<StockManagement />),
+      },
+      {
+        path: "/manager/bins",
+        element: requireManagerAuth(<BinWorklist />),
       },
       {
         path: "/manager/stock",
@@ -285,15 +299,35 @@ export const router = createBrowserRouter([
         path: "manager/production-batches/:id/edit",
         element: requireManagerAuth(<ProductionBatchForm />),
       },
+      // Manager views for Warehouse Slips (US11) - reuse components, manager-only
+      {
+        path: "/manager/warehouse-slips",
+        element: requireAuth(<WarehouseSlipList />, ["manager", "operator"]),
+      },
+      {
+        path: "/manager/in-out/create",
+        element: requireAuth(<WarehouseSlipCreate />, ["manager", "operator"]),
+      },
+      {
+        path: "/manager/warehouse-slips/:id",
+        element: requireAuth(<WarehouseSlipDetailPage />, [
+          "manager",
+          "operator",
+        ]),
+      },
+      {
+        path: "/manager/in-out/:id/print",
+        element: requireAuth(<WarehouseSlipPrint />, ["manager", "operator"]),
+      },
       {
         path: "manager/inventory-transactions",
         element: requireManagerAuth(<InventoryTransactionListManager />),
       },
       // Operator - Chỉ allow role 'operator'
-      {
-        path: "/operator/dashboard",
-        element: requireOperatorAuth(<DashboardOperator />),
-      },
+      // {
+      //   path: "/operator/dashboard",
+      //   element: requireOperatorAuth(<DashboardOperator />),
+      // },
       {
         path: "/operator/audit",
         element: requireOperatorAuth(<InventoryAuditOperator />),
@@ -317,6 +351,26 @@ export const router = createBrowserRouter([
       {
         path: "/operator/history",
         element: requireOperatorAuth(<TransactionHistoryOperator />),
+      },
+      // Warehouse slips (US11)
+      {
+        path: "/operator/warehouse-slips",
+        element: requireAuth(<WarehouseSlipList />, ["operator", "manager"]),
+      },
+      {
+        path: "/operator/warehouse-slips/create",
+        element: requireAuth(<WarehouseSlipCreate />, ["operator", "manager"]),
+      },
+      {
+        path: "/operator/warehouse-slips/:id",
+        element: requireAuth(<WarehouseSlipDetailPage />, [
+          "operator",
+          "manager",
+        ]),
+      },
+      {
+        path: "/operator/warehouse-slips/:id/print",
+        element: requireAuth(<WarehouseSlipPrint />, ["operator", "manager"]),
       },
       {
         path: "/operator/inventory-transactions",

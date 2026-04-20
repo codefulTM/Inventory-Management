@@ -14,16 +14,19 @@ import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
 import { LabelTemplateModule } from './label-template/label-template.module';
 import { WarehouseHierarchyModule } from './warehouse-hierarchy/warehouse-hierarchy.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
 import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
 import { LogModule } from './log-management/log.module';
 import { BarcodeModule } from './barcode/barcode.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AppService } from './app.service';
 import { ImportExportOrderModule } from './import-export-order/import-export-order.module';
+import { WarehouseSlipModule } from './warehouse-slip/warehouse-slip.module';
 import { InventoryAdjustmentModule } from './inventory-adjustment/inventory-adjustment.module';
 import { InventoryAuditReportModule } from './inventory-audit-report/inventory-audit-report.module';
 import { AiDataGrpcModule } from './ai-data-grpc/ai-data-grpc.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -38,13 +41,17 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     QCTestModule,
     LabelTemplateModule,
     ImportExportOrderModule,
+    WarehouseSlipModule,
     InventoryAdjustmentModule,
     InventoryAuditReportModule,
+    WarehouseModule,
     WarehouseHierarchyModule,
     SystemMonitoringModule,
     LogModule,
     BarcodeModule,
     MetricsModule,
+    ReportsModule,
+    DashboardModule,
     AuditLogModule,
     AiDataGrpcModule,
   ],

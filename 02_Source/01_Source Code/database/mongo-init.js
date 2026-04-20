@@ -3317,7 +3317,7 @@ for (let i = 2; i <= 30; i++) {
     notes: i % 5 === 0 ? "automated seed" : undefined,
   });
 }
-db.inventorytransactions.insertMany(extraTxns);
+db.inventory_transactions.insertMany(extraTxns);
 
 // ---- QC TESTS (30 tests) ----
 db.qc_tests.insertMany([

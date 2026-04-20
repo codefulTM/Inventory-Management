@@ -110,9 +110,14 @@ class MaterialService {
    * @returns Updated material
    */
   async update(id: string, data: UpdateMaterialRequest): Promise<Material> {
+    // sanitize payload: remove properties that backend disallows on update
+    const sanitized: any = { ...data };
+    delete sanitized.material_id;
+    delete sanitized.part_number;
+
     const { data: result, error } = await apiClient.put<Material>(
       API_ENDPOINTS.MATERIALS_UPDATE(id),
-      data,
+      sanitized,
     );
     if (error) throw error;
     return result!;

@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback } from "react";
+import { message } from "antd";
 import type {
   Material,
   CreateMaterialRequest,
@@ -158,6 +159,7 @@ export const useMaterialForm = (
           : new Error("Failed to create material. Please try again.");
       setError(error);
       console.error("[useMaterialForm] Create failed:", error);
+      message.error(error.message || "Tạo vật tư thất bại");
       return null;
     } finally {
       setLoading(false);
@@ -175,8 +177,8 @@ export const useMaterialForm = (
         setError(null);
         setSuccess(false);
 
-        // Convert CreateMaterialRequest to UpdateMaterialRequest (exclude material_id)
-        const { material_id, ...updateData } = formData;
+        // Convert CreateMaterialRequest to UpdateMaterialRequest (exclude material_id & part_number)
+        const { material_id, part_number, ...updateData } = formData as any;
         const material = await materialService.update(
           id,
           updateData as UpdateMaterialRequest,
@@ -196,6 +198,7 @@ export const useMaterialForm = (
             : new Error("Failed to update material. Please try again.");
         setError(error);
         console.error("[useMaterialForm] Update failed:", error);
+        message.error(error.message || "Cập nhật vật tư thất bại");
         return null;
       } finally {
         setLoading(false);

@@ -34,6 +34,7 @@ export interface InventoryLot {
   quantity: string | number;
   unit_of_measure: string;
   storage_location: string;
+  warehouse_id?: string;
   is_sample: boolean;
   parent_lot_id?: string;
   notes?: string;
@@ -145,11 +146,7 @@ export class InventoryLotAPI {
   /**
    * Get lots by status
    */
-  static async getByStatus(
-    status: InventoryLotStatus,
-    page = 1,
-    limit = 10,
-  ) {
+  static async getByStatus(status: InventoryLotStatus, page = 1, limit = 10) {
     const { data, error } = await apiClient.get<GetInventoryLotsResponse>(
       `/inventory-lots/status/${status}`,
       {
@@ -285,10 +282,7 @@ export class InventoryLotAPI {
   /**
    * Update lot status
    */
-  static async updateStatus(
-    id: string,
-    status: InventoryLotStatus,
-  ) {
+  static async updateStatus(id: string, status: InventoryLotStatus) {
     const { data, error } = await apiClient.put<InventoryLot>(
       `/inventory-lots/${id}/status`,
       { status },

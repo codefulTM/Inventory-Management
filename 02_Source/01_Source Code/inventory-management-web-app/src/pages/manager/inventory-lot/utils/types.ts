@@ -16,4 +16,5 @@ export type EditFormValues = {
   is_sample: boolean;
   parent_lot_id: string;
   notes: string;
+  warehouse_id?: string;
 };
