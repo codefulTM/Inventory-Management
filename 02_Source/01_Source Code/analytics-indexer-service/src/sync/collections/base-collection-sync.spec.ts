@@ -99,6 +99,7 @@ describe('BaseCollectionSync.sync()', () => {
     expect(mockEsBulk.bulkIndex).toHaveBeenCalledWith(
       'test_collection-2026-04',
       [doc],
+      { collectionName: 'test_collection' },
     );
     expect(result.indexed).toBe(1);
     expect(result.deleted).toBe(0);

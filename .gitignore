@@ -86,3 +86,6 @@ aidlc-docs
 
 .agents
 agents.md
+rag_agents_plan.md
+SOURCE_CODE_ANALYSIS.md
+system.md

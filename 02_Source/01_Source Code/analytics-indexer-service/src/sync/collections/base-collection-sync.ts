@@ -97,7 +97,9 @@ export abstract class BaseCollectionSync {
       } else {
         // Bulk-index per monthly index
         for (const [indexName, bucket] of indexBuckets) {
-          const result = await this.esBulk.bulkIndex(indexName, bucket);
+          const result = await this.esBulk.bulkIndex(indexName, bucket, {
+            collectionName: this.collectionName,
+          });
           indexed += result.indexed;
           errors += result.errors;
         }

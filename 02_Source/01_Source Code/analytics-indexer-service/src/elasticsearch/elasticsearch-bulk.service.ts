@@ -1,6 +1,7 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Client } from '@elastic/elasticsearch';
 import { ELASTICSEARCH_CLIENT } from './elasticsearch.constants';
+import { RagDocumentEnricherService } from '../rag/rag-document-enricher.service';
 
 export interface BulkResult {
   indexed: number;
@@ -8,20 +9,39 @@ export interface BulkResult {
   errors: number;
 }
 
+export interface ElasticsearchBulkIndexOptions {
+  collectionName?: string;
+  alreadyEnriched?: boolean;
+}
+
 @Injectable()
 export class ElasticsearchBulkService {
   private readonly logger = new Logger(ElasticsearchBulkService.name);
 
-  constructor(@Inject(ELASTICSEARCH_CLIENT) private readonly client: Client) {}
+  constructor(
+    @Inject(ELASTICSEARCH_CLIENT) private readonly client: Client,
+    @Optional() private readonly ragEnricher?: RagDocumentEnricherService,
+  ) {}
 
   /**
    * Bulk-indexes documents into the given index.
    * Each doc must contain an `_id`-compatible identifier (uses `_id` field or Mongo `_id`).
    */
-  async bulkIndex(index: string, docs: Record<string, any>[]): Promise<BulkResult> {
+  async bulkIndex(
+    index: string,
+    docs: Record<string, any>[],
+    options: ElasticsearchBulkIndexOptions = {},
+  ): Promise<BulkResult> {
     if (!docs.length) return { indexed: 0, deleted: 0, errors: 0 };
 
-    const operations = docs.flatMap((doc) => {
+    const collectionName =
+      options.collectionName ?? this.inferCollectionName(index);
+    const targetDocs =
+      options.alreadyEnriched === true || !collectionName || !this.ragEnricher
+        ? docs
+        : await this.ragEnricher.enrichMongoDocuments(collectionName, docs);
+
+    const operations = targetDocs.flatMap((doc) => {
       const { _id, __v, ...body } = doc;
       const id = (_id ?? doc.id)?.toString();
       return [{ index: { _index: index, _id: id } }, body];
@@ -67,5 +87,10 @@ export class ElasticsearchBulkService {
     }
 
     return { indexed: 0, deleted, errors };
+  }
+
+  private inferCollectionName(index: string): string | null {
+    const match = index.match(/^(.*)_\d{4}_\d{2}$/);
+    return match ? match[1] : null;
   }
 }
