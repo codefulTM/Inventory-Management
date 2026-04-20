@@ -34,4 +34,8 @@ export class BinCountRecordRepository {
     const total = await this.binCountModel.countDocuments(query).exec();
     return { data, total };
   }
+
+  async aggregate(pipeline: any[]) {
+    return this.binCountModel.aggregate(pipeline).exec();
+  }
 }

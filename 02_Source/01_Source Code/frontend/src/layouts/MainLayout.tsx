@@ -164,7 +164,7 @@ export default function Layout() {
           {
             to: "/manager/inventory",
             icon: <Package size={20} />,
-            label: "Quản lý hàng hóa",
+            label: "Quản lý lô hàng",
           },
           {
             to: "/manager/materials",
@@ -183,7 +183,7 @@ export default function Layout() {
           },
           {
             to: "/manager/in-out",
-            icon: <FileText size={20} />,
+            icon: <Activity size={20} />,
             label: "Quản lý nhập/xuất kho",
           },
           // {
@@ -193,7 +193,7 @@ export default function Layout() {
           // },
           {
             to: "/manager/inventory-transactions",
-            icon: <FileText size={20} />,
+            icon: <History size={20} />,
             label: "Lịch sử giao dịch",
           },
           {
@@ -203,7 +203,7 @@ export default function Layout() {
           },
           {
             to: "/manager/reports",
-            icon: <FileText size={20} />,
+            icon: <FileBarChart size={20} />,
             label: "Báo cáo",
           },
           // {
@@ -213,7 +213,7 @@ export default function Layout() {
           // },
           {
             to: "/manager/users",
-            icon: <FileText size={20} />,
+            icon: <UserIcon size={20} />,
             label: "Quản lý Users",
           },
           {
@@ -284,7 +284,7 @@ export default function Layout() {
           },
           {
             to: "/operator/product",
-            icon: <ArrowDownCircle size={20} />,
+            icon: <FlaskConical size={20} />,
             label: "Tạo sản phẩm",
           },
           {

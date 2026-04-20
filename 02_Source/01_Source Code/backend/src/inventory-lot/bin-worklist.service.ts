@@ -39,18 +39,33 @@ export class BinWorklistService {
     location_name?: string;
     expected_qty?: number;
   }) {
-    if (!body || !body.bin_code) throw new BadRequestException('bin_code required');
+    if (!body || !body.bin_code)
+      throw new BadRequestException('bin_code required');
     const location_id = body.bin_code.trim();
     const warehouse_id =
-      body.warehouse_id || this.configService.get<string>('DEFAULT_WAREHOUSE_ID') || 'default';
+      body.warehouse_id ||
+      this.configService.get<string>('DEFAULT_WAREHOUSE_ID') ||
+      'default';
     const location_name = body.location_name || location_id;
-    const expected_qty = typeof (body as any).expected_qty === 'number' ? Number((body as any).expected_qty) : undefined;
+    const expected_qty =
+      typeof (body as any).expected_qty === 'number'
+        ? Number((body as any).expected_qty)
+        : undefined;
 
-    const setOnInsert: any = { location_id, warehouse_id, location_name, is_active: true };
+    const setOnInsert: any = {
+      location_id,
+      warehouse_id,
+      location_name,
+      is_active: true,
+    };
     if (expected_qty !== undefined) setOnInsert.expected_qty = expected_qty;
 
     const created = await this.storageLocationModel
-      .findOneAndUpdate({ location_id }, { $setOnInsert: setOnInsert }, { upsert: true, new: true })
+      .findOneAndUpdate(
+        { location_id },
+        { $setOnInsert: setOnInsert },
+        { upsert: true, new: true },
+      )
       .lean()
       .exec();
 
@@ -129,11 +144,49 @@ export class BinWorklistService {
       this.storageLocationModel.countDocuments(query).exec(),
     ]);
 
+    // compute inventory-lot counts and last bin-count post date per bin
+    const locationIds = (docs || [])
+      .map((d: any) => d.location_id)
+      .filter(Boolean);
+    let lotCountMap = new Map<string, number>();
+    let lastCountMap = new Map<string, any>();
+
+    if (locationIds.length > 0) {
+      try {
+        const lotCounts = await this.inventoryLotRepo.aggregate([
+          { $match: { storage_location: { $in: locationIds } } },
+          { $group: { _id: '$storage_location', lots_count: { $sum: 1 } } },
+        ]);
+        lotCountMap = new Map(
+          (lotCounts || []).map((r: any) => [r._id, r.lots_count || 0]),
+        );
+      } catch (err) {}
+
+      try {
+        // fetch latest count per bin by requesting the most recent record for each bin
+        const lastCountPairs = await Promise.all(
+          locationIds.map(async (id: string) => {
+            try {
+              const res = await this.binCountRepo.findByBin(id, 1, 1);
+              const rec = res && res.data && res.data[0] ? res.data[0] : null;
+              return [id, rec ? rec.counted_at : null] as [string, any];
+            } catch (_) {
+              return [id, null] as [string, any];
+            }
+          }),
+        );
+        lastCountMap = new Map(lastCountPairs as Array<[string, any]>);
+      } catch (_) {
+        // ignore errors and leave last dates as null
+      }
+    }
     const data = (docs || []).map((d: any) => ({
       bin_code: d.location_id,
       expected_qty: d.expected_qty ?? undefined,
-      lots: [], // intentionally empty; do not derive from inventory_lots here
-      last_count_date: d.modified_date ?? null,
+      // number of inventory lot documents in this bin
+      lots: lotCountMap.get(d.location_id) ?? 0,
+      // use the last posted bin count date, or null if none
+      last_count_date: lastCountMap.get(d.location_id) ?? null,
     }));
 
     return { data, total: total || 0, page, limit };
@@ -208,6 +261,20 @@ export class BinWorklistService {
 
     const record = await this.binCountRepo.create(recordData as any);
 
+    // update storage location's modified_date to reflect the successful count
+    try {
+      await this.storageLocationModel
+        .findOneAndUpdate(
+          { location_id: bin_code },
+          { $set: { modified_date: record.counted_at ?? new Date() } },
+          { new: true },
+        )
+        .lean()
+        .exec();
+    } catch (_) {
+      // ignore update errors
+    }
+
     // audit log
     try {
       await this.auditLogService.log(
@@ -242,8 +309,9 @@ export class BinWorklistService {
 
     // auto-create warehouse slips for small discrepancies if enabled
     const autoAdjust =
-      (this.configService.get<string>('AUTO_ADJUST_BIN_COUNT') || '').toLowerCase() ===
-      'true';
+      (
+        this.configService.get<string>('AUTO_ADJUST_BIN_COUNT') || ''
+      ).toLowerCase() === 'true';
     if (!flag_review && autoAdjust) {
       const lotIds = dto.entries
         .map((e) => e.lot_id)
@@ -258,7 +326,8 @@ export class BinWorklistService {
 
         const lot = lotMap.get(e.lot_id) as any;
         const warehouse_id =
-          lot?.warehouse_id || this.configService.get<string>('DEFAULT_WAREHOUSE_ID');
+          lot?.warehouse_id ||
+          this.configService.get<string>('DEFAULT_WAREHOUSE_ID');
         if (!warehouse_id) continue;
 
         const slipType =
@@ -297,7 +366,11 @@ export class BinWorklistService {
 
   async getBinCounts(bin_code: string, page = 1, limit = 20) {
     if (!bin_code) throw new BadRequestException('bin_code required');
-    const { data, total } = await this.binCountRepo.findByBin(bin_code, page, limit);
+    const { data, total } = await this.binCountRepo.findByBin(
+      bin_code,
+      page,
+      limit,
+    );
 
     // collect material_ids and lot_ids to enrich entries
     const materialIds = new Set<string>();
@@ -314,13 +387,24 @@ export class BinWorklistService {
       this.inventoryLotRepo.findByLotIds(Array.from(lotIds)),
     ]);
 
-    const materialMap = new Map((materials || []).map((m: any) => [m.material_id, m]));
+    const materialMap = new Map(
+      (materials || []).map((m: any) => [m.material_id, m]),
+    );
     const lotMap = new Map((lotsInfo || []).map((l: any) => [l.lot_id, l]));
 
     const transformed = (data || []).map((r: any) => {
-      const expectedTotal = (r.entries || []).reduce((s: number, e: any) => s + Number(e.expected_qty || 0), 0);
-      const countedTotal = (r.entries || []).reduce((s: number, e: any) => s + Number(e.counted_qty || 0), 0);
-      const deltaPct = expectedTotal === 0 ? 100 : (Math.abs(countedTotal - expectedTotal) / expectedTotal) * 100;
+      const expectedTotal = (r.entries || []).reduce(
+        (s: number, e: any) => s + Number(e.expected_qty || 0),
+        0,
+      );
+      const countedTotal = (r.entries || []).reduce(
+        (s: number, e: any) => s + Number(e.counted_qty || 0),
+        0,
+      );
+      const deltaPct =
+        expectedTotal === 0
+          ? 100
+          : (Math.abs(countedTotal - expectedTotal) / expectedTotal) * 100;
       return {
         _id: r._id,
         bin_code: r.bin_code,
