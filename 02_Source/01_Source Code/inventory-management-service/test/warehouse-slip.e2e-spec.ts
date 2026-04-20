@@ -1,6 +1,10 @@
-jest.mock('uuid', () => ({
-  v4: () => '11111111-1111-4111-8111-111111111111',
-}), { virtual: true });
+jest.mock(
+  'uuid',
+  () => ({
+    v4: () => '11111111-1111-4111-8111-111111111111',
+  }),
+  { virtual: true },
+);
 
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -26,9 +30,21 @@ describe('WarehouseSlipController (e2e)', () => {
 
   beforeEach(async () => {
     svc = {
-      create: jest.fn().mockImplementation((dto, requester) => ({ ...dto, id: 'ws-1', created_by: requester?.actor })),
+      create: jest
+        .fn()
+        .mockImplementation((dto, requester) => ({
+          ...dto,
+          id: 'ws-1',
+          created_by: requester?.actor,
+        })),
       getAll: jest.fn().mockResolvedValue({ items: [], total: 0 }),
-      getOne: jest.fn().mockResolvedValue({ slip_number: 'SLIP-001', lines: [], attachments: [] }),
+      getOne: jest
+        .fn()
+        .mockResolvedValue({
+          slip_number: 'SLIP-001',
+          lines: [],
+          attachments: [],
+        }),
       approve: jest.fn().mockResolvedValue({ status: 'approved' }),
       reject: jest.fn().mockResolvedValue({ status: 'rejected' }),
       addAttachment: jest.fn().mockResolvedValue({ ok: true }),

@@ -58,23 +58,46 @@ describe('DashboardController (e2e)', () => {
       .expect(200);
 
     expect(res.body).toEqual({ total_kpis: 3, items: [] });
-    expect(svc.getSummary).toHaveBeenCalledWith({ warehouseId: 'WH-01', from, to });
+    expect(svc.getSummary).toHaveBeenCalledWith({
+      warehouseId: 'WH-01',
+      from,
+      to,
+    });
   });
 
   it('GET /dashboard/trends forwards metric and options to service', async () => {
     const res = await request(app.getHttpServer())
       .get('/dashboard/trends')
-      .query({ metric: 'in', from: '2026-04-01', to: '2026-04-30', interval: 'day', warehouseId: 'WH-01' })
+      .query({
+        metric: 'in',
+        from: '2026-04-01',
+        to: '2026-04-30',
+        interval: 'day',
+        warehouseId: 'WH-01',
+      })
       .expect(200);
 
     expect(res.body).toEqual({ points: [] });
-    expect(svc.getTrends).toHaveBeenCalledWith({ metric: 'in', from: '2026-04-01', to: '2026-04-30', interval: 'day', warehouseId: 'WH-01' });
+    expect(svc.getTrends).toHaveBeenCalledWith({
+      metric: 'in',
+      from: '2026-04-01',
+      to: '2026-04-30',
+      interval: 'day',
+      warehouseId: 'WH-01',
+    });
   });
 
   it('GET /dashboard/drilldown parses paging and forwards to service', async () => {
     const res = await request(app.getHttpServer())
       .get('/dashboard/drilldown')
-      .query({ metric: 'out', page: '2', limit: '50', materialId: 'MAT-01', from: '2026-04-01', to: '2026-04-30' })
+      .query({
+        metric: 'out',
+        page: '2',
+        limit: '50',
+        materialId: 'MAT-01',
+        from: '2026-04-01',
+        to: '2026-04-30',
+      })
       .expect(200);
 
     expect(res.body).toEqual({ items: [], total: 0 });

@@ -1,4 +1,8 @@
-jest.mock('uuid', () => ({ v4: () => '11111111-1111-4111-8111-111111111111' }), { virtual: true });
+jest.mock(
+  'uuid',
+  () => ({ v4: () => '11111111-1111-4111-8111-111111111111' }),
+  { virtual: true },
+);
 
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -45,24 +49,33 @@ describe('InventoryLotController (e2e)', () => {
   });
 
   it('POST /inventory-lots creates a lot', async () => {
-    const res = await request(app.getHttpServer()).post('/inventory-lots').send({ material_id: 'MAT-1', quantity: 10 }).expect(201);
+    const res = await request(app.getHttpServer())
+      .post('/inventory-lots')
+      .send({ material_id: 'MAT-1', quantity: 10 })
+      .expect(201);
     expect(svc.create).toHaveBeenCalled();
     expect(res.body).toHaveProperty('_id', 'lot-1');
   });
 
   it('GET /inventory-lots with status forwards to findByStatus', async () => {
-    await request(app.getHttpServer()).get('/inventory-lots?status=Accepted&page=2&limit=5').expect(200);
+    await request(app.getHttpServer())
+      .get('/inventory-lots?status=Accepted&page=2&limit=5')
+      .expect(200);
     expect(svc.findByStatus).toHaveBeenCalled();
   });
 
   it('GET /inventory-lots/statistics calls service', async () => {
-    const res = await request(app.getHttpServer()).get('/inventory-lots/statistics').expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/inventory-lots/statistics')
+      .expect(200);
     expect(svc.getLotsStatistics).toHaveBeenCalled();
     expect(res.body).toHaveProperty('total_lots');
   });
 
   it('GET /inventory-lots/:id returns lot', async () => {
-    const res = await request(app.getHttpServer()).get('/inventory-lots/lot-1').expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/inventory-lots/lot-1')
+      .expect(200);
     expect(svc.findById).toHaveBeenCalledWith('lot-1');
     expect(res.body).toHaveProperty('_id', 'lot-1');
   });
