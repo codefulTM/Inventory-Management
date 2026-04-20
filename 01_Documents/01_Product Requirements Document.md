@@ -44,7 +44,7 @@ Hệ thống đang dùng kiến trúc nhiều service, có gateway:
 
 ---
 
-## 4. Vai trò, vấn đề và mục tiêu (theo trạng thái code hiện tại)
+## 4. Vai trò, vấn đề và mục tiêu 
 
 ### 4.1 Manager (Quản lý)
 Pain points:
@@ -111,7 +111,7 @@ Khả năng đã có trong code:
 
 ---
 
-## 5. Luồng quy trình nghiệp vụ chính (as-is theo code)
+## 5. Luồng quy trình nghiệp vụ chính
 
 ### 5.1 Luồng nhập/xuất kho có phê duyệt
 1) Operator/Manager tạo import-export order -> trạng thái mặc định PendingConfirmation.
@@ -213,5 +213,3 @@ Lưu ý: báo cáo analytics hiện tại mang tính near-real-time theo chu k�
 
 ## 9. Kết luận
 Inventory Management System hiện đã triển khai được các chuỗi nghiệp vụ cốt lõi cho quản trị kho theo lô và kiểm soát chất lượng theo vai trò, đồng thời giữ khả năng mở rộng cho báo cáo và vận hành hệ thống.
-
-Tài liệu này phản ánh trạng thái as-is theo code hiện tại, đồng thời giữ các mục tiêu to-be để nhóm tiếp tục hoàn thiện trong các vòng phát triển tiếp theo.

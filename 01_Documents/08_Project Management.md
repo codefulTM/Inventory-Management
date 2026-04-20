@@ -177,25 +177,19 @@ Dưới đây là ít nhất 6 mốc quan trọng kèm ngày dự kiến (tính 
 
 ---
 
-## 9. Team building video
-- Video team building (placeholder): https://youtu.be/TEAM_BUILDING_VIDEO
-- Mô tả: Video quay buổi team building của nhóm — dùng cho phần demo, làm phong phú báo cáo và tăng tính nhân văn của đồ án.
-
----
-
-## 10. Mời tham gia hệ thống — Giao tiếp nội bộ (Zalo)
+## 9. Mời tham gia hệ thống — Giao tiếp nội bộ (Zalo)
 - Liên kết mời: https://zalo.me/g/istctp828
 - Ảnh mời tham gia (placeholder): ![Invite screenshot](Images/Project-management/team-member.png)
 
 ---
 
-## 11. Mời tham gia hệ thống — Quản lý dự án (Trello / Jira / Asana)
+## 10. Mời tham gia hệ thống — Quản lý dự án (Trello / Jira / Asana)
 - Liên kết mời (placeholder): https://dacnpm-22ktpm.atlassian.net/jira/software/projects/KAN/list?jql=project+%3D+KAN+ORDER+BY+cf%5B10019%5D+ASC&atlOrigin=eyJpIjoiNjUxZGE2YTQ3MjkyNDk2Njk3ZGI2OGNjMDM1NjU0YzkiLCJwIjoiaiJ9
 - Ảnh mời tham gia (placeholder): ![Invite screenshot](Images/Project-management/jira-invite.png)
 
 ---
 
-## 12. Mời tham gia hệ thống — Quản lý lỗi (GitHub Issues / GitLab Issues)
+## 11. Mời tham gia hệ thống — Quản lý lỗi (GitHub Issues / GitLab Issues)
 - Liên kết: https://github.com/nguyenthaitan/Inventory-Management
 - Ảnh mời tham gia (placeholder): ![Invite screenshot](Images/Project-management/githup-invite.png)
 

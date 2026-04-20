@@ -272,17 +272,4 @@ Ví dụ một lô nguyên liệu đi qua hệ thống:
 7. Nếu có chênh lệch, Manager tạo InventoryAdjustment và cập nhật valuation summary.
 8. Cuối kỳ, InventoryAuditReport tổng hợp dữ liệu và phát hành file phục vụ kiểm toán.
 
----
 
-## 7. Các khác biệt quan trọng so với mô tả domain cũ
-- User không lưu password bcrypt trong schema nghiệp vụ hiện tại; auth do Keycloak xử lý.
-- ProductionBatch không lưu trực tiếp manufacture_date/expiration_date; hệ thống dùng shelf_life để tính expiration cho lot thành phẩm khi complete batch.
-- Chưa có thực thể Label lưu phát hành nhãn, chỉ có LabelTemplate và nghiệp vụ generate nội dung nhãn.
-- Domain đã mở rộng đáng kể với ImportExportOrder, InventoryAdjustment, InventoryAuditReport, Warehouse/Location, ValuationSummary.
-
----
-
-## 8. Kết luận
-Domain hiện tại đã phản ánh đầy đủ chuỗi nghiệp vụ kho theo lô, kiểm soát chất lượng, nhập-xuất có phê duyệt, điều chỉnh tồn và báo cáo kiểm kê.
-
-Tài liệu này là baseline as-is để nhóm tiếp tục chuẩn hóa to-be domain (nâng cao offline flow, automation vận hành, và chuẩn hóa sâu hơn ở lớp location/label lifecycle).
