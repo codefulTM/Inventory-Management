@@ -12,6 +12,7 @@ import {
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
 import { MailService } from '../mail/mail.service';
+import { ConfigService } from '@nestjs/config';
 import {
   StorageLocation,
   StorageLocationDocument,
@@ -25,6 +26,7 @@ export class BinWorklistService {
     private readonly warehouseSlipService: WarehouseSlipService,
     private readonly auditLogService: AuditLogService,
     private readonly mailService: MailService,
+    private readonly configService: ConfigService,
     @InjectModel(StorageLocation.name)
     private readonly storageLocationModel: Model<StorageLocationDocument>,
   ) {}
@@ -37,7 +39,8 @@ export class BinWorklistService {
   }) {
     if (!body || !body.bin_code) throw new BadRequestException('bin_code required');
     const location_id = body.bin_code.trim();
-    const warehouse_id = body.warehouse_id || process.env.DEFAULT_WAREHOUSE_ID || 'default';
+    const warehouse_id =
+      body.warehouse_id || this.configService.get<string>('DEFAULT_WAREHOUSE_ID') || 'default';
     const location_name = body.location_name || location_id;
     const expected_qty = typeof (body as any).expected_qty === 'number' ? Number((body as any).expected_qty) : undefined;
 
@@ -211,14 +214,14 @@ export class BinWorklistService {
 
     // notify manager when flagged
     if (flag_review) {
-      const managerEmail = process.env.MANAGER_EMAIL;
+      const managerEmail = this.configService.get<string>('MANAGER_EMAIL');
       if (managerEmail) {
         try {
-          await this.mailService.sendNewAccountEmail(
+          await this.mailService.sendBinFlagEmail(
             managerEmail,
-            `Inventory Manager`,
-            'Manager',
-            `Bin ${bin_code} flagged for review (delta=${Math.round(deltaPct * 100) / 100}%).`,
+            bin_code,
+            Math.round(deltaPct * 100) / 100,
+            String(record._id),
           );
         } catch (_) {}
       }
@@ -226,7 +229,8 @@ export class BinWorklistService {
 
     // auto-create warehouse slips for small discrepancies if enabled
     const autoAdjust =
-      (process.env.AUTO_ADJUST_BIN_COUNT || '').toLowerCase() === 'true';
+      (this.configService.get<string>('AUTO_ADJUST_BIN_COUNT') || '').toLowerCase() ===
+      'true';
     if (!flag_review && autoAdjust) {
       const lotIds = dto.entries
         .map((e) => e.lot_id)
@@ -241,7 +245,7 @@ export class BinWorklistService {
 
         const lot = lotMap.get(e.lot_id) as any;
         const warehouse_id =
-          lot?.warehouse_id || process.env.DEFAULT_WAREHOUSE_ID;
+          lot?.warehouse_id || this.configService.get<string>('DEFAULT_WAREHOUSE_ID');
         if (!warehouse_id) continue;
 
         const slipType =

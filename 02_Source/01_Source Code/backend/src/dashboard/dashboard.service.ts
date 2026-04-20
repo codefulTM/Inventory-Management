@@ -41,7 +41,9 @@ export class DashboardService {
    * - Vẫn có thể bổ sung fallback (ví dụ: nếu không có line value thì dùng `lot.quantity * fallback_price`).
    * - Về hiệu năng: pipeline này thực hiện lookup + group per-lot; nếu dữ liệu lớn có thể cần pre-aggregate hoặc cache.
    */
-  async getSummary(filters: { warehouseId?: string; from?: string; to?: string } = {}) {
+  async getSummary(
+    filters: { warehouseId?: string; from?: string; to?: string } = {},
+  ) {
     // Chuẩn bị điều kiện match cho pipeline
     const match: any = {};
     if (filters.warehouseId) match.warehouse_id = filters.warehouseId; // nếu truyền warehouseId thì lọc
@@ -75,7 +77,8 @@ export class DashboardService {
                 const m: any = { status: 'CONFIRMED' };
                 if (filters.from || filters.to) {
                   m.confirmed_at = {};
-                  if (filters.from) m.confirmed_at.$gte = new Date(filters.from);
+                  if (filters.from)
+                    m.confirmed_at.$gte = new Date(filters.from);
                   if (filters.to) m.confirmed_at.$lte = new Date(filters.to);
                 }
                 return m;
@@ -95,7 +98,9 @@ export class DashboardService {
             {
               $group: {
                 _id: null,
-                line_value_sum: { $sum: { $multiply: ['$lines.quantity', '$lines.unit_price'] } },
+                line_value_sum: {
+                  $sum: { $multiply: ['$lines.quantity', '$lines.unit_price'] },
+                },
                 line_quantity_sum: { $sum: '$lines.quantity' },
               },
             },
@@ -107,7 +112,10 @@ export class DashboardService {
       {
         $addFields: {
           lot_value: {
-            $ifNull: [{ $arrayElemAt: ['$line_aggregates.line_value_sum', 0] }, 0],
+            $ifNull: [
+              { $arrayElemAt: ['$line_aggregates.line_value_sum', 0] },
+              0,
+            ],
           },
         },
       },
@@ -166,7 +174,9 @@ export class DashboardService {
     });
     txPipeline.push({ $unwind: '$lot_docs' });
     if (filters.warehouseId) {
-      txPipeline.push({ $match: { 'lot_docs.warehouse_id': filters.warehouseId } });
+      txPipeline.push({
+        $match: { 'lot_docs.warehouse_id': filters.warehouseId },
+      });
     }
 
     txPipeline.push({

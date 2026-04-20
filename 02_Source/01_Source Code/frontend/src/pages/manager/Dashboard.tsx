@@ -14,7 +14,7 @@ import {
   Table,
   Tag,
 } from "antd";
-import type { ColumnsType } from 'antd/es/table';
+import type { ColumnsType } from "antd/es/table";
 import {
   getAuditReport,
   getInventoryStatusReport,
@@ -75,15 +75,18 @@ export default function DashboardManager() {
   // - <= 30 days -> 'day'
   // - <= 180 days -> 'week'
   // - > 180 days -> 'month'
-  const computeInterval = (fromIso?: string, toIso?: string): 'day' | 'week' | 'month' => {
-    if (!fromIso || !toIso) return 'day';
+  const computeInterval = (
+    fromIso?: string,
+    toIso?: string,
+  ): "day" | "week" | "month" => {
+    if (!fromIso || !toIso) return "day";
     const fromMs = new Date(fromIso).getTime();
     const toMs = new Date(toIso).getTime();
-    if (isNaN(fromMs) || isNaN(toMs) || toMs <= fromMs) return 'day';
+    if (isNaN(fromMs) || isNaN(toMs) || toMs <= fromMs) return "day";
     const days = Math.ceil((toMs - fromMs) / (1000 * 60 * 60 * 24));
-    if (days > 180) return 'month';
-    if (days > 30) return 'week';
-    return 'day';
+    if (days > 180) return "month";
+    if (days > 30) return "week";
+    return "day";
   };
 
   useEffect(() => {
@@ -116,8 +119,20 @@ export default function DashboardManager() {
         const sumResp = await getDashboardSummary(undefined, from, to);
         if (sumResp.data) setSummary(sumResp.data);
         const interval = computeInterval(from, to);
-        const inResp = await getDashboardTrends("in", from, to, interval, undefined);
-        const outResp = await getDashboardTrends("out", from, to, interval, undefined);
+        const inResp = await getDashboardTrends(
+          "in",
+          from,
+          to,
+          interval,
+          undefined,
+        );
+        const outResp = await getDashboardTrends(
+          "out",
+          from,
+          to,
+          interval,
+          undefined,
+        );
         if (inResp.data) setTrendsIn(inResp.data);
         if (outResp.data) setTrendsOut(outResp.data);
       } catch (err) {
@@ -139,18 +154,36 @@ export default function DashboardManager() {
   }, []);
 
   // Helper: fetch summary + trends for a given range and warehouse
-  const fetchDashboardForRange = async (fromIso: string, toIso: string, warehouseId?: string) => {
+  const fetchDashboardForRange = async (
+    fromIso: string,
+    toIso: string,
+    warehouseId?: string,
+  ) => {
     try {
       setLoading(true);
       const sumResp = await getDashboardSummary(warehouseId, fromIso, toIso);
       if (sumResp.data) setSummary(sumResp.data);
       const interval = computeInterval(fromIso, toIso);
-      const inResp = await getDashboardTrends("in", fromIso, toIso, interval, warehouseId);
-      const outResp = await getDashboardTrends("out", fromIso, toIso, interval, warehouseId);
+      const inResp = await getDashboardTrends(
+        "in",
+        fromIso,
+        toIso,
+        interval,
+        warehouseId,
+      );
+      const outResp = await getDashboardTrends(
+        "out",
+        fromIso,
+        toIso,
+        interval,
+        warehouseId,
+      );
       if (inResp.data) setTrendsIn(inResp.data);
       if (outResp.data) setTrendsOut(outResp.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to refresh dashboard");
+      setError(
+        err instanceof Error ? err.message : "Failed to refresh dashboard",
+      );
     } finally {
       setLoading(false);
     }
@@ -194,24 +227,23 @@ export default function DashboardManager() {
 
   const topMaterialsColumns: ColumnsType<TopMaterialRow> = [
     {
-      title: 'Xếp hạng',
-      key: 'rank',
+      title: "Xếp hạng",
+      key: "rank",
       width: 60,
       render: (_value: any, _record: TopMaterialRow, idx: number) => idx + 1,
     },
-    { title: 'Mã vật liệu', dataIndex: 'material_id', key: 'material_id' },
-    { title: 'Tên vật liệu', dataIndex: 'material_name', key: 'material_name' },
+    { title: "Mã vật liệu", dataIndex: "material_id", key: "material_id" },
+    { title: "Tên vật liệu", dataIndex: "material_name", key: "material_name" },
     {
-      title: 'Số lượng',
-      dataIndex: 'total_quantity',
-      key: 'total_quantity',
-      align: 'right',
+      title: "Số lượng",
+      dataIndex: "total_quantity",
+      key: "total_quantity",
+      align: "right",
       render: (v: any) => Number(v || 0).toLocaleString(),
     },
   ];
 
   // no client-side material name lookup required — backend returns `material_name` in summary.top_materials
-
 
   return (
     <div className="p-6 space-y-4">
@@ -256,7 +288,9 @@ export default function DashboardManager() {
               const from = dateRange?.[0]
                 ? dateRange[0].toISOString()
                 : defaultFrom;
-              const to = dateRange?.[1] ? dateRange[1].toISOString() : defaultTo;
+              const to = dateRange?.[1]
+                ? dateRange[1].toISOString()
+                : defaultTo;
 
               const interval = computeInterval(from, to);
 

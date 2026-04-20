@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
@@ -6,12 +7,14 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter;
 
-  constructor() {
+  constructor(private readonly configService: ConfigService) {
+    const mailUser = this.configService.get<string>('MAIL_USER');
+    const mailPass = this.configService.get<string>('MAIL_PASS');
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
+        user: mailUser,
+        pass: mailPass,
       },
     });
   }
@@ -30,7 +33,7 @@ export class MailService {
   async sendResetPasswordEmail(to: string, username: string, resetLink: string): Promise<void> {
     try {
       await this.transporter.sendMail({
-        from: `"PharmaWMS System" <${process.env.MAIL_USER}>`,
+        from: `"PharmaWMS System" <${this.configService.get<string>('MAIL_USER')}>`,
         to,
         subject: '[PharmaWMS] Đặt lại mật khẩu',
         html: `
@@ -53,7 +56,8 @@ export class MailService {
       });
       this.logger.log(`Reset password email sent to: ${to}`);
     } catch (err) {
-      this.logger.error(`Failed to send reset email to ${to}: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to send reset email to: ${to}: ${msg}`);
     }
   }
 
@@ -62,7 +66,7 @@ export class MailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"PharmaWMS System" <${process.env.MAIL_USER}>`,
+        from: `"PharmaWMS System" <${this.configService.get<string>('MAIL_USER')}>`,
         to,
         subject: '[PharmaWMS] Tài khoản của bạn đã được tạo',
         html: `
@@ -101,7 +105,47 @@ export class MailService {
       });
       this.logger.log(`Account email sent to: ${to}`);
     } catch (err) {
-      this.logger.error(`Failed to send email to ${to}: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to send email to ${to}: ${msg}`);
+    }
+  }
+
+  async sendBinFlagEmail(
+    to: string,
+    binCode: string,
+    deltaPct: number,
+    recordId?: string,
+  ): Promise<void> {
+    const frontend = this.configService.get<string>('FRONTEND_URL');
+    const detailsUrl = frontend
+      ? `${frontend}/manager/bins/${encodeURIComponent(binCode)}`
+      : undefined;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"PharmaWMS System" <${this.configService.get<string>('MAIL_USER')}>`,
+        to,
+        subject: `[PharmaWMS] Bin ${binCode} flagged for review`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #dc2626; padding: 24px; text-align: center; color: white;">
+              <h2 style="margin:0">Bin flagged for review</h2>
+            </div>
+            <div style="padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0;">
+              <p>Bin <strong>${binCode}</strong> has been flagged for review.</p>
+              <p><strong>Discrepancy:</strong> ${deltaPct}%</p>
+              ${recordId ? `<p>Record ID: <code>${recordId}</code></p>` : ''}
+              ${detailsUrl ? `<p><a href="${detailsUrl}" style="display:inline-block;margin-top:12px;padding:10px 14px;background:#2563eb;color:white;border-radius:6px;text-decoration:none">Open bin details</a></p>` : ''}
+              <p style="color:#64748b;font-size:13px;margin-top:12px">Please review the bin count and take necessary actions.</p>
+            </div>
+            <div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">© 2026 PharmaWMS — IT Department</div>
+          </div>
+        `,
+      });
+      this.logger.log(`Bin flag email sent to: ${to} (bin=${binCode})`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to send bin flag email to ${to}: ${msg}`);
     }
   }
 }
