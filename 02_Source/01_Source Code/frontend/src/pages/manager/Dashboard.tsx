@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -13,27 +13,29 @@ import {
   Statistic,
   Table,
   Tag,
-} from 'antd';
+} from "antd";
+import type { ColumnsType } from 'antd/es/table';
 import {
   getAuditReport,
   getInventoryStatusReport,
   getMaterialUsageReport,
   getQcPerformanceReport,
-} from '../../services/reportsService';
+} from "../../services/reportsService";
 import type {
   AuditReport,
   InventoryStatusReport,
   MaterialUsageReport,
   QcPerformanceReport,
-} from '../../types/reports';
-import Sparkline from '../../components/Sparkline';
+} from "../../types/reports";
+import Sparkline from "../../components/Sparkline";
 import {
   getDashboardSummary,
   getDashboardTrends,
   getDashboardDrilldown,
-} from '../../services/dashboardService';
-import { fetchWarehouses } from '../../services/warehouseService';
-import type { Warehouse } from '../../types/warehouse';
+} from "../../services/dashboardService";
+import { fetchWarehouses } from "../../services/warehouseService";
+import { materialService } from "../../services/material.service";
+import type { Warehouse } from "../../types/warehouse";
 
 function isLowStock(quantity: number): boolean {
   return quantity <= 100;
@@ -42,20 +44,48 @@ function isLowStock(quantity: number): boolean {
 export default function DashboardManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [inventoryStatus, setInventoryStatus] = useState<InventoryStatusReport | null>(null);
-  const [materialUsage, setMaterialUsage] = useState<MaterialUsageReport | null>(null);
-  const [qcPerformance, setQcPerformance] = useState<QcPerformanceReport | null>(null);
+  const [inventoryStatus, setInventoryStatus] =
+    useState<InventoryStatusReport | null>(null);
+  const [materialUsage, setMaterialUsage] =
+    useState<MaterialUsageReport | null>(null);
+  const [qcPerformance, setQcPerformance] =
+    useState<QcPerformanceReport | null>(null);
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
   // US17 minimal additions
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [filterWarehouse, setFilterWarehouse] = useState<string | undefined>(undefined);
+  const [filterWarehouse, setFilterWarehouse] = useState<string | undefined>(
+    undefined,
+  );
   const [dateRange, setDateRange] = useState<[any, any] | null>(null);
   const [summary, setSummary] = useState<any>(null);
-  const [trendsIn, setTrendsIn] = useState<Array<{ period: string; total_quantity: number }>>([]);
-  const [trendsOut, setTrendsOut] = useState<Array<{ period: string; total_quantity: number }>>([]);
+  const [trendsIn, setTrendsIn] = useState<
+    Array<{ period: string; total_quantity: number }>
+  >([]);
+  const [trendsOut, setTrendsOut] = useState<
+    Array<{ period: string; total_quantity: number }>
+  >([]);
   const [drilldownVisible, setDrilldownVisible] = useState(false);
-  const [drilldownData, setDrilldownData] = useState<any>({ items: [], total: 0, page: 1 });
+  const [drilldownData, setDrilldownData] = useState<any>({
+    items: [],
+    total: 0,
+    page: 1,
+  });
   const [drilldownLoading, setDrilldownLoading] = useState(false);
+
+  // Compute interval based on date range length
+  // - <= 30 days -> 'day'
+  // - <= 180 days -> 'week'
+  // - > 180 days -> 'month'
+  const computeInterval = (fromIso?: string, toIso?: string): 'day' | 'week' | 'month' => {
+    if (!fromIso || !toIso) return 'day';
+    const fromMs = new Date(fromIso).getTime();
+    const toMs = new Date(toIso).getTime();
+    if (isNaN(fromMs) || isNaN(toMs) || toMs <= fromMs) return 'day';
+    const days = Math.ceil((toMs - fromMs) / (1000 * 60 * 60 * 24));
+    if (days > 180) return 'month';
+    if (days > 30) return 'week';
+    return 'day';
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -79,14 +109,19 @@ export default function DashboardManager() {
         const sumResp = await getDashboardSummary();
         if (sumResp.data) setSummary(sumResp.data);
         const now = new Date();
-        const from = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString();
+        const from = new Date(
+          now.getTime() - 7 * 24 * 3600 * 1000,
+        ).toISOString();
         const to = now.toISOString();
-        const inResp = await getDashboardTrends('in', from, to, 'day');
-        const outResp = await getDashboardTrends('out', from, to, 'day');
+        const interval = computeInterval(from, to);
+        const inResp = await getDashboardTrends("in", from, to, interval);
+        const outResp = await getDashboardTrends("out", from, to, interval);
         if (inResp.data) setTrendsIn(inResp.data);
         if (outResp.data) setTrendsOut(outResp.data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+        setError(
+          err instanceof Error ? err.message : "Failed to load dashboard data",
+        );
       } finally {
         setLoading(false);
       }
@@ -96,25 +131,66 @@ export default function DashboardManager() {
   }, []);
 
   const lowStockItems = useMemo(
-    () => (inventoryStatus?.items || []).filter((item) => isLowStock(item.quantity)),
+    () =>
+      (inventoryStatus?.items || []).filter((item) =>
+        isLowStock(item.quantity),
+      ),
     [inventoryStatus],
   );
 
-  const totalUsageQuantity = useMemo(
-    () =>
-      (materialUsage?.items || []).reduce(
-        (sum, item) => sum + (Number(item.total_quantity) || 0),
-        0,
-      ),
-    [materialUsage],
-  );
+  // removed unused derived values (were causing TS unused variable errors)
 
-  const averageQcRate = useMemo(() => {
-    const items = qcPerformance?.items || [];
-    if (items.length === 0) return 0;
-    const total = items.reduce((sum, item) => sum + (Number(item.quality_rate) || 0), 0);
-    return Number((total / items.length).toFixed(2));
-  }, [qcPerformance]);
+  const [materialNames, setMaterialNames] = useState<Record<string, string>>({});
+
+  type TopMaterialRow = {
+    key: string;
+    material_id: string;
+    material_name: string;
+    total_quantity: number;
+  };
+
+  const topMaterialsColumns: ColumnsType<TopMaterialRow> = [
+    {
+      title: 'Xếp hạng',
+      dataIndex: 'rank',
+      key: 'rank',
+      width: 60,
+      render: (_: any, __: any, idx?: number) => (idx ?? 0) + 1,
+    },
+    { title: 'Mã vật liệu', dataIndex: 'material_id', key: 'material_id' },
+    { title: 'Tên vật liệu', dataIndex: 'material_name', key: 'material_name' },
+    {
+      title: 'Số lượng',
+      dataIndex: 'total_quantity',
+      key: 'total_quantity',
+      align: 'right',
+      render: (v: any) => Number(v || 0).toLocaleString(),
+    },
+  ];
+
+  // Fetch material names for top materials for display
+  useEffect(() => {
+    const loadNames = async () => {
+      if (!Array.isArray(summary?.top_materials)) return;
+      const ids = (summary.top_materials as any[]).map((m) => m.material_id);
+      const map: Record<string, string> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const resp = await materialService.search(id, 1, 1);
+            const item = resp.data?.[0];
+            if (item) map[id] = item.material_name || item.material_id || id;
+            else map[id] = id;
+          } catch {
+            map[id] = id;
+          }
+        }),
+      );
+      setMaterialNames(map);
+    };
+
+    void loadNames();
+  }, [summary]);
 
   return (
     <div className="p-6 space-y-4">
@@ -134,24 +210,57 @@ export default function DashboardManager() {
       ) : (
         <>
           <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} xl={6}>
+            <Col xs={24} sm={8} xl={8}>
               <Card>
-                <Statistic title="Inventory Value" value={summary?.total_value ?? 0} precision={2} />
+                <Statistic
+                  title="Inventory Value"
+                  value={summary?.total_value ?? 0}
+                  precision={2}
+                />
               </Card>
             </Col>
-            <Col xs={24} sm={12} xl={6}>
+            <Col xs={24} sm={8} xl={8}>
               <Card>
-                <Statistic title="In Volume (7d)" value={trendsIn.reduce((s, r) => s + (r.total_quantity || 0), 0)} />
+                <Statistic
+                  title="In Volume"
+                  value={trendsIn.reduce(
+                    (s, r) => s + (Number(r.total_quantity) || 0),
+                    0,
+                  )}
+                />
               </Card>
             </Col>
-            <Col xs={24} sm={12} xl={6}>
+            <Col xs={24} sm={8} xl={8}>
               <Card>
-                <Statistic title="Out Volume (7d)" value={trendsOut.reduce((s, r) => s + (r.total_quantity || 0), 0)} />
+                <Statistic
+                  title="Out Volume"
+                  value={trendsOut.reduce(
+                    (s, r) => s + (Number(r.total_quantity) || 0),
+                    0,
+                  )}
+                />
               </Card>
             </Col>
-            <Col xs={24} sm={12} xl={6}>
-              <Card>
-                <Statistic title="Top Materials" value={Array.isArray(summary?.top_materials) ? summary.top_materials.length : 0} />
+          </Row>
+
+          <Row className="mt-4">
+            <Col xs={24} lg={24}>
+              <Card title="Top Materials">
+                <Table
+                  size="small"
+                  columns={topMaterialsColumns}
+                  dataSource={
+                    Array.isArray(summary?.top_materials)
+                      ? (summary.top_materials as any[]).map((m) => ({
+                          key: m.material_id,
+                          material_id: m.material_id,
+                          material_name: materialNames[m.material_id] || '',
+                          total_quantity: m.total_quantity,
+                        }))
+                      : []
+                  }
+                  pagination={false}
+                />
               </Card>
             </Col>
           </Row>
@@ -160,7 +269,9 @@ export default function DashboardManager() {
           <Card className="mt-4">
             <Row gutter={[12, 12]} align="middle">
               <Col>
-                <DatePicker.RangePicker onChange={(dates) => setDateRange(dates)} />
+                <DatePicker.RangePicker
+                  onChange={(dates) => setDateRange(dates)}
+                />
               </Col>
               <Col>
                 <Select
@@ -168,16 +279,45 @@ export default function DashboardManager() {
                   placeholder="Warehouse"
                   allowClear
                   onChange={(v) => setFilterWarehouse(v)}
-                  options={(warehouses || []).map((w) => ({ label: w.warehouse_name || w.warehouse_id, value: w.warehouse_id }))}
+                  options={(warehouses || []).map((w) => ({
+                    label: w.warehouse_name || w.warehouse_id,
+                    value: w.warehouse_id,
+                  }))}
                 />
               </Col>
               <Col>
                 <Button
                   onClick={async () => {
-                    const from = dateRange?.[0] ? dateRange[0].toISOString() : undefined;
-                    const to = dateRange?.[1] ? dateRange[1].toISOString() : undefined;
-                    const inResp = await getDashboardTrends('in', from, to, 'day', filterWarehouse);
-                    const outResp = await getDashboardTrends('out', from, to, 'day', filterWarehouse);
+                    // Nếu người dùng không chọn range thì dùng mặc định last 7 days
+                    const now = new Date();
+                    const defaultFrom = new Date(
+                      now.getTime() - 7 * 24 * 3600 * 1000,
+                    ).toISOString();
+                    const defaultTo = now.toISOString();
+
+                    const from = dateRange?.[0]
+                      ? dateRange[0].toISOString()
+                      : defaultFrom;
+                    const to = dateRange?.[1]
+                      ? dateRange[1].toISOString()
+                      : defaultTo;
+
+                    const interval = computeInterval(from, to);
+
+                    const inResp = await getDashboardTrends(
+                      "in",
+                      from,
+                      to,
+                      interval,
+                      filterWarehouse,
+                    );
+                    const outResp = await getDashboardTrends(
+                      "out",
+                      from,
+                      to,
+                      interval,
+                      filterWarehouse,
+                    );
                     if (inResp.data) setTrendsIn(inResp.data);
                     if (outResp.data) setTrendsOut(outResp.data);
                   }}
@@ -191,11 +331,25 @@ export default function DashboardManager() {
               <Col xs={24} lg={12}>
                 <h3 className="m-0">In (Receipts)</h3>
                 <Sparkline
-                  points={(trendsIn || []).map((r) => ({ x: r.period, y: r.total_quantity }))}
+                  points={(trendsIn || []).map((r) => ({
+                    x: r.period,
+                    y: Number(r.total_quantity) || 0,
+                  }))}
                   onPointClick={async (_i, p) => {
                     setDrilldownVisible(true);
                     setDrilldownLoading(true);
-                    const resp = await getDashboardDrilldown(1, 20, undefined, p.x, p.x);
+                    // p.x is period string like 'YYYY-MM-DD'
+                    // Build UTC day-range to avoid local timezone shifts (append 'Z')
+                    const from = `${p.x}T00:00:00.000Z`;
+                    const to = `${p.x}T23:59:59.999Z`;
+                    const resp = await getDashboardDrilldown(
+                      "in",
+                      1,
+                      20,
+                      undefined,
+                      from,
+                      to,
+                    );
                     if (resp.data) setDrilldownData(resp.data);
                     setDrilldownLoading(false);
                   }}
@@ -204,11 +358,24 @@ export default function DashboardManager() {
               <Col xs={24} lg={12}>
                 <h3 className="m-0">Out (Usage)</h3>
                 <Sparkline
-                  points={(trendsOut || []).map((r) => ({ x: r.period, y: r.total_quantity }))}
+                  points={(trendsOut || []).map((r) => ({
+                    x: r.period,
+                    y: Number(r.total_quantity) || 0,
+                  }))}
                   onPointClick={async (_i, p) => {
                     setDrilldownVisible(true);
                     setDrilldownLoading(true);
-                    const resp = await getDashboardDrilldown(1, 20, undefined, p.x, p.x);
+                    // Build UTC day-range to avoid local timezone shifts (append 'Z')
+                    const from = `${p.x}T00:00:00.000Z`;
+                    const to = `${p.x}T23:59:59.999Z`;
+                    const resp = await getDashboardDrilldown(
+                      "out",
+                      1,
+                      20,
+                      undefined,
+                      from,
+                      to,
+                    );
                     if (resp.data) setDrilldownData(resp.data);
                     setDrilldownLoading(false);
                   }}
@@ -223,16 +390,18 @@ export default function DashboardManager() {
               pagination={{ pageSize: 6 }}
               dataSource={lowStockItems}
               columns={[
-                { title: 'Material', dataIndex: 'material_id' },
-                { title: 'Lot', dataIndex: 'lot_id' },
+                { title: "Material", dataIndex: "material_id" },
+                { title: "Lot", dataIndex: "lot_id" },
                 {
-                  title: 'Quantity',
-                  dataIndex: 'quantity',
+                  title: "Quantity",
+                  dataIndex: "quantity",
                   render: (value: number) => (
-                    <Tag color={isLowStock(value) ? 'red' : 'green'}>{value}</Tag>
+                    <Tag color={isLowStock(value) ? "red" : "green"}>
+                      {value}
+                    </Tag>
                   ),
                 },
-                { title: 'Status', dataIndex: 'status' },
+                { title: "Status", dataIndex: "status" },
               ]}
             />
           </Card>
@@ -245,13 +414,14 @@ export default function DashboardManager() {
                   pagination={{ pageSize: 6 }}
                   dataSource={qcPerformance?.items || []}
                   columns={[
-                    { title: 'Supplier', dataIndex: 'supplier_name' },
-                    { title: 'Approved', dataIndex: 'approved' },
-                    { title: 'Rejected', dataIndex: 'rejected' },
+                    { title: "Supplier", dataIndex: "supplier_name" },
+                    { title: "Approved", dataIndex: "approved" },
+                    { title: "Rejected", dataIndex: "rejected" },
                     {
-                      title: 'Quality Rate',
-                      dataIndex: 'quality_rate',
-                      render: (value: number) => `${Number(value || 0).toFixed(2)}%`,
+                      title: "Quality Rate",
+                      dataIndex: "quality_rate",
+                      render: (value: number) =>
+                        `${Number(value || 0).toFixed(2)}%`,
                     },
                   ]}
                 />
@@ -260,14 +430,16 @@ export default function DashboardManager() {
             <Col xs={24} xl={12}>
               <Card title="Recent Audit Events">
                 <Table
-                  rowKey={(record) => `${record.entity}-${record.performed_at}-${record.action}`}
+                  rowKey={(record) =>
+                    `${record.entity}-${record.performed_at}-${record.action}`
+                  }
                   pagination={{ pageSize: 6 }}
                   dataSource={(auditReport?.entries || []).slice(0, 20)}
                   columns={[
-                    { title: 'Action', dataIndex: 'action' },
-                    { title: 'Entity', dataIndex: 'entity' },
-                    { title: 'By', dataIndex: 'performed_by' },
-                    { title: 'At', dataIndex: 'performed_at' },
+                    { title: "Action", dataIndex: "action" },
+                    { title: "Entity", dataIndex: "entity" },
+                    { title: "By", dataIndex: "performed_by" },
+                    { title: "At", dataIndex: "performed_at" },
                   ]}
                 />
               </Card>
@@ -277,7 +449,12 @@ export default function DashboardManager() {
           <Divider />
 
           <p className="text-xs text-gray-400 m-0">
-            Last sync: {inventoryStatus?.generated_at || materialUsage?.generated_at || qcPerformance?.generated_at || auditReport?.generated_at || 'N/A'}
+            Last sync:{" "}
+            {inventoryStatus?.generated_at ||
+              materialUsage?.generated_at ||
+              qcPerformance?.generated_at ||
+              auditReport?.generated_at ||
+              "N/A"}
           </p>
 
           <Modal
@@ -297,11 +474,11 @@ export default function DashboardManager() {
                 current: drilldownData.page || 1,
               }}
               columns={[
-                { title: 'Transaction ID', dataIndex: 'transaction_id' },
-                { title: 'Lot', dataIndex: 'lot_id' },
-                { title: 'Type', dataIndex: 'transaction_type' },
-                { title: 'Quantity', dataIndex: 'quantity' },
-                { title: 'Date', dataIndex: 'transaction_date' },
+                { title: "Transaction ID", dataIndex: "transaction_id" },
+                { title: "Lot", dataIndex: "lot_id" },
+                { title: "Type", dataIndex: "transaction_type" },
+                { title: "Quantity", dataIndex: "quantity" },
+                { title: "Date", dataIndex: "transaction_date" },
               ]}
             />
           </Modal>

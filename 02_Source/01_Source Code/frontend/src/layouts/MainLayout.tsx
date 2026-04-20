@@ -177,6 +177,11 @@ export default function Layout() {
             label: "Quản lý kho",
           },
           {
+            to: "/manager/bins",
+            icon: <ListChecks size={20} />,
+            label: "Kiểm kê kệ",
+          },
+          {
             to: "/manager/in-out",
             icon: <FileText size={20} />,
             label: "Quản lý nhập/xuất kho",

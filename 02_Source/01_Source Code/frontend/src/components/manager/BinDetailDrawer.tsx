@@ -4,9 +4,11 @@ import { BinAPI } from "../../services/bin.service";
 export default function BinDetailDrawer({
   binCode,
   onClose,
+  onNotify,
 }: {
   binCode: string;
   onClose: () => void;
+  onNotify?: (message: string, type: "success" | "error") => void;
 }) {
   const [lots, setLots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,14 +50,56 @@ export default function BinDetailDrawer({
   }
 
   async function submit() {
-    const payload = { counted_by: "current_user", notes: "", entries };
-    const { result, error } = await BinAPI.submitCounts(binCode, payload);
-    if (error) {
-      alert("Submit failed: " + (error.message || ""));
-      return;
+    // validation
+    for (const e of entries) {
+      if (e.counted_qty == null || Number.isNaN(Number(e.counted_qty))) {
+        (onNotify ?? ((m: string) => alert(m)))(
+          "Vui lòng nhập số lượng kiểm đếm hợp lệ cho tất cả các dòng.",
+          "error",
+        );
+        return;
+      }
+      if (Number(e.counted_qty) < 0) {
+        (onNotify ?? ((m: string) => alert(m)))(
+          "Số lượng kiểm đếm phải >= 0.",
+          "error",
+        );
+        return;
+      }
     }
-    alert("Submit success");
-    onClose();
+
+    const userStr =
+      typeof window !== "undefined" ? localStorage.getItem("user") : null;
+    let countedBy = "unknown";
+    try {
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        countedBy = u.username || u.user || u.name || "unknown";
+      }
+    } catch {}
+
+    const payload = { counted_by: countedBy, notes: "", entries };
+
+    try {
+      const { result, error } = await BinAPI.submitCounts(binCode, payload);
+      if (error) {
+        (onNotify ?? ((m: string) => alert(m)))(
+          "Gửi kết quả thất bại: " + (error.message || ""),
+          "error",
+        );
+        return;
+      }
+      (onNotify ?? ((m: string) => alert(m)))(
+        "Gửi kết quả thành công.",
+        "success",
+      );
+      onClose();
+    } catch (err: any) {
+      (onNotify ?? ((m: string) => alert(m)))(
+        "Lỗi hệ thống khi gửi kết quả.",
+        "error",
+      );
+    }
   }
 
   return (

@@ -1,7 +1,8 @@
 import { apiClient } from "./apiClient";
+import { API_ENDPOINTS } from "../config/api.config";
 
 export async function getDashboardSummary(warehouseId?: string) {
-  const url = "/dashboard/summary";
+  const url = API_ENDPOINTS.DASHBOARD_SUMMARY;
   const resp = await apiClient.get(url, { params: { warehouseId } });
   return resp;
 }
@@ -13,7 +14,7 @@ export async function getDashboardTrends(
   interval?: "day" | "week" | "month",
   warehouseId?: string,
 ) {
-  const url = "/dashboard/trends";
+  const url = API_ENDPOINTS.DASHBOARD_TRENDS;
   const resp = await apiClient.get(url, {
     params: { metric, from, to, interval, warehouseId },
   });
@@ -21,15 +22,16 @@ export async function getDashboardTrends(
 }
 
 export async function getDashboardDrilldown(
+  metric?: 'in' | 'out',
   page = 1,
   limit = 20,
   materialId?: string,
   from?: string,
   to?: string,
 ) {
-  const url = "/dashboard/drilldown";
+  const url = API_ENDPOINTS.DASHBOARD_DRILLDOWN;
   const resp = await apiClient.get(url, {
-    params: { page, limit, materialId, from, to },
+    params: { metric, page, limit, materialId, from, to },
   });
   return resp;
 }

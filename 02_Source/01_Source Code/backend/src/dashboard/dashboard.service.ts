@@ -72,6 +72,8 @@ export class DashboardService {
           // biến local để truyền vào pipeline lookup: $$lotId sẽ nhận giá trị của inventory_lots.lot_id
           let: { lotId: '$lot_id' },
           pipeline: [
+            // Chỉ tính các slip đã được duyệt/confirm — bỏ qua PENDING/REJECTED
+            { $match: { status: 'CONFIRMED' } },
             // 1) $unwind: tách mảng `lines` ra để xử lý từng dòng riêng
             { $unwind: '$lines' },
             // 2) $match với $expr: so sánh các field của lines với biến $$lotId
@@ -230,6 +232,7 @@ export class DashboardService {
 
   // drilldown: paginated transactions or slips
   async getDrilldown(params: {
+    metric?: 'in' | 'out';
     page?: number;
     limit?: number;
     materialId?: string;
@@ -268,7 +271,13 @@ export class DashboardService {
       pipeline.push({ $match: { 'lot_docs.material_id': params.materialId } });
     }
 
-    // Nếu có điều kiện match do from/to thì thêm vào đầu pipeline
+    // Nếu truyền metric (in/out) thì lọc transaction_type tương ứng giống `getTrends`
+    if (params.metric) {
+      if (params.metric === 'in') match.transaction_type = 'Receipt';
+      else match.transaction_type = { $in: ['Usage', 'Disposal'] };
+    }
+
+    // Nếu có điều kiện match do from/to/metric thì thêm vào đầu pipeline
     if (Object.keys(match).length) pipeline.unshift({ $match: match });
 
     // Gắn thêm sort/skip/limit cho pagination

@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 
-@Controller('api/dashboard')
+@Controller('dashboard')
 export class DashboardController {
   constructor(private readonly svc: DashboardService) {}
 
@@ -23,6 +23,7 @@ export class DashboardController {
 
   @Get('drilldown')
   async drilldown(
+    @Query('metric') metric?: 'in' | 'out',
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('materialId') materialId?: string,
@@ -30,6 +31,7 @@ export class DashboardController {
     @Query('to') to?: string,
   ) {
     return this.svc.getDrilldown({
+      metric,
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       materialId,

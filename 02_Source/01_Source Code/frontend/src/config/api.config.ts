@@ -80,4 +80,8 @@ export const API_ENDPOINTS = {
     `/warehouse/slips/${slipId}/approve`,
   WAREHOUSE_SLIP_REJECT: (slipId: string) =>
     `/warehouse/slips/${slipId}/reject`,
+    // Dashboard endpoints (US17 minimal)
+    DASHBOARD_SUMMARY: '/dashboard/summary',
+    DASHBOARD_TRENDS: '/dashboard/trends',
+    DASHBOARD_DRILLDOWN: '/dashboard/drilldown',
 };

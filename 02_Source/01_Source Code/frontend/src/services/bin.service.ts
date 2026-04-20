@@ -52,4 +52,27 @@ export class BinAPI {
     if (error) return { result: null, error };
     return { result: data, error: null };
   }
+
+  static async createBin(payload: { bin_code: string; expected_qty?: number }) {
+    const { data, error } = await apiClient.post(`/bins`, payload);
+    if (error) return { result: null, error };
+    return { result: data, error: null };
+  }
+
+  static async updateBin(bin_code: string, payload: { expected_qty?: number }) {
+    const { data, error } = await apiClient.put(
+      `/bins/${encodeURIComponent(bin_code)}`,
+      payload,
+    );
+    if (error) return { result: null, error };
+    return { result: data, error: null };
+  }
+
+  static async deleteBin(bin_code: string) {
+    const { data, error } = await apiClient.delete(
+      `/bins/${encodeURIComponent(bin_code)}`,
+    );
+    if (error) return { result: null, error };
+    return { result: data, error: null };
+  }
 }

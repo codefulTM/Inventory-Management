@@ -218,6 +218,8 @@ const InventoryTransactionList: React.FC<Props> = ({ title, mode = "all" }) => {
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
             ...(fromDate ? { from: fromDate } : {}),
             ...(toDate ? { to: toDate } : {}),
+            transaction_type:
+              (transactionType as InventoryTransactionType) || undefined,
           });
 
           if (requestId !== requestIdRef.current) {
@@ -405,36 +407,7 @@ const InventoryTransactionList: React.FC<Props> = ({ title, mode = "all" }) => {
           }
           className="w-full sm:w-1/2 px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         />
-        <select
-          value={transactionType}
-          onChange={(e) => {
-            setTransactionType(e.target.value as "" | InventoryTransactionType);
-            setPage(1);
-          }}
-          className="w-full sm:w-56 px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white"
-        >
-          <option value="">Tất cả loại giao dịch</option>
-          {TRANSACTION_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-        <select
-          value={transactionType}
-          onChange={(e) => {
-            setTransactionType(e.target.value as "" | InventoryTransactionType);
-            setPage(1);
-          }}
-          className="w-full sm:w-56 px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white"
-        >
-          <option value="">Tất cả loại giao dịch</option>
-          {TRANSACTION_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
+        
         <div className="relative flex gap-2">
           <button
             onClick={() => setShowFilter((v) => !v)}
@@ -470,23 +443,21 @@ const InventoryTransactionList: React.FC<Props> = ({ title, mode = "all" }) => {
                   onChange={(e) => setDraftToDate(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded"
                 />
-                {mode === "my-history" && (
-                  <>
-                    <label className="text-xs font-bold">Loại giao dịch</label>
-                    <select
-                      value={draftTransactionType}
-                      onChange={(e) => setDraftTransactionType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded"
-                    >
-                      <option value="">Tất cả</option>
-                      {TRANSACTION_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                )}
+                <>
+                  <label className="text-xs font-bold">Loại giao dịch</label>
+                  <select
+                    value={draftTransactionType}
+                    onChange={(e) => setDraftTransactionType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded"
+                  >
+                    <option value="">Tất cả</option>
+                    {TRANSACTION_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </>
                 {isDateRangeInvalid(draftFromDate, draftToDate) && (
                   <p className="text-xs text-red-600">
                     Từ ngày phải nhỏ hơn hoặc bằng đến ngày.

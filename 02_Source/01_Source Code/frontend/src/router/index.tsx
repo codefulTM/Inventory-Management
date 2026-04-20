@@ -17,6 +17,7 @@ import ProductInspection from "../pages/qc/ProductInspection";
 import ReportTraceability from "../pages/qc/ReportTraceability";
 import Dashboard from "../pages/manager/Dashboard";
 import MaterialManagementManager from "../pages/manager/MaterialManagement";
+import BinWorklist from "../pages/manager/BinWorklist";
 import WarehouseManagement from "../pages/manager/WarehouseManagement";
 import ProductManagementManager from "../pages/manager/ProductManagement";
 import ReportsManager from "../pages/manager/Reports";
@@ -261,6 +262,10 @@ export const router = createBrowserRouter([
       {
         path: "/manager/in-out",
         element: requireManagerAuth(<StockManagement />),
+      },
+      {
+        path: "/manager/bins",
+        element: requireManagerAuth(<BinWorklist />),
       },
       {
         path: "/manager/stock",
