@@ -13,7 +13,6 @@
     "baseUrl": "./",
     "types": ["node", "jest"],
     "useUnknownInCatchVariables": false,
-    "ignoreDeprecations": "6.0",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
