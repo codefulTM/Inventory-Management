@@ -5,6 +5,13 @@ import { AgentLlmService } from "../services/agent-llm.service";
 import { QueryEmbeddingService } from "../services/query-embedding.service";
 import type { AgentHandlerInput, AgentHandlerOutput } from "../ai-agents.types";
 
+type UserRole =
+  | "manager"
+  | "operator"
+  | "quality-control"
+  | "it_admin"
+  | "unknown";
+
 @Injectable()
 export class InventoryAnalystAgent {
   private readonly profile = {
@@ -57,9 +64,10 @@ export class InventoryAnalystAgent {
         };
       }
 
-      const normalizedQuery = (input.query || "").toLowerCase();
+      const normalizedQuery = this.normalizeForMatching(input.query || "");
       const page = Number(input.payload?.page ?? 1);
       const limit = Number(input.payload?.limit ?? 20);
+      const userRole = this.normalizeUserRole(input.payload?.userRole);
 
       const [lotStats, transactions] = await Promise.all([
         this.backendDataService.getLotsStatistics(),
@@ -68,17 +76,17 @@ export class InventoryAnalystAgent {
 
       const requestedDaysWindow = this.extractDaysWindow(normalizedQuery);
       const asksExpiringSoon =
-        normalizedQuery.includes("sắp hết hạn") ||
         normalizedQuery.includes("sap het han") ||
-        normalizedQuery.includes("hết hạn trong") ||
+        normalizedQuery.includes("duoi 1 thang") ||
+        normalizedQuery.includes("con han") ||
         normalizedQuery.includes("het han trong") ||
+        normalizedQuery.includes("can han") ||
         normalizedQuery.includes("expiring");
 
       const asksExpired =
-        normalizedQuery.includes("đã hết hạn") ||
         normalizedQuery.includes("da het han") ||
-        (normalizedQuery.includes("hết hạn") && !asksExpiringSoon) ||
-        normalizedQuery.includes("het han") ||
+        normalizedQuery.includes("qua han") ||
+        (normalizedQuery.includes("het han") && !asksExpiringSoon) ||
         normalizedQuery.includes("expired");
 
       let expiringLots: unknown[] = [];
@@ -206,11 +214,6 @@ export class InventoryAnalystAgent {
       if (asksExpired && expiredLots.length > 0) {
         insights.push(`Tìm thấy ${expiredLots.length} lô hàng đã hết hạn.`);
       }
-      if (retrieval.total > 0) {
-        insights.push(
-          `Đã truy xuất ${retrieval.total} tài liệu liên quan để làm ngữ cảnh trả lời.`,
-        );
-      }
 
       const contextData = {
         lots: lotStats,
@@ -235,20 +238,39 @@ export class InventoryAnalystAgent {
         query_window_days: requestedDaysWindow,
       };
 
-      const assistantReply =
-        (await this.agentLlmService.generateReply(
-          this.profile,
-          input.query,
-          contextData as any,
-        )) ||
-        this.buildFallbackReply(
-          expiringLots.length,
-          expiredLots.length,
+      const generatedReply = await this.agentLlmService.generateReply(
+        this.profile,
+        input.query,
+        contextData as any,
+      );
+
+      const lotSummary = {
+        total: this.toSafeNumber((lotStats as any)?.total),
+        expiringSoon: this.toSafeNumber((lotStats as any)?.expiringSoon),
+        expired: this.toSafeNumber((lotStats as any)?.expired),
+      };
+
+      const sanitizedReply = this.sanitizeAssistantReply(generatedReply);
+      const shouldUseSanitizedReply =
+        sanitizedReply.length > 0 &&
+        this.isReplyAlignedToQuery(
+          sanitizedReply,
           asksExpiringSoon,
           asksExpired,
-          requestedDaysWindow,
-          insights,
         );
+
+      const assistantReply = shouldUseSanitizedReply
+        ? sanitizedReply
+        : this.buildFallbackReply(
+            lotSummary,
+            expiringLots.length,
+            expiredLots.length,
+            asksExpiringSoon,
+            asksExpired,
+            requestedDaysWindow,
+            insights,
+            userRole,
+          );
 
       return {
         status: "ok",
@@ -274,61 +296,206 @@ export class InventoryAnalystAgent {
   }
 
   private buildFallbackReply(
+    lotSummary: { total: number; expiringSoon: number; expired: number },
     expiringLots: number,
     expiredLots: number,
     asksExpiringSoon: boolean,
     asksExpired: boolean,
     days: number,
     insights: string[],
+    userRole: UserRole,
   ): string {
-    if (insights.length > 0) return insights.join(" ");
+    const roleGuidance = this.buildRoleGuidance(
+      userRole,
+      expiringLots,
+      expiredLots,
+      days,
+    );
+
+    if (insights.length > 0) {
+      return `${insights.join(" ")} ${roleGuidance}`.trim();
+    }
+
+    if (!asksExpiringSoon && !asksExpired) {
+      const summaryParts: string[] = [];
+
+      if (lotSummary.total > 0) {
+        summaryParts.push(
+          `Tổng quan hiện có ${lotSummary.total} lô đang theo dõi trong kho.`,
+        );
+      }
+
+      summaryParts.push(
+        `Trong phạm vi hiện tại có ${lotSummary.expiringSoon} lô sắp hết hạn và ${lotSummary.expired} lô đã hết hạn.`,
+      );
+      summaryParts.push(roleGuidance);
+
+      return summaryParts.join(" ").trim();
+    }
+
     if (asksExpiringSoon && !asksExpired)
-      return `Hiện chưa ghi nhận lô sắp hết hạn trong ${days} ngày theo điều kiện truy vấn.`;
+      return `Hiện chưa ghi nhận lô sắp hết hạn trong ${days} ngày theo điều kiện truy vấn. ${roleGuidance}`.trim();
+
     if (asksExpired && !asksExpiringSoon)
-      return "Hiện chưa ghi nhận lô đã hết hạn theo điều kiện truy vấn.";
+      return `Hiện chưa ghi nhận lô đã hết hạn theo điều kiện truy vấn. ${roleGuidance}`.trim();
+
     return expiringLots > 0 || expiredLots > 0
-      ? `Hiện có ${expiringLots} lô sắp hết hạn và ${expiredLots} lô đã hết hạn. Vui lòng xem bảng danh sách để xử lý.`
-      : "Hiện chưa ghi nhận lô sắp hết hạn hoặc đã hết hạn theo phạm vi truy vấn.";
+      ? `Hiện có ${expiringLots} lô sắp hết hạn và ${expiredLots} lô đã hết hạn. ${roleGuidance}`.trim()
+      : `Hiện chưa ghi nhận lô sắp hết hạn hoặc đã hết hạn theo phạm vi truy vấn. ${roleGuidance}`.trim();
+  }
+
+  private normalizeUserRole(inputRole: unknown): UserRole {
+    if (typeof inputRole !== "string") return "unknown";
+
+    const roleMap: Record<string, UserRole> = {
+      Manager: "manager",
+      Operator: "operator",
+      "Quality Control Technician": "quality-control",
+      "IT Administrator": "it_admin",
+      manager: "manager",
+      operator: "operator",
+      "quality-control": "quality-control",
+      it_admin: "it_admin",
+    };
+
+    return roleMap[inputRole] ?? "unknown";
+  }
+
+  private toSafeNumber(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }
+
+  private buildRoleGuidance(
+    userRole: UserRole,
+    expiringLots: number,
+    expiredLots: number,
+    days: number,
+  ): string {
+    const hasRiskLots = expiringLots > 0 || expiredLots > 0;
+
+    if (userRole === "manager") {
+      return hasRiskLots
+        ? `Với vai trò quản lý, bạn nên chốt ưu tiên xử lý nhóm rủi ro trong kế hoạch ${days} ngày tới.`
+        : "Với vai trò quản lý, bạn có thể tiếp tục duy trì ngưỡng cảnh báo định kỳ.";
+    }
+
+    if (userRole === "operator") {
+      return hasRiskLots
+        ? "Với vai trò vận hành, bạn nên ưu tiên xuất FIFO cho lô cận hạn và cập nhật phiếu sau thao tác."
+        : "Với vai trò vận hành, bạn có thể tiếp tục quy trình xuất nhập bình thường và theo dõi hàng ngày.";
+    }
+
+    if (userRole === "quality-control") {
+      return hasRiskLots
+        ? "Với vai trò QC, bạn nên rà soát điều kiện bảo quản và quyết định cách ly các lô quá hạn."
+        : "Với vai trò QC, bạn có thể tiếp tục kiểm tra định kỳ để xác nhận điều kiện bảo quản.";
+    }
+
+    return hasRiskLots
+      ? "Bạn nên ưu tiên xử lý các lô có rủi ro hạn dùng trước để giảm thất thoát."
+      : "Hiện chưa có rủi ro hạn dùng nổi bật, có thể tiếp tục theo dõi định kỳ.";
+  }
+
+  private sanitizeAssistantReply(reply?: string): string {
+    if (!reply) return "";
+
+    const lines = reply
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const blockedTokens = [
+      "truy xuất",
+      "tài liệu",
+      "retrieval",
+      "rag",
+      "embedding",
+      "citation",
+      "semantic",
+      "hybrid",
+    ];
+
+    const filtered = lines.filter((line) => {
+      const normalized = line.toLowerCase();
+      return !blockedTokens.some((token) => normalized.includes(token));
+    });
+
+    return filtered.join(" ").trim();
+  }
+
+  private isReplyAlignedToQuery(
+    reply: string,
+    asksExpiringSoon: boolean,
+    asksExpired: boolean,
+  ): boolean {
+    const normalized = this.normalizeForMatching(reply);
+    const hasExpiringSignal =
+      normalized.includes("sap het han") ||
+      normalized.includes("can han") ||
+      normalized.includes("con han") ||
+      normalized.includes("expiring");
+    const hasExpiredSignal =
+      normalized.includes("da het han") ||
+      normalized.includes("qua han") ||
+      normalized.includes("expired");
+
+    if (asksExpiringSoon) {
+      return hasExpiringSignal && !hasExpiredSignal;
+    }
+
+    if (asksExpired) {
+      return hasExpiredSignal && !hasExpiringSignal;
+    }
+
+    return (
+      normalized.includes("tong quan") ||
+      normalized.includes("tong quan") ||
+      normalized.includes("ton kho") ||
+      normalized.includes("ton kho")
+    );
   }
 
   private isInventoryDomainQuery(query: string, action?: string): boolean {
-    const normalizedAction = (action || "").toLowerCase().trim();
+    const normalizedAction = this.normalizeForMatching(action || "");
     if (
       normalizedAction.includes("inventory") ||
       normalizedAction.includes("report")
     )
       return true;
-    const normalized = (query || "")
-      .toLowerCase()
-      .replace(/[!?.,]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const normalized = this.normalizeForMatching(query || "");
     if (!normalized) return false;
     const keywords = [
       "het han",
-      "hết hạn",
       "sap het han",
-      "sắp hết hạn",
       "con han",
-      "còn hạn",
       "bao cao",
-      "báo cáo",
       "ton kho",
-      "tồn kho",
       "inventory",
       "report",
       "lot",
-      "lô",
       "transaction",
-      "giao dịch",
+      "giao dich",
     ];
     return keywords.some((k) => normalized.includes(k));
   }
 
   private extractDaysWindow(normalizedQuery: string): number {
-    const matched = normalizedQuery.match(/(\d+)\s*ngày/);
+    const matched = normalizedQuery.match(/(\d+)\s*ngay/);
     if (!matched?.[1]) return 30;
     const parsed = Number(matched[1]);
     return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, 365) : 30;
+  }
+
+  private normalizeForMatching(text: string): string {
+    return (text || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .toLowerCase()
+      .replace(/[!?.,]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 }
