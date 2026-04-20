@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class QueryEmbeddingService {
@@ -13,10 +13,12 @@ export class QueryEmbeddingService {
   private warnedMissingApiKey = false;
 
   constructor(private readonly configService: ConfigService) {
-    this.apiUrl = this.configService.get<string>('EMBEDDING_API_URL') ?? '';
-    this.apiKey = this.configService.get<string>('HUGGINGFACE_API_KEY') ?? '';
-    this.timeoutMs = this.configService.get<number>('EMBEDDING_TIMEOUT_MS') ?? 10000;
-    this.vectorDims = this.configService.get<number>('EMBEDDING_VECTOR_DIMS') ?? 384;
+    this.apiUrl = this.configService.get<string>("EMBEDDING_API_URL") ?? "";
+    this.apiKey = this.configService.get<string>("HUGGINGFACE_API_KEY") ?? "";
+    this.timeoutMs =
+      this.configService.get<number>("EMBEDDING_TIMEOUT_MS") ?? 10000;
+    this.vectorDims =
+      this.configService.get<number>("EMBEDDING_VECTOR_DIMS") ?? 384;
   }
 
   async embedQuery(query: string): Promise<number[] | null> {
@@ -25,7 +27,9 @@ export class QueryEmbeddingService {
 
     if (!this.apiUrl) {
       if (!this.warnedMissingApiUrl) {
-        this.logger.warn('EMBEDDING_API_URL missing. Hybrid retrieval disabled.');
+        this.logger.warn(
+          "EMBEDDING_API_URL missing. Hybrid retrieval disabled.",
+        );
         this.warnedMissingApiUrl = true;
       }
       return null;
@@ -33,7 +37,9 @@ export class QueryEmbeddingService {
 
     if (!this.apiKey) {
       if (!this.warnedMissingApiKey) {
-        this.logger.warn('HUGGINGFACE_API_KEY missing. Hybrid retrieval disabled.');
+        this.logger.warn(
+          "HUGGINGFACE_API_KEY missing. Hybrid retrieval disabled.",
+        );
         this.warnedMissingApiKey = true;
       }
       return null;
@@ -44,9 +50,9 @@ export class QueryEmbeddingService {
 
     try {
       const response = await fetch(this.apiUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
@@ -70,7 +76,9 @@ export class QueryEmbeddingService {
 
       return this.normalizeVector(parsed);
     } catch (error: any) {
-      this.logger.warn(`Query embedding request error: ${error?.message ?? error}`);
+      this.logger.warn(
+        `Query embedding request error: ${error?.message ?? error}`,
+      );
       return null;
     } finally {
       clearTimeout(timeout);
@@ -78,7 +86,10 @@ export class QueryEmbeddingService {
   }
 
   private parseVector(payload: unknown): number[] | null {
-    if (Array.isArray(payload) && payload.every((item) => typeof item === 'number')) {
+    if (
+      Array.isArray(payload) &&
+      payload.every((item) => typeof item === "number")
+    ) {
       return payload as number[];
     }
 
@@ -86,7 +97,7 @@ export class QueryEmbeddingService {
       Array.isArray(payload) &&
       payload.length > 0 &&
       Array.isArray(payload[0]) &&
-      (payload[0] as unknown[]).every((item) => typeof item === 'number')
+      (payload[0] as unknown[]).every((item) => typeof item === "number")
     ) {
       return payload[0] as number[];
     }
@@ -97,7 +108,8 @@ export class QueryEmbeddingService {
   private normalizeVector(vector: number[]): number[] {
     if (this.vectorDims <= 0) return vector;
     if (vector.length === this.vectorDims) return vector;
-    if (vector.length > this.vectorDims) return vector.slice(0, this.vectorDims);
+    if (vector.length > this.vectorDims)
+      return vector.slice(0, this.vectorDims);
 
     const padded = [...vector];
     while (padded.length < this.vectorDims) {

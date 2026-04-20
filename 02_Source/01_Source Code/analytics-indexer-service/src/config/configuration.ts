@@ -28,7 +28,7 @@ export default () => ({
         'sentence-transformers/all-MiniLM-L6-v2',
       apiUrl:
         process.env.EMBEDDING_API_URL ||
-        'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
+        'https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2',
       apiKey: process.env.HUGGINGFACE_API_KEY || '',
       timeoutMs: parseInt(process.env.EMBEDDING_TIMEOUT_MS || '10000', 10),
       cacheTtlSeconds: parseInt(

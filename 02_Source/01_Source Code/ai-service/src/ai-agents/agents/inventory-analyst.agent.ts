@@ -92,12 +92,12 @@ export class InventoryAnalystAgent {
       };
       let retrievalFallbackReason: string | undefined;
 
-      const retrievalCollections = [
+      const businessCollections = [
         "inventory_lots",
         "inventory_transactions",
         "qc_tests",
-        "docs_knowledge",
       ];
+      const docsCollections = ["docs_knowledge"];
 
       if (asksExpiringSoon)
         expiringLots =
@@ -116,22 +116,38 @@ export class InventoryAnalystAgent {
               input.query,
               queryEmbedding,
               5,
-              retrievalCollections,
+              businessCollections,
             );
           } catch {
-            retrievalFallbackReason = "hybrid search unavailable, fallback to semantic";
+            retrievalFallbackReason =
+              "hybrid search unavailable, fallback to semantic";
             retrieval = await this.backendDataService.semanticSearch(
               input.query,
               5,
-              retrievalCollections,
+              businessCollections,
             );
           }
         } else {
           retrieval = await this.backendDataService.semanticSearch(
             input.query,
             5,
-            retrievalCollections,
+            businessCollections,
           );
+        }
+
+        if (retrieval.total === 0 || retrieval.hits.length === 0) {
+          const docsRetrieval = await this.backendDataService.semanticSearch(
+            input.query,
+            5,
+            docsCollections,
+          );
+          if (docsRetrieval.total > 0 && docsRetrieval.hits.length > 0) {
+            retrieval = docsRetrieval;
+            retrieval.disabled_reason = retrievalFallbackReason
+              ? `${retrievalFallbackReason}; inventory context empty, fallback to docs_knowledge`
+              : "inventory context empty, fallback to docs_knowledge";
+            retrievalFallbackReason = undefined;
+          }
         }
       } catch {
         retrieval = {
@@ -155,15 +171,17 @@ export class InventoryAnalystAgent {
         rag_text_preview: (hit.rag_text || "").slice(0, 220),
       }));
 
-      const retrievalCitations = retrieval.hits.slice(0, 5).map((hit, index) => ({
-        citation_id: `SRC-${index + 1}`,
-        source_collection: hit.source_collection,
-        source_id: hit.source_id,
-        source_type: hit.source_type,
-        score: hit.score,
-        updated_at: hit.updated_at,
-        preview: (hit.rag_text || "").slice(0, 320),
-      }));
+      const retrievalCitations = retrieval.hits
+        .slice(0, 5)
+        .map((hit, index) => ({
+          citation_id: `SRC-${index + 1}`,
+          source_collection: hit.source_collection,
+          source_id: hit.source_id,
+          source_type: hit.source_type,
+          score: hit.score,
+          updated_at: hit.updated_at,
+          preview: (hit.rag_text || "").slice(0, 320),
+        }));
 
       const insights: string[] = [];
       if (!asksExpiringSoon && !asksExpired && (lotStats as any).expired > 0) {

@@ -147,6 +147,9 @@ export class AiDataGrpcController {
     useHybrid: boolean,
   ): Promise<Record<string, unknown>> {
     const query = String(payload.query ?? '').trim();
+    const normalizedQuery = this.normalizeQuery(query);
+    const isExpiryIntent = this.isExpiryIntent(normalizedQuery);
+    const expiryWindowDays = this.extractDayWindow(normalizedQuery);
     const topK =
       typeof payload.top_k === 'number' && payload.top_k > 0
         ? Math.min(payload.top_k, 20)
@@ -194,22 +197,121 @@ export class AiDataGrpcController {
       ? [{ terms: { source_collection: sourceCollections } }]
       : [];
 
-    const queryClause = query
-      ? {
+    if (isExpiryIntent) {
+      const expiryFocusedCollections = sourceCollections.filter(
+        (item) => item === 'inventory_lots',
+      );
+      if (expiryFocusedCollections.length > 0) {
+        filters.push({
+          terms: { source_collection: expiryFocusedCollections },
+        });
+      }
+    }
+
+    const queryVariants = Array.from(
+      new Set([query, normalizedQuery].filter(Boolean)),
+    );
+
+    const shouldClauses: Record<string, unknown>[] = [];
+    if (queryVariants.length > 0) {
+      for (const variant of queryVariants) {
+        shouldClauses.push({
           multi_match: {
-            query,
+            query: variant,
             fields: [
-              'rag_text^3',
+              'rag_text^4',
               'material_name^2',
               'section_title^2',
+              'source_id^2',
               'status',
               'transaction_type',
               'result_status',
+              'rag_metadata.lot_id^3',
+              'rag_metadata.material_id^2',
+              'rag_metadata.transaction_id^2',
+              'rag_metadata.transaction_type',
+              'rag_metadata.test_id^2',
+              'rag_metadata.result_status',
+              'rag_metadata.status',
             ],
             operator: 'or',
           },
+        });
+      }
+    }
+
+    if (isExpiryIntent) {
+      shouldClauses.push(
+        {
+          match_phrase: {
+            rag_text: {
+              query: 'het han',
+              boost: 3,
+            },
+          },
+        },
+        {
+          match_phrase: {
+            rag_text: {
+              query: 'expiration date',
+              boost: 2,
+            },
+          },
+        },
+        {
+          range: {
+            'rag_metadata.expiration_date': {
+              gte: 'now/d',
+              lte: `now+${expiryWindowDays}d/d`,
+              boost: 4,
+            },
+          },
+        },
+        {
+          range: {
+            'rag_metadata.in_use_expiration_date': {
+              gte: 'now/d',
+              lte: `now+${expiryWindowDays}d/d`,
+              boost: 3,
+            },
+          },
+        },
+        {
+          match_all: {
+            boost: 0.05,
+          },
+        },
+      );
+    }
+
+    const queryClause = shouldClauses.length
+      ? {
+          bool: {
+            should: shouldClauses,
+            minimum_should_match: 1,
+          },
         }
       : { match_all: {} };
+
+    const sortClause = isExpiryIntent
+      ? [
+          {
+            'rag_metadata.expiration_date': {
+              order: 'asc',
+              missing: '_last',
+              unmapped_type: 'date',
+            },
+          },
+          {
+            'rag_metadata.in_use_expiration_date': {
+              order: 'asc',
+              missing: '_last',
+              unmapped_type: 'date',
+            },
+          },
+          { _score: 'desc' },
+        ]
+      : [{ _score: 'desc' }];
 
     const searchBody: Record<string, unknown> = {
       size: topK,
@@ -228,7 +330,7 @@ export class AiDataGrpcController {
         'acl_tags',
         'updated_at',
       ],
-      sort: [{ _score: 'desc' }],
+      sort: sortClause,
     };
 
     if (useHybrid && embedding.length > 0) {
@@ -298,5 +400,40 @@ export class AiDataGrpcController {
       search_mode: useHybrid && embedding.length > 0 ? 'hybrid' : 'semantic',
       used_embedding: useHybrid && embedding.length > 0,
     };
+  }
+
+  private normalizeQuery(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  private isExpiryIntent(normalizedQuery: string): boolean {
+    if (!normalizedQuery) return false;
+
+    const hints = [
+      'sap het han',
+      'het han',
+      'han dung',
+      'expiring',
+      'expiry',
+      'expired',
+      'expiration',
+    ];
+
+    return hints.some((hint) => normalizedQuery.includes(hint));
+  }
+
+  private extractDayWindow(normalizedQuery: string): number {
+    if (!normalizedQuery) return 30;
+
+    const match = normalizedQuery.match(/(\d{1,3})\s*(ngay|day|days|d)\b/);
+    if (!match) return 30;
+
+    const value = Number(match[1]);
+    if (!Number.isFinite(value) || value <= 0) return 30;
+    return Math.min(value, 365);
   }
 }

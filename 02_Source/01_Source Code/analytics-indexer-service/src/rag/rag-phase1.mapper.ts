@@ -34,6 +34,18 @@ function toDateOrNow(value: unknown): Date {
   return new Date();
 }
 
+function toIsoDateString(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  return null;
+}
+
 interface BuildDocumentInput {
   sourceType: 'mongo' | 'markdown';
   sourceId: string;
@@ -69,12 +81,19 @@ export function mapInventoryLotToRetrievedDocument(doc: GenericMongoDoc): Retrie
   const status = asString(doc.status);
   const quantity = asString(doc.quantity);
   const unit = asString(doc.unit_of_measure);
+  const expirationDate = toIsoDateString(doc.expiration_date);
+  const inUseExpirationDate = toIsoDateString(doc.in_use_expiration_date);
 
   const content = [
     `Lot ID: ${lotId}`,
     materialId ? `Material ID: ${materialId}` : '',
     status ? `Status: ${status}` : '',
     quantity ? `Quantity: ${quantity}${unit ? ` ${unit}` : ''}` : '',
+    expirationDate ? `Expiration Date: ${expirationDate}` : '',
+    expirationDate ? `Han dung (het han): ${expirationDate}` : '',
+    inUseExpirationDate
+      ? `In-use Expiration Date: ${inUseExpirationDate}`
+      : '',
   ]
     .filter(Boolean)
     .join(' | ');
@@ -91,6 +110,8 @@ export function mapInventoryLotToRetrievedDocument(doc: GenericMongoDoc): Retrie
       status: status || null,
       quantity: quantity ? Number(quantity) : null,
       unit_of_measure: unit || null,
+      expiration_date: expirationDate,
+      in_use_expiration_date: inUseExpirationDate,
     },
   });
 }

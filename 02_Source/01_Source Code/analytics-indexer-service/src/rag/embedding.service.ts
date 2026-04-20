@@ -58,9 +58,11 @@ export class EmbeddingService {
       return null;
     }
 
-    if (!this.apiKey && !this.missingKeyWarned) {
-      this.logger.warn('HUGGINGFACE_API_KEY missing. Embedding is disabled until key is configured.');
-      this.missingKeyWarned = true;
+    if (!this.apiKey) {
+      if (!this.missingKeyWarned) {
+        this.logger.warn('HUGGINGFACE_API_KEY missing. Embedding is disabled until key is configured.');
+        this.missingKeyWarned = true;
+      }
       return null;
     }
 

@@ -37,6 +37,8 @@ describe('Phase 1 RAG scope and schema', () => {
       status: 'active',
       quantity: 100,
       unit_of_measure: 'kg',
+      expiration_date: '2026-05-20T00:00:00.000Z',
+      in_use_expiration_date: '2026-05-10T00:00:00.000Z',
       modified_date: '2026-04-20T10:00:00.000Z',
     });
 
@@ -45,6 +47,12 @@ describe('Phase 1 RAG scope and schema', () => {
     expect(output.source_id).toBe('LOT-001');
     expect(output.acl_tags).toEqual(PHASE1_ACL_RULES.inventory_lots);
     expect(output.content).toContain('Lot ID: LOT-001');
+    expect(output.content).toContain('Expiration Date: 2026-05-20T00:00:00.000Z');
+    expect(output.content).toContain('Han dung (het han): 2026-05-20T00:00:00.000Z');
+    expect(output.metadata).toMatchObject({
+      expiration_date: '2026-05-20T00:00:00.000Z',
+      in_use_expiration_date: '2026-05-10T00:00:00.000Z',
+    });
     expect(output.embedding).toBeNull();
   });
 
