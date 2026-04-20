@@ -114,11 +114,15 @@ describe('findAll', () => {
 
 describe('findAllWithPagination', () => {
   it('throws BadRequestException when page < 1', async () => {
-    await expect(service.findAllWithPagination(0, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.findAllWithPagination(0, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws BadRequestException when limit < 1', async () => {
-    await expect(service.findAllWithPagination(1, 0)).rejects.toThrow(BadRequestException);
+    await expect(service.findAllWithPagination(1, 0)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('caps limit at 100', async () => {
@@ -149,7 +153,9 @@ describe('findById', () => {
   it('throws NotFoundException when material does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.findById('non-existent')).rejects.toThrow(NotFoundException);
+    await expect(service.findById('non-existent')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -166,15 +172,21 @@ describe('search', () => {
   });
 
   it('throws BadRequestException when query is empty', async () => {
-    await expect(service.search('', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.search('', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws BadRequestException when query is only whitespace', async () => {
-    await expect(service.search('   ', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.search('   ', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws BadRequestException when query is shorter than 2 chars', async () => {
-    await expect(service.search('A', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.search('A', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('trims whitespace from query before calling repo', async () => {
@@ -198,11 +210,21 @@ describe('filterByType', () => {
   });
 
   it('throws BadRequestException for invalid material type', async () => {
-    await expect(service.filterByType('InvalidType', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.filterByType('InvalidType', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('accepts all valid material types', async () => {
-    const validTypes = ['API', 'Excipient', 'Dietary Supplement', 'Container', 'Closure', 'Process Chemical', 'Testing Material'];
+    const validTypes = [
+      'API',
+      'Excipient',
+      'Dietary Supplement',
+      'Container',
+      'Closure',
+      'Process Chemical',
+      'Testing Material',
+    ];
     repo.filterByType.mockResolvedValue({ data: [], total: 0 });
 
     for (const type of validTypes) {
@@ -219,7 +241,9 @@ describe('update', () => {
     repo.findById.mockResolvedValue(sampleMaterial);
     repo.update.mockResolvedValue(updated);
 
-    const result = await service.update('507f1f77bcf86cd799439011', { material_name: 'Updated Name' });
+    const result = await service.update('507f1f77bcf86cd799439011', {
+      material_name: 'Updated Name',
+    });
 
     expect(result.material_name).toBe('Updated Name');
   });
@@ -227,7 +251,9 @@ describe('update', () => {
   it('throws NotFoundException when material does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.update('non-existent', { material_name: 'X' })).rejects.toThrow(NotFoundException);
+    await expect(
+      service.update('non-existent', { material_name: 'X' }),
+    ).rejects.toThrow(NotFoundException);
     expect(repo.update).not.toHaveBeenCalled();
   });
 });
@@ -237,7 +263,7 @@ describe('update', () => {
 describe('delete', () => {
   it('deletes existing material and returns message', async () => {
     repo.findById.mockResolvedValue(sampleMaterial);
-    repo.delete.mockResolvedValue(undefined);
+    repo.delete.mockResolvedValue(null);
 
     const result = await service.delete('507f1f77bcf86cd799439011');
 
@@ -248,7 +274,9 @@ describe('delete', () => {
   it('throws NotFoundException when material does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.delete('non-existent')).rejects.toThrow(NotFoundException);
+    await expect(service.delete('non-existent')).rejects.toThrow(
+      NotFoundException,
+    );
     expect(repo.delete).not.toHaveBeenCalled();
   });
 });
@@ -258,7 +286,7 @@ describe('delete', () => {
 describe('remove', () => {
   it('returns { deleted: true } on success', async () => {
     repo.findById.mockResolvedValue(sampleMaterial);
-    repo.delete.mockResolvedValue(undefined);
+    repo.delete.mockResolvedValue(null);
 
     const result = await service.remove('507f1f77bcf86cd799439011');
 

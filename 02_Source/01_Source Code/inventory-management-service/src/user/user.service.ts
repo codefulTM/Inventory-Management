@@ -55,9 +55,13 @@ export class UserService {
    * Tạo user mới: đăng ký vào Keycloak + lưu vào MongoDB.
    * Dùng bởi Manager/IT Admin tạo user cho người khác.
    */
-  async createUser(dto: CreateUserDto, actor?: string, ctx: LogContext = {}): Promise<UserResponseDto> {
+  async createUser(
+    dto: CreateUserDto,
+    actor?: string,
+    ctx: LogContext = {},
+  ): Promise<UserResponseDto> {
     this.logger.debug(`[createUser] Called with actor='${actor}'`);
-    
+
     // Validate unique
     const [byUsername, byEmail] = await Promise.all([
       this.repository.findByUsername(dto.username),
@@ -80,7 +84,10 @@ export class UserService {
         role,
       });
     } catch (err) {
-      this.logger.warn(`Keycloak unavailable, creating user in MongoDB only: ${err.message}`);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Keycloak unavailable, creating user in MongoDB only: ${errMsg}`,
+      );
     }
 
     // Lưu vào MongoDB (không lưu plain password)
@@ -92,13 +99,25 @@ export class UserService {
       is_active: true,
     });
 
-    this.logger.log(`User created: ${dto.username} | role: ${role} | kc: ${keycloakId}`);
+    this.logger.log(
+      `User created: ${dto.username} | role: ${role} | kc: ${keycloakId}`,
+    );
     const auditActor = actor ?? 'system';
-    this.logger.debug(`[createUser] About to log audit with actor='${auditActor}'`);
-    await this.auditLogService.log(auditActor, AuditAction.USER_CREATED, ctx, { target: dto.username, role });
+    this.logger.debug(
+      `[createUser] About to log audit with actor='${auditActor}'`,
+    );
+    await this.auditLogService.log(auditActor, AuditAction.USER_CREATED, ctx, {
+      target: dto.username,
+      role,
+    });
 
     // Gửi email thông báo tài khoản tạm thời
-    await this.mailService.sendNewAccountEmail(dto.email, dto.username, role, tempPassword);
+    await this.mailService.sendNewAccountEmail(
+      dto.email,
+      dto.username,
+      role,
+      tempPassword,
+    );
     return this.toResponse(user);
   }
 
@@ -203,9 +222,14 @@ export class UserService {
 
   // ─── Update ────────────────────────────────────────────────────────────────
 
-  async update(user_id: string, dto: UpdateUserDto, actor?: string, ctx: LogContext = {}): Promise<UserResponseDto> {
+  async update(
+    user_id: string,
+    dto: UpdateUserDto,
+    actor?: string,
+    ctx: LogContext = {},
+  ): Promise<UserResponseDto> {
     this.logger.debug(`[update] Called with actor='${actor}'`);
-    
+
     const existing = await this.repository.findById(user_id);
     if (!existing)
       throw new NotFoundException(`User '${user_id}' không tồn tại`);
@@ -214,7 +238,9 @@ export class UserService {
     if (dto.username && dto.username !== existing.username) {
       const byUsername = await this.repository.findByUsername(dto.username);
       if (byUsername)
-        throw new ConflictException(`Username '${dto.username}' đã được sử dụng`);
+        throw new ConflictException(
+          `Username '${dto.username}' đã được sử dụng`,
+        );
     }
 
     // Kiểm tra email mới có trùng không
@@ -239,7 +265,10 @@ export class UserService {
     this.logger.log(`User updated: ${user_id}`);
     const auditActor = actor ?? 'system';
     this.logger.debug(`[update] About to log audit with actor='${auditActor}'`);
-    await this.auditLogService.log(auditActor, AuditAction.USER_UPDATED, ctx, { target: existing.username, changes: dto });
+    await this.auditLogService.log(auditActor, AuditAction.USER_UPDATED, ctx, {
+      target: existing.username,
+      changes: dto,
+    });
     return this.toResponse(updated);
   }
 
@@ -254,8 +283,10 @@ export class UserService {
     actor?: string,
     ctx: LogContext = {},
   ): Promise<UserResponseDto> {
-    this.logger.debug(`[setActiveStatus] Called with actor='${actor}', is_active=${is_active}`);
-    
+    this.logger.debug(
+      `[setActiveStatus] Called with actor='${actor}', is_active=${is_active}`,
+    );
+
     const user = await this.repository.findById(user_id);
     if (!user) throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
@@ -277,11 +308,17 @@ export class UserService {
     if (!updated)
       throw new NotFoundException(`User '${user_id}' không tồn tại`);
 
-    const action = is_active ? 'activated' : `deactivated (${lockDto?.lock_type})`;
+    const action = is_active
+      ? 'activated'
+      : `deactivated (${lockDto?.lock_type})`;
     this.logger.log(`User ${action}: ${user.username} (${user_id})`);
-    const auditAction = is_active ? AuditAction.USER_UNLOCKED : AuditAction.USER_LOCKED;
+    const auditAction = is_active
+      ? AuditAction.USER_UNLOCKED
+      : AuditAction.USER_LOCKED;
     const auditActor = actor ?? 'system';
-    this.logger.debug(`[setActiveStatus] About to log audit with actor='${auditActor}'`);
+    this.logger.debug(
+      `[setActiveStatus] About to log audit with actor='${auditActor}'`,
+    );
     await this.auditLogService.log(auditActor, auditAction, ctx, {
       target: user.username,
       lock_type: lockDto?.lock_type,

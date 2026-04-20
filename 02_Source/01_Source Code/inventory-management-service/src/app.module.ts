@@ -50,7 +50,6 @@ import { DashboardModule } from './dashboard/dashboard.module';
     LogModule,
     BarcodeModule,
     MetricsModule,
-    ReportsModule,
     DashboardModule,
     AuditLogModule,
     AiDataGrpcModule,

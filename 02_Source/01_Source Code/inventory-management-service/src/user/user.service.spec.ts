@@ -88,23 +88,39 @@ describe('createUser', () => {
   beforeEach(() => {
     repo.findByUsername.mockResolvedValue(null);
     repo.findByEmail.mockResolvedValue(null);
-    repo.create.mockResolvedValue({ ...sampleUser, username: 'newuser', email: 'newuser@example.com' });
+    repo.create.mockResolvedValue({
+      ...sampleUser,
+      username: 'newuser',
+      email: 'newuser@example.com',
+    });
   });
 
   it('creates user in Keycloak and MongoDB, sends welcome email', async () => {
     const result = await service.createUser(dto, 'admin');
 
     expect(keycloakService.createUser).toHaveBeenCalledWith(
-      expect.objectContaining({ username: 'newuser', email: 'newuser@example.com' }),
+      expect.objectContaining({
+        username: 'newuser',
+        email: 'newuser@example.com',
+      }),
     );
     expect(repo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ username: 'newuser', keycloak_id: 'kc-uuid-new' }),
+      expect.objectContaining({
+        username: 'newuser',
+        keycloak_id: 'kc-uuid-new',
+      }),
     );
     expect(mailService.sendNewAccountEmail).toHaveBeenCalledWith(
-      'newuser@example.com', 'newuser', UserRole.OPERATOR, 'Temp@12345',
+      'newuser@example.com',
+      'newuser',
+      UserRole.OPERATOR,
+      'Temp@12345',
     );
     expect(auditLogService.log).toHaveBeenCalledWith(
-      'admin', expect.anything(), expect.anything(), expect.objectContaining({ target: 'newuser' }),
+      'admin',
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ target: 'newuser' }),
     );
     expect(result.username).toBe('newuser');
   });
@@ -124,7 +140,9 @@ describe('createUser', () => {
   });
 
   it('still creates user in MongoDB when Keycloak is unavailable', async () => {
-    keycloakService.createUser.mockRejectedValue(new Error('Keycloak unreachable'));
+    keycloakService.createUser.mockRejectedValue(
+      new Error('Keycloak unreachable'),
+    );
 
     const result = await service.createUser(dto);
 
@@ -185,7 +203,9 @@ describe('findById', () => {
   it('throws NotFoundException when user does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.findById('non-existent')).rejects.toThrow(NotFoundException);
+    await expect(service.findById('non-existent')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -201,7 +221,9 @@ describe('findByRole', () => {
   });
 
   it('throws BadRequestException for invalid role', async () => {
-    await expect(service.findByRole('InvalidRole')).rejects.toThrow(BadRequestException);
+    await expect(service.findByRole('InvalidRole')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });
 
@@ -236,14 +258,21 @@ describe('update', () => {
     repo.findByEmail.mockResolvedValue(null);
     repo.update.mockResolvedValue(updated);
 
-    const result = await service.update('user-uuid-001', { email: 'new@example.com' }, 'admin');
+    const result = await service.update(
+      'user-uuid-001',
+      { email: 'new@example.com' },
+      'admin',
+    );
 
     expect(keycloakService.updateUser).toHaveBeenCalledWith(
       'kc-uuid-001',
       expect.objectContaining({ email: 'new@example.com' }),
     );
     expect(auditLogService.log).toHaveBeenCalledWith(
-      'admin', expect.anything(), expect.anything(), expect.anything(),
+      'admin',
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
     );
     expect(result.email).toBe('new@example.com');
   });
@@ -251,22 +280,34 @@ describe('update', () => {
   it('throws NotFoundException when user does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.update('non-existent', { email: 'x@x.com' })).rejects.toThrow(NotFoundException);
+    await expect(
+      service.update('non-existent', { email: 'x@x.com' }),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('throws ConflictException when new username is taken', async () => {
     repo.findById.mockResolvedValue(sampleUser);
-    repo.findByUsername.mockResolvedValue({ ...sampleUser, user_id: 'other-user' });
+    repo.findByUsername.mockResolvedValue({
+      ...sampleUser,
+      user_id: 'other-user',
+    });
 
-    await expect(service.update('user-uuid-001', { username: 'taken' })).rejects.toThrow(ConflictException);
+    await expect(
+      service.update('user-uuid-001', { username: 'taken' }),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('throws ConflictException when new email is taken', async () => {
     repo.findById.mockResolvedValue(sampleUser);
     repo.findByUsername.mockResolvedValue(null);
-    repo.findByEmail.mockResolvedValue({ ...sampleUser, user_id: 'other-user' });
+    repo.findByEmail.mockResolvedValue({
+      ...sampleUser,
+      user_id: 'other-user',
+    });
 
-    await expect(service.update('user-uuid-001', { email: 'taken@x.com' })).rejects.toThrow(ConflictException);
+    await expect(
+      service.update('user-uuid-001', { email: 'taken@x.com' }),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('skips Keycloak update when user has no keycloak_id', async () => {
@@ -291,9 +332,17 @@ describe('setActiveStatus', () => {
     repo.findById.mockResolvedValue(sampleUser);
     repo.update.mockResolvedValue(lockedUser);
 
-    const result = await service.setActiveStatus('user-uuid-001', false, lockDto as any, 'admin');
+    const result = await service.setActiveStatus(
+      'user-uuid-001',
+      false,
+      lockDto as any,
+      'admin',
+    );
 
-    expect(keycloakService.setUserEnabled).toHaveBeenCalledWith('kc-uuid-001', false);
+    expect(keycloakService.setUserEnabled).toHaveBeenCalledWith(
+      'kc-uuid-001',
+      false,
+    );
     expect(repo.update).toHaveBeenCalledWith(
       'user-uuid-001',
       expect.objectContaining({ is_active: false, lock_reason: 'Violation' }),
@@ -302,16 +351,33 @@ describe('setActiveStatus', () => {
   });
 
   it('unlocks user: enables in Keycloak and clears lock fields', async () => {
-    const lockedUser = { ...sampleUser, is_active: false, lock_type: 'manual', lock_reason: 'old reason' };
+    const lockedUser = {
+      ...sampleUser,
+      is_active: false,
+      lock_type: 'manual',
+      lock_reason: 'old reason',
+    };
     repo.findById.mockResolvedValue(lockedUser);
     repo.update.mockResolvedValue({ ...sampleUser, is_active: true });
 
-    const result = await service.setActiveStatus('user-uuid-001', true, undefined, 'admin');
+    const result = await service.setActiveStatus(
+      'user-uuid-001',
+      true,
+      undefined,
+      'admin',
+    );
 
-    expect(keycloakService.setUserEnabled).toHaveBeenCalledWith('kc-uuid-001', true);
+    expect(keycloakService.setUserEnabled).toHaveBeenCalledWith(
+      'kc-uuid-001',
+      true,
+    );
     expect(repo.update).toHaveBeenCalledWith(
       'user-uuid-001',
-      expect.objectContaining({ is_active: true, lock_type: undefined, lock_reason: undefined }),
+      expect.objectContaining({
+        is_active: true,
+        lock_type: undefined,
+        lock_reason: undefined,
+      }),
     );
     expect(result.is_active).toBe(true);
   });
@@ -319,7 +385,9 @@ describe('setActiveStatus', () => {
   it('throws NotFoundException when user does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.setActiveStatus('non-existent', false)).rejects.toThrow(NotFoundException);
+    await expect(
+      service.setActiveStatus('non-existent', false),
+    ).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -329,22 +397,31 @@ describe('changePassword', () => {
   it('resets password in Keycloak', async () => {
     repo.findById.mockResolvedValue(sampleUser);
 
-    const result = await service.changePassword('user-uuid-001', { new_password: 'NewPass@123' } as any);
+    const result = await service.changePassword('user-uuid-001', {
+      new_password: 'NewPass@123',
+    } as any);
 
-    expect(keycloakService.resetPassword).toHaveBeenCalledWith('kc-uuid-001', 'NewPass@123');
+    expect(keycloakService.resetPassword).toHaveBeenCalledWith(
+      'kc-uuid-001',
+      'NewPass@123',
+    );
     expect(result.message).toContain('thành công');
   });
 
   it('throws NotFoundException when user does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.changePassword('non-existent', { new_password: 'x' } as any)).rejects.toThrow(NotFoundException);
+    await expect(
+      service.changePassword('non-existent', { new_password: 'x' } as any),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('throws BadRequestException when user has no keycloak_id', async () => {
     repo.findById.mockResolvedValue({ ...sampleUser, keycloak_id: undefined });
 
-    await expect(service.changePassword('user-uuid-001', { new_password: 'x' } as any)).rejects.toThrow(BadRequestException);
+    await expect(
+      service.changePassword('user-uuid-001', { new_password: 'x' } as any),
+    ).rejects.toThrow(BadRequestException);
   });
 });
 
@@ -353,7 +430,7 @@ describe('changePassword', () => {
 describe('delete', () => {
   it('deletes from Keycloak then MongoDB', async () => {
     repo.findById.mockResolvedValue(sampleUser);
-    repo.delete.mockResolvedValue(undefined);
+    repo.delete.mockResolvedValue(true);
 
     const result = await service.delete('user-uuid-001');
 
@@ -364,7 +441,7 @@ describe('delete', () => {
 
   it('skips Keycloak deletion when user has no keycloak_id', async () => {
     repo.findById.mockResolvedValue({ ...sampleUser, keycloak_id: undefined });
-    repo.delete.mockResolvedValue(undefined);
+    repo.delete.mockResolvedValue(true);
 
     await service.delete('user-uuid-001');
 
@@ -375,7 +452,9 @@ describe('delete', () => {
   it('throws NotFoundException when user does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.delete('non-existent')).rejects.toThrow(NotFoundException);
+    await expect(service.delete('non-existent')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
 
