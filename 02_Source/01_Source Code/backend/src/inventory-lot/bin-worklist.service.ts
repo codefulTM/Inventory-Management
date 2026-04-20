@@ -144,23 +144,41 @@ export class BinWorklistService {
       this.storageLocationModel.countDocuments(query).exec(),
     ]);
 
-    // compute inventory-lot counts and last bin-count post date per bin
-    const locationIds = (docs || [])
-      .map((d: any) => d.location_id)
-      .filter(Boolean);
-    let lotCountMap = new Map<string, number>();
+    // compute inventory-lot arrays and last bin-count post date per bin
+    const locationIds = (docs || []).map((d: any) => d.location_id).filter(Boolean);
+    let lotsMap = new Map<string, any[]>();
     let lastCountMap = new Map<string, any>();
 
     if (locationIds.length > 0) {
       try {
-        const lotCounts = await this.inventoryLotRepo.aggregate([
+        // group lots by storage_location and push basic summary fields
+        const lotsByLocation = await this.inventoryLotRepo.aggregate([
           { $match: { storage_location: { $in: locationIds } } },
-          { $group: { _id: '$storage_location', lots_count: { $sum: 1 } } },
+          {
+            $project: {
+              storage_location: 1,
+              lot_id: 1,
+              material_id: 1,
+              quantity: 1,
+            },
+          },
+          {
+            $group: {
+              _id: '$storage_location',
+              lots: {
+                $push: {
+                  lot_id: '$lot_id',
+                  material_id: '$material_id',
+                  qty: '$quantity',
+                },
+              },
+            },
+          },
         ]);
-        lotCountMap = new Map(
-          (lotCounts || []).map((r: any) => [r._id, r.lots_count || 0]),
-        );
-      } catch (err) {}
+        lotsMap = new Map((lotsByLocation || []).map((r: any) => [r._id, r.lots || []]));
+      } catch (_) {
+        // ignore aggregation errors and leave empty arrays
+      }
 
       try {
         // fetch latest count per bin by requesting the most recent record for each bin
@@ -180,11 +198,12 @@ export class BinWorklistService {
         // ignore errors and leave last dates as null
       }
     }
+
     const data = (docs || []).map((d: any) => ({
       bin_code: d.location_id,
       expected_qty: d.expected_qty ?? undefined,
-      // number of inventory lot documents in this bin
-      lots: lotCountMap.get(d.location_id) ?? 0,
+      // array of lot summaries (lot_id, material_id, qty)
+      lots: lotsMap.get(d.location_id) ?? [],
       // use the last posted bin count date, or null if none
       last_count_date: lastCountMap.get(d.location_id) ?? null,
     }));
