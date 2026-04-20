@@ -154,7 +154,7 @@ Nếu bạn gặp lỗi thiếu biến môi trường cho service khi chạy tro
 
 ## 8. Video hướng dẫn cài đặt và chạy hệ thống
 
-- Xem video hướng dẫn chi tiết quá trình: [https://www.youtube.com/watch?v=example](https://www.youtube.com/watch?v=example) (thay bằng link thực tế)
+- Xem video hướng dẫn chi tiết quá trình: [Link](https://www.youtube.com/@DTechnophiles).
 
 ## 9. Truy cập Hệ thống Source Control (GitHub)
 
