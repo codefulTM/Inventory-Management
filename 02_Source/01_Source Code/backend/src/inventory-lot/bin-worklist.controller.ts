@@ -24,12 +24,23 @@ export class BinWorklistController {
   async getWorklist(@Query() query: BinWorklistQueryDto) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 50;
-    return await this.service.getWorklist(query.warehouse_id, page, limit);
+    return await this.service.getWorklist(query.warehouse_id, page, limit, query.q);
   }
 
   @Get(':bin_code')
   async getBinDetails(@Param('bin_code') bin_code: string) {
     return await this.service.getBinDetails(bin_code);
+  }
+
+  @Get(':bin_code/counts')
+  async getBinCounts(
+    @Param('bin_code') bin_code: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const p = Number(page) || 1;
+    const l = Number(limit) || 20;
+    return await this.service.getBinCounts(bin_code, p, l);
   }
 
   @Post(':bin_code/counts')

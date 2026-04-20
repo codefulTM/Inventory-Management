@@ -115,6 +115,8 @@ export class MailService {
     binCode: string,
     deltaPct: number,
     recordId?: string,
+    countedTotal?: number,
+    expectedTotal?: number,
   ): Promise<void> {
     const frontend = this.configService.get<string>('FRONTEND_URL');
     const detailsUrl = frontend
@@ -134,6 +136,8 @@ export class MailService {
             <div style="padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0;">
               <p>Bin <strong>${binCode}</strong> has been flagged for review.</p>
               <p><strong>Discrepancy:</strong> ${deltaPct}%</p>
+              ${typeof expectedTotal !== 'undefined' ? `<p><strong>Expected total:</strong> ${expectedTotal}</p>` : ''}
+              ${typeof countedTotal !== 'undefined' ? `<p><strong>Counted total:</strong> ${countedTotal}</p>` : ''}
               ${recordId ? `<p>Record ID: <code>${recordId}</code></p>` : ''}
               ${detailsUrl ? `<p><a href="${detailsUrl}" style="display:inline-block;margin-top:12px;padding:10px 14px;background:#2563eb;color:white;border-radius:6px;text-decoration:none">Open bin details</a></p>` : ''}
               <p style="color:#64748b;font-size:13px;margin-top:12px">Please review the bin count and take necessary actions.</p>

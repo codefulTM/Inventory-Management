@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { InventoryLotRepository } from './inventory-lot.repository';
 import { BinCountRecordRepository } from './bin-count-record.repository';
+import { MaterialRepository } from '../material/material.repository';
 import type { SubmitBinCountDto } from './dto/bin-worklist.dto';
 import { WarehouseSlipService } from '../warehouse-slip/warehouse-slip.service';
 import {
@@ -23,6 +24,7 @@ export class BinWorklistService {
   constructor(
     private readonly inventoryLotRepo: InventoryLotRepository,
     private readonly binCountRepo: BinCountRecordRepository,
+    private readonly materialRepo: MaterialRepository,
     private readonly warehouseSlipService: WarehouseSlipService,
     private readonly auditLogService: AuditLogService,
     private readonly mailService: MailService,
@@ -95,10 +97,19 @@ export class BinWorklistService {
     return { success: !!deleted };
   }
 
-  async getWorklist(warehouse_id?: string, page = 1, limit = 50) {
+  async getWorklist(warehouse_id?: string, page = 1, limit = 50, q?: string) {
     // Return bins from storage_locations collection (show storage locations even if no inventory lots)
     const query: any = { is_active: true };
     if (warehouse_id) query.warehouse_id = warehouse_id;
+
+    if (q && String(q).trim().length > 0) {
+      const term = String(q).trim();
+      // search by location_id or location_name (case-insensitive substring)
+      query.$or = [
+        { location_id: { $regex: term, $options: 'i' } },
+        { location_name: { $regex: term, $options: 'i' } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
 
@@ -212,7 +223,7 @@ export class BinWorklistService {
       );
     } catch (_) {}
 
-    // notify manager when flagged
+    // notify manager when flagged (include totals)
     if (flag_review) {
       const managerEmail = this.configService.get<string>('MANAGER_EMAIL');
       if (managerEmail) {
@@ -222,6 +233,8 @@ export class BinWorklistService {
             bin_code,
             Math.round(deltaPct * 100) / 100,
             String(record._id),
+            countedTotal,
+            expectedTotal,
           );
         } catch (_) {}
       }
@@ -280,5 +293,56 @@ export class BinWorklistService {
       record_id: record._id,
       delta_pct: Math.round(deltaPct * 100) / 100,
     };
+  }
+
+  async getBinCounts(bin_code: string, page = 1, limit = 20) {
+    if (!bin_code) throw new BadRequestException('bin_code required');
+    const { data, total } = await this.binCountRepo.findByBin(bin_code, page, limit);
+
+    // collect material_ids and lot_ids to enrich entries
+    const materialIds = new Set<string>();
+    const lotIds = new Set<string>();
+    for (const r of data || []) {
+      for (const e of r.entries || []) {
+        if (e.material_id) materialIds.add(e.material_id);
+        if (e.lot_id) lotIds.add(e.lot_id);
+      }
+    }
+
+    const [materials, lotsInfo] = await Promise.all([
+      this.materialRepo.findByMaterialIds(Array.from(materialIds)),
+      this.inventoryLotRepo.findByLotIds(Array.from(lotIds)),
+    ]);
+
+    const materialMap = new Map((materials || []).map((m: any) => [m.material_id, m]));
+    const lotMap = new Map((lotsInfo || []).map((l: any) => [l.lot_id, l]));
+
+    const transformed = (data || []).map((r: any) => {
+      const expectedTotal = (r.entries || []).reduce((s: number, e: any) => s + Number(e.expected_qty || 0), 0);
+      const countedTotal = (r.entries || []).reduce((s: number, e: any) => s + Number(e.counted_qty || 0), 0);
+      const deltaPct = expectedTotal === 0 ? 100 : (Math.abs(countedTotal - expectedTotal) / expectedTotal) * 100;
+      return {
+        _id: r._id,
+        bin_code: r.bin_code,
+        counted_by: r.counted_by,
+        counted_at: r.counted_at,
+        expected_total: expectedTotal,
+        counted_total: countedTotal,
+        delta_pct: Math.round(deltaPct * 100) / 100,
+        flag_review: !!r.flag_review,
+        notes: r.notes,
+        entries: (r.entries || []).map((e: any) => ({
+          lot_id: e.lot_id,
+          material_id: e.material_id,
+          material_name: materialMap.get(e.material_id)?.material_name ?? null,
+          expected_qty: e.expected_qty,
+          counted_qty: e.counted_qty,
+          notes: e.notes,
+          unit_of_measure: lotMap.get(e.lot_id)?.unit_of_measure ?? null,
+        })),
+      };
+    });
+
+    return { data: transformed, total: total || 0, page, limit };
   }
 }

@@ -8,6 +8,7 @@ export default function BinWorklist() {
   const [items, setItems] = useState<BinWorklistItem[]>([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
+  const [searchTerm, setSearchTerm] = useState('');
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selectedBin, setSelectedBin] = useState<string | null>(null);
@@ -16,12 +17,18 @@ export default function BinWorklist() {
     type: "success" | "error";
   } | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingBin, setEditingBin] = useState<{ bin_code: string; expected_qty?: number } | null>(null);
+  const [editingBin, setEditingBin] = useState<{
+    bin_code: string;
+    expected_qty?: number;
+  } | null>(null);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+
+  const listStart = total === 0 ? 0 : (page - 1) * limit + 1;
+  const listEnd = total === 0 ? 0 : Math.min(page * limit, total);
 
   async function load() {
     setLoading(true);
@@ -29,6 +36,7 @@ export default function BinWorklist() {
       const { items: data, total: t } = await BinAPI.getWorklist({
         page,
         limit,
+        q: searchTerm,
       });
       setItems(data || []);
       setTotal(t || 0);
@@ -37,18 +45,26 @@ export default function BinWorklist() {
     }
   }
 
-  async function handleCreate(payload: { bin_code: string; expected_qty?: number }) {
+  async function handleCreate(payload: {
+    bin_code: string;
+    expected_qty?: number;
+  }) {
     const { result, error } = await BinAPI.createBin(payload);
-    if (error) return setToast({ message: 'Tạo vị trí kệ thất bại.', type: 'error' });
-    setToast({ message: 'Tạo vị trí kệ thành công.', type: 'success' });
+    if (error)
+      return setToast({ message: "Tạo vị trí kệ thất bại.", type: "error" });
+    setToast({ message: "Tạo vị trí kệ thành công.", type: "success" });
     setEditModalOpen(false);
     load();
   }
 
-  async function handleUpdate(bin_code: string, payload: { expected_qty?: number }) {
+  async function handleUpdate(
+    bin_code: string,
+    payload: { expected_qty?: number },
+  ) {
     const { result, error } = await BinAPI.updateBin(bin_code, payload);
-    if (error) return setToast({ message: 'Cập nhật thất bại.', type: 'error' });
-    setToast({ message: 'Cập nhật thành công.', type: 'success' });
+    if (error)
+      return setToast({ message: "Cập nhật thất bại.", type: "error" });
+    setToast({ message: "Cập nhật thành công.", type: "success" });
     setEditingBin(null);
     setEditModalOpen(false);
     load();
@@ -57,19 +73,39 @@ export default function BinWorklist() {
   async function handleDelete(bin_code: string) {
     if (!confirm(`Xác nhận xóa vị trí kệ ${bin_code}?`)) return;
     const { result, error } = await BinAPI.deleteBin(bin_code);
-    if (error) return setToast({ message: 'Xóa thất bại.', type: 'error' });
-    setToast({ message: 'Xóa thành công.', type: 'success' });
+    if (error) return setToast({ message: "Xóa thất bại.", type: "error" });
+    setToast({ message: "Xóa thành công.", type: "success" });
     load();
   }
 
   return (
     <div className="p-6">
       <header className="mb-4">
-        <h2 className="text-2xl font-bold">Worklist kiểm kê theo vị trí kệ</h2>
+        <h2 className="text-2xl font-bold">Kiểm kê kệ</h2>
       </header>
 
       <div className="flex items-center justify-between mb-3">
-        <div />
+        <div className="flex items-center gap-2">
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Tìm mã vị trí kệ hoặc tên..."
+            className="rounded border px-2 py-1"
+          />
+          <button
+            onClick={() => {
+              // trigger search: reset to first page and reload
+              if (page === 1) {
+                void load();
+              } else {
+                setPage(1);
+              }
+            }}
+            className="rounded bg-gray-200 px-3 py-1 text-sm"
+          >
+            Tìm
+          </button>
+        </div>
         <div>
           <button
             onClick={() => {
@@ -98,7 +134,7 @@ export default function BinWorklist() {
             {items.map((it) => (
               <tr key={it.bin_code} className="border-t">
                 <td className="px-4 py-3">{it.bin_code}</td>
-                <td className="px-4 py-3">{it.expected_qty ?? '-'}</td>
+                <td className="px-4 py-3">{it.expected_qty ?? "-"}</td>
                 <td className="px-4 py-3">{it.lots?.length ?? 0}</td>
                 <td className="px-4 py-3">{it.last_count_date ?? "-"}</td>
                 <td className="px-4 py-3">
@@ -111,19 +147,17 @@ export default function BinWorklist() {
                     </button>
                     <button
                       onClick={() => {
-                        setEditingBin({ bin_code: it.bin_code, expected_qty: it.expected_qty });
+                        setEditingBin({
+                          bin_code: it.bin_code,
+                          expected_qty: it.expected_qty,
+                        });
                         setEditModalOpen(true);
                       }}
                       className="rounded bg-yellow-500 px-3 py-1 text-white"
                     >
                       Sửa
                     </button>
-                    <button
-                      onClick={() => handleDelete(it.bin_code)}
-                      className="rounded bg-red-600 px-3 py-1 text-white"
-                    >
-                      Xóa
-                    </button>
+                    {/* Delete disabled temporarily */}
                   </div>
                 </td>
               </tr>
@@ -134,8 +168,13 @@ export default function BinWorklist() {
 
       <div className="mt-4 flex items-center justify-between text-sm">
         <div>
-          Showing {(page - 1) * limit + 1} - {Math.min(page * limit, total)} of{" "}
-          {total}
+          {total === 0 ? (
+            <span>Showing 0 of 0</span>
+          ) : (
+            <span>
+              Showing {listStart} - {listEnd} of {total}
+            </span>
+          )}
         </div>
         <div className="space-x-2">
           <button
@@ -177,7 +216,9 @@ export default function BinWorklist() {
         }}
         onSave={async (payload) => {
           if (editingBin) {
-            await handleUpdate(editingBin.bin_code, { expected_qty: payload.expected_qty });
+            await handleUpdate(editingBin.bin_code, {
+              expected_qty: payload.expected_qty,
+            });
           } else {
             await handleCreate(payload);
           }

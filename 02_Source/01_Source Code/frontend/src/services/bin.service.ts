@@ -12,6 +12,7 @@ export class BinAPI {
     warehouse_id?: string;
     page?: number;
     limit?: number;
+    q?: string;
   }) {
     const { data, error } = await apiClient.get<{
       data: BinWorklistItem[];
@@ -51,6 +52,12 @@ export class BinAPI {
     );
     if (error) return { result: null, error };
     return { result: data, error: null };
+  }
+
+  static async fetchCounts(bin_code: string, params?: { page?: number; limit?: number }) {
+    const { data, error } = await apiClient.get(`/bins/${encodeURIComponent(bin_code)}/counts`, { params });
+    if (error) return { items: [], total: 0, page: params?.page ?? 1, limit: params?.limit ?? 20, error };
+    return { items: data.data || [], total: data.total || 0, page: data.page || 1, limit: data.limit || 20, error: null };
   }
 
   static async createBin(payload: { bin_code: string; expected_qty?: number }) {

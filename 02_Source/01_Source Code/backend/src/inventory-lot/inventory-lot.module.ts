@@ -22,6 +22,7 @@ import { InventoryTransactionModule } from '../inventory-transaction/inventory-t
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { WarehouseSlipModule } from '../warehouse-slip/warehouse-slip.module';
 import { MailModule } from '../mail/mail.module';
+import { MaterialModule } from '../material/material.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { MailModule } from '../mail/mail.module';
     InventoryTransactionModule,
     AuditLogModule,
     forwardRef(() => WarehouseSlipModule),
+    MaterialModule,
     MailModule,
   ],
   controllers: [InventoryLotController, BinWorklistController],

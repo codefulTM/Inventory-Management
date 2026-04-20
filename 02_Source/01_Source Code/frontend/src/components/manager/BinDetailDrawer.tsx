@@ -12,6 +12,11 @@ export default function BinDetailDrawer({
 }) {
   const [lots, setLots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [counts, setCounts] = useState<any[]>([]);
+  const [countsTotal, setCountsTotal] = useState(0);
+  const [countsPage, setCountsPage] = useState(1);
+  const [countsLimit] = useState(5);
+  const [selectedCount, setSelectedCount] = useState<any | null>(null);
   const [entries, setEntries] = useState<
     {
       lot_id?: string;
@@ -38,10 +43,33 @@ export default function BinDetailDrawer({
           counted_qty: l.quantity || 0,
         })),
       );
+      // counts are loaded by separate effect
     } finally {
       setLoading(false);
     }
   }
+
+  async function loadCounts(page: number) {
+    try {
+      const res = await BinAPI.fetchCounts(binCode, { page, limit: countsLimit });
+      if (!res.error) {
+        setCounts(res.items || []);
+        setCountsTotal(res.total || 0);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    // load counts when binCode or page changes
+    if (!binCode) return;
+    void loadCounts(countsPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [binCode, countsPage]);
+
+  const countsStart = countsTotal === 0 ? 0 : (countsPage - 1) * countsLimit + 1;
+  const countsEnd = countsTotal === 0 ? 0 : Math.min(countsPage * countsLimit, countsTotal);
 
   function updateEntry(idx: number, value: Partial<(typeof entries)[0]>) {
     setEntries((prev) =>
@@ -117,6 +145,111 @@ export default function BinDetailDrawer({
           {loading && <div>Loading...</div>}
           {!loading && (
             <div>
+              {/* Counts history */}
+              <div className="mb-4">
+                <h4 className="font-semibold mb-2">
+                  Lịch sử kiểm đếm (gần nhất)
+                </h4>
+                {counts.length === 0 && (
+                  <div className="text-sm text-gray-500">
+                    Chưa có bản ghi kiểm đếm.
+                  </div>
+                )}
+                {counts.length > 0 && (
+                  <table className="w-full table-auto mb-2">
+                    <thead className="text-left text-sm text-gray-600">
+                      <tr>
+                        <th className="px-2 py-1">Ngày</th>
+                        <th className="px-2 py-1">Người</th>
+                        <th className="px-2 py-1">Expected</th>
+                        <th className="px-2 py-1">Counted</th>
+                        <th className="px-2 py-1">Delta%</th>
+                        <th className="px-2 py-1">Flag</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {counts.map((c: any) => (
+                        <tr
+                          key={c._id}
+                          className="border-t cursor-pointer hover:bg-gray-50"
+                          onClick={() => setSelectedCount(c)}
+                        >
+                          <td className="px-2 py-1 text-sm">
+                            {new Date(c.counted_at).toLocaleString()}
+                          </td>
+                          <td className="px-2 py-1 text-sm">{c.counted_by}</td>
+                          <td className="px-2 py-1 text-sm">{c.expected_total}</td>
+                          <td className="px-2 py-1 text-sm">{c.counted_total}</td>
+                          <td className="px-2 py-1 text-sm">{c.delta_pct}</td>
+                          <td className="px-2 py-1 text-sm">{c.flag_review ? "YES" : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {/* counts pagination */}
+                <div className="flex items-center justify-between text-sm">
+                  <div>
+                    {countsTotal === 0 ? (
+                      <span>Showing 0 of 0</span>
+                    ) : (
+                      <span>
+                        Showing {countsStart} - {countsEnd} of {countsTotal}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-x-2">
+                    <button
+                      disabled={countsPage <= 1}
+                      onClick={() => setCountsPage((p) => Math.max(1, p - 1))}
+                      className="px-2 py-1 border rounded"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      disabled={countsPage * countsLimit >= countsTotal}
+                      onClick={() => setCountsPage((p) => p + 1)}
+                      className="px-2 py-1 border rounded"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+                {/* selected count details */}
+                {selectedCount && (
+                  <div className="mt-3 p-2 border rounded bg-gray-50">
+                    <h5 className="font-medium mb-2">Chi tiết bản ghi kiểm đếm</h5>
+                    <div className="text-sm text-gray-600 mb-2">Recorded by: {selectedCount.counted_by} — {new Date(selectedCount.counted_at).toLocaleString()}</div>
+                    <table className="w-full table-auto mb-2">
+                      <thead className="text-left text-sm text-gray-600">
+                        <tr>
+                          <th className="px-2 py-1">Lot</th>
+                          <th className="px-2 py-1">Material</th>
+                          <th className="px-2 py-1">Expected</th>
+                          <th className="px-2 py-1">Counted</th>
+                          <th className="px-2 py-1">Unit</th>
+                          <th className="px-2 py-1">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selectedCount.entries || []).map((e: any, i: number) => (
+                          <tr key={i} className="border-t">
+                            <td className="px-2 py-1 text-sm">{e.lot_id}</td>
+                            <td className="px-2 py-1 text-sm">{e.material_name ?? e.material_id}</td>
+                            <td className="px-2 py-1 text-sm">{e.expected_qty}</td>
+                            <td className="px-2 py-1 text-sm">{e.counted_qty}</td>
+                            <td className="px-2 py-1 text-sm">{e.unit_of_measure ?? '—'}</td>
+                            <td className="px-2 py-1 text-sm">{e.notes ?? ''}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="text-right">
+                      <button onClick={() => setSelectedCount(null)} className="px-3 py-1 border rounded text-sm">Close</button>
+                    </div>
+                  </div>
+                )}
+              </div>
               <table className="w-full table-auto">
                 <thead className="text-left text-sm text-gray-600">
                   <tr>
