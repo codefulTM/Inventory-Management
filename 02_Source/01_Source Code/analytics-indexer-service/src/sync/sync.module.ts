@@ -12,6 +12,7 @@ import { QCTestsSync } from './collections/qc-tests.sync';
 import { MaterialsSync } from './collections/materials.sync';
 import { AuditLogsSync } from './collections/audit-logs.sync';
 import { ImportExportOrdersSync } from './collections/import-export-orders.sync';
+import { MarkdownKnowledgeSync } from './collections/markdown-knowledge.sync';
 import { SyncService } from './sync.service';
 import { SyncScheduler } from './sync.scheduler';
 
@@ -33,6 +34,7 @@ import { SyncScheduler } from './sync.scheduler';
     MaterialsSync,
     AuditLogsSync,
     ImportExportOrdersSync,
+    MarkdownKnowledgeSync,
     SyncService,
     SyncScheduler,
   ],

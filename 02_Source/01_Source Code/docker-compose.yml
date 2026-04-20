@@ -74,6 +74,9 @@ services:
       PORT: 3002
       GRPC_PORT: 50051
       MONGODB_URI: mongodb://mongo:27017/inventory
+      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_REALM: inventory
       KEYCLOAK_CLIENT_ID: inventory-backend
@@ -133,6 +136,9 @@ services:
       PORT: 3001
       GRPC_PORT: 50052
       MONGODB_URI: mongodb://mongo:27017/inventory
+      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_REALM: inventory
       KEYCLOAK_CLIENT_ID: inventory-backend
@@ -163,6 +169,9 @@ services:
       PORT: 3003
       BACKEND_GRPC_URL: inventory-management-service:50052
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_TIMEOUT_MS: ${EMBEDDING_TIMEOUT_MS:-10000}
+      EMBEDDING_VECTOR_DIMS: ${EMBEDDING_VECTOR_DIMS:-384}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GEMINI_ROUTER_MODEL: ${GEMINI_ROUTER_MODEL:-gemini-2.5-flash}
       GEMINI_AGENT_MODEL: ${GEMINI_AGENT_MODEL:-gemini-2.5-flash}
@@ -196,6 +205,16 @@ services:
       SYNC_INTERVAL_CRON: ${SYNC_INTERVAL_CRON:-*/10 * * * *}
       SYNC_BATCH_SIZE: ${SYNC_BATCH_SIZE:-500}
       MONGO_URI: mongodb://mongo:27017/inventory # alias for MONGODB_URI
+      RAG_PHASE2_ENABLED: ${RAG_PHASE2_ENABLED:-true}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2}
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+      EMBEDDING_TIMEOUT_MS: ${EMBEDDING_TIMEOUT_MS:-10000}
+      EMBEDDING_CACHE_TTL_SECONDS: ${EMBEDDING_CACHE_TTL_SECONDS:-86400}
+      EMBEDDING_VECTOR_DIMS: ${EMBEDDING_VECTOR_DIMS:-384}
+      RAG_MARKDOWN_ROOT_DIR: ${RAG_MARKDOWN_ROOT_DIR:-/workspace/01_Documents}
+    volumes:
+      - ../../01_Documents:/workspace/01_Documents:ro
     networks:
       - inventory_net
 

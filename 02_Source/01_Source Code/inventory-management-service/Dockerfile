@@ -19,9 +19,9 @@ COPY inventory-management-service/package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/proto ./proto
+COPY --from=builder /app/proto ./dist/proto
 
 EXPOSE 3001
 EXPOSE 50052
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

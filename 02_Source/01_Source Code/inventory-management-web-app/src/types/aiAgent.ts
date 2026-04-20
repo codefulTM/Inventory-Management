@@ -13,7 +13,54 @@ export interface AssistantLotRow {
   status: string;
 }
 
+export interface RetrievalCitation {
+  citation_id: string;
+  source_collection: string;
+  source_id: string;
+  source_type?: string;
+  score?: number;
+  updated_at?: string;
+  preview?: string;
+}
+
+export interface RetrievalHighlight {
+  source_collection: string;
+  source_id: string;
+  score?: number;
+  rag_text_preview?: string;
+}
+
+export interface RetrievalData {
+  total: number;
+  mode: "semantic" | "hybrid" | string;
+  used_embedding: boolean;
+  disabled_reason?: string;
+  highlights?: RetrievalHighlight[];
+  citations?: RetrievalCitation[];
+}
+
+export interface AgentPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface AgentLotsSummary {
+  total?: number;
+  byStatus?: Record<string, number>;
+  expiringSoon?: number;
+  expired?: number;
+}
+
 export interface AgentResultData {
+  query?: string;
+  query_window_days?: number;
+  insights?: string[];
+  lots?: AgentLotsSummary;
+  pagination?: AgentPagination;
+  retrieval?: RetrievalData;
+  retrieval_citations?: RetrievalCitation[];
   expiringLots?: AssistantLotRow[];
   expiredLots?: AssistantLotRow[];
   [key: string]: unknown;
