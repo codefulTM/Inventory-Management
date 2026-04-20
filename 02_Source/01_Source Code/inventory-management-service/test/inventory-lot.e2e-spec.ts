@@ -49,9 +49,21 @@ describe('InventoryLotController (e2e)', () => {
   });
 
   it('POST /inventory-lots creates a lot', async () => {
+    const payload = {
+      lot_id: 'LOT-1',
+      material_id: 'MAT-1',
+      manufacturer_name: 'ACME',
+      manufacturer_lot: 'MLOT-1',
+      received_date: '2023-01-01',
+      expiration_date: '2024-01-01',
+      status: 'Accepted',
+      quantity: 10,
+      unit_of_measure: 'pcs',
+    };
+
     const res = await request(app.getHttpServer())
       .post('/inventory-lots')
-      .send({ material_id: 'MAT-1', quantity: 10 })
+      .send(payload)
       .expect(201);
     expect(svc.create).toHaveBeenCalled();
     expect(res.body).toHaveProperty('_id', 'lot-1');

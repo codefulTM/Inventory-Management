@@ -52,7 +52,7 @@ describe('BinWorklistController (e2e)', () => {
     await request(app.getHttpServer())
       .get('/bins/worklist?warehouse_id=WH-1&q=abc&page=1&limit=20')
       .expect(200);
-    expect(svc.getWorklist).toHaveBeenCalledWith('WH-1', 1, 50, 'abc');
+    expect(svc.getWorklist).toHaveBeenCalledWith('WH-1', 1, 20, 'abc');
   });
 
   it('GET /bins/:bin_code and counts call service', async () => {
@@ -68,8 +68,11 @@ describe('BinWorklistController (e2e)', () => {
   it('POST /bins/:bin_code/counts submits counts', async () => {
     await request(app.getHttpServer())
       .post('/bins/BIN-01/counts')
-      .send({ counts: [{ material_id: 'MAT-1', quantity: 3 }] })
-      .expect(200);
+      .send({
+        counted_by: 'operator01',
+        entries: [{ material_id: 'MAT-1', counted_qty: 3 }],
+      })
+      .expect(201);
     expect(svc.submitCounts).toHaveBeenCalled();
   });
 

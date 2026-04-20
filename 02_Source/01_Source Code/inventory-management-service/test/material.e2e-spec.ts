@@ -22,20 +22,16 @@ describe('MaterialController (e2e)', () => {
 
   beforeEach(async () => {
     svc = {
-      findAll: jest
-        .fn()
-        .mockResolvedValue({
-          data: [],
-          pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
-        }),
+      findAll: jest.fn().mockResolvedValue({
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      }),
       search: jest.fn().mockResolvedValue({ data: [], total: 0 }),
       getOptions: jest.fn().mockResolvedValue({ items: [], total: 0 }),
-      filterByType: jest
-        .fn()
-        .mockResolvedValue({
-          data: [],
-          pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
-        }),
+      filterByType: jest.fn().mockResolvedValue({
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      }),
       findById: jest
         .fn()
         .mockResolvedValue({ _id: 'mat-1', material_id: 'MAT-1' }),
@@ -73,7 +69,12 @@ describe('MaterialController (e2e)', () => {
   });
 
   it('POST /materials creates a material', async () => {
-    const payload = { material_id: 'MAT-1', material_name: 'Test' };
+    const payload = {
+      material_id: 'MAT-1',
+      part_number: 'PN-1',
+      material_name: 'Test Material',
+      material_type: 'API',
+    };
     const res = await request(app.getHttpServer())
       .post('/materials')
       .send(payload)

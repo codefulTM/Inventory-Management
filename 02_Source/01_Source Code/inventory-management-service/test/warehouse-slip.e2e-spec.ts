@@ -30,21 +30,17 @@ describe('WarehouseSlipController (e2e)', () => {
 
   beforeEach(async () => {
     svc = {
-      create: jest
-        .fn()
-        .mockImplementation((dto, requester) => ({
-          ...dto,
-          id: 'ws-1',
-          created_by: requester?.actor,
-        })),
+      create: jest.fn().mockImplementation((dto, requester) => ({
+        ...dto,
+        id: 'ws-1',
+        created_by: requester?.actor,
+      })),
       getAll: jest.fn().mockResolvedValue({ items: [], total: 0 }),
-      getOne: jest
-        .fn()
-        .mockResolvedValue({
-          slip_number: 'SLIP-001',
-          lines: [],
-          attachments: [],
-        }),
+      getOne: jest.fn().mockResolvedValue({
+        slip_number: 'SLIP-001',
+        lines: [],
+        attachments: [],
+      }),
       approve: jest.fn().mockResolvedValue({ status: 'approved' }),
       reject: jest.fn().mockResolvedValue({ status: 'rejected' }),
       addAttachment: jest.fn().mockResolvedValue({ ok: true }),
@@ -83,7 +79,12 @@ describe('WarehouseSlipController (e2e)', () => {
   });
 
   it('POST /warehouse/slips creates a slip', async () => {
-    const payload = { type: 'Inbound', warehouse_id: 'WH-1', lines: [] };
+    const payload = {
+      type: 'IN',
+      warehouse_id: 'WH-1',
+      lines: [{ quantity: 2, unit: 'pcs' }],
+    };
+
     const res = await request(app.getHttpServer())
       .post('/warehouse/slips')
       .set('x-user', 'operator01')
@@ -136,7 +137,7 @@ describe('WarehouseSlipController (e2e)', () => {
       .post('/warehouse/slips/11111111-1111-4111-8111-111111111111/approve')
       .set('x-user', 'manager01')
       .set('x-role', 'Manager')
-      .expect(200);
+      .expect(201);
 
     expect(svc.approve).toHaveBeenCalled();
 
@@ -145,7 +146,7 @@ describe('WarehouseSlipController (e2e)', () => {
       .set('x-user', 'manager01')
       .set('x-role', 'Manager')
       .send({ reason: 'bad' })
-      .expect(200);
+      .expect(201);
 
     expect(svc.reject).toHaveBeenCalled();
   });

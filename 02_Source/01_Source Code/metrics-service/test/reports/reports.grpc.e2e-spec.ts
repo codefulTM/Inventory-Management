@@ -1,30 +1,57 @@
-import { Test } from '@nestjs/testing';
-import { INestMicroservice } from '@nestjs/common';
-import { ClientGrpc, ClientsModule, MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { join } from 'path';
-import { Observable, firstValueFrom } from 'rxjs';
-import { AppModule } from '../../src/app.module';
-import { ELASTICSEARCH_CLIENT } from '../../src/elasticsearch/elasticsearch.constants';
+import { Test } from "@nestjs/testing";
+import { INestMicroservice } from "@nestjs/common";
+import {
+  ClientGrpc,
+  ClientsModule,
+  MicroserviceOptions,
+  Transport,
+} from "@nestjs/microservices";
+import { join } from "path";
+import { Observable, firstValueFrom } from "rxjs";
+import { ReportsController } from "../../src/reports/reports.controller";
+import { ReportsService } from "../../src/reports/reports.service";
+import { ReportsRepository } from "../../src/reports/repositories/reports.repository";
 
 // ─── gRPC response shapes ──────────────────────────────────────────────────
 interface InventoryStatusResponse {
   generated_at: string;
   total_lots: number;
-  items: { material_id: string; lot_id: string; quantity: number; status: string; expiration_date: string }[];
+  items: {
+    material_id: string;
+    lot_id: string;
+    quantity: number;
+    status: string;
+    expiration_date: string;
+  }[];
 }
 interface MaterialUsageResponse {
   generated_at: string;
   from: string;
   to: string;
-  items: { material_id: string; transaction_count: number; total_quantity: number }[];
+  items: {
+    material_id: string;
+    transaction_count: number;
+    total_quantity: number;
+  }[];
 }
 interface QcPerformanceResponse {
   generated_at: string;
-  items: { supplier_name: string; approved: number; rejected: number; quality_rate: number }[];
+  items: {
+    supplier_name: string;
+    approved: number;
+    rejected: number;
+    quality_rate: number;
+  }[];
 }
 interface AuditReportResponse {
   generated_at: string;
-  entries: { action: string; entity: string; performed_by: string; performed_at: string; details: string }[];
+  entries: {
+    action: string;
+    entity: string;
+    performed_by: string;
+    performed_at: string;
+    details: string;
+  }[];
 }
 interface InventoryTrendResponse {
   generated_at: string;
@@ -50,8 +77,18 @@ interface QcTrendResponse {
   from: string;
   to: string;
   interval: string;
-  points: { period: string; pass_count: number; fail_count: number; pending_count: number }[];
-  supplier_rankings: { supplier_name: string; pass_count: number; fail_count: number; quality_rate: number }[];
+  points: {
+    period: string;
+    pass_count: number;
+    fail_count: number;
+    pending_count: number;
+  }[];
+  supplier_rankings: {
+    supplier_name: string;
+    pass_count: number;
+    fail_count: number;
+    quality_rate: number;
+  }[];
 }
 interface AuditTrendResponse {
   generated_at: string;
@@ -62,13 +99,37 @@ interface AuditTrendResponse {
 }
 interface MetricsReportsGrpc {
   GetInventoryStatus(data: object): Observable<InventoryStatusResponse>;
-  GetMaterialUsage(data: { from?: string; to?: string }): Observable<MaterialUsageResponse>;
+  GetMaterialUsage(data: {
+    from?: string;
+    to?: string;
+  }): Observable<MaterialUsageResponse>;
   GetQcPerformance(data: object): Observable<QcPerformanceResponse>;
-  GetAuditReport(data: { page?: number; size?: number }): Observable<AuditReportResponse>;
-  GetInventoryTrend(data: { from?: string; to?: string; interval?: string }): Observable<InventoryTrendResponse>;
-  GetMaterialUsageTrend(data: { from?: string; to?: string; interval?: string; limit?: number }): Observable<MaterialUsageTrendResponse>;
-  GetQcTrend(data: { from?: string; to?: string; interval?: string; limit?: number }): Observable<QcTrendResponse>;
-  GetAuditTrend(data: { from?: string; to?: string; interval?: string }): Observable<AuditTrendResponse>;
+  GetAuditReport(data: {
+    page?: number;
+    size?: number;
+  }): Observable<AuditReportResponse>;
+  GetInventoryTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+  }): Observable<InventoryTrendResponse>;
+  GetMaterialUsageTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+  }): Observable<MaterialUsageTrendResponse>;
+  GetQcTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+  }): Observable<QcTrendResponse>;
+  GetAuditTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+  }): Observable<AuditTrendResponse>;
 }
 
 /**
@@ -79,29 +140,42 @@ interface MetricsReportsGrpc {
  */
 const TEST_GRPC_PORT = 16741;
 
-const mockEs = {
-  search: jest.fn(),
-};
-
-describe('MetricsReportsService (gRPC e2e)', () => {
+describe("MetricsReportsService (gRPC e2e)", () => {
   let app: INestMicroservice;
   let reportsService: MetricsReportsGrpc;
+  const mockRepo: any = {
+    getInventoryStatus: jest.fn(),
+    getMaterialUsage: jest.fn(),
+    getQcPerformance: jest.fn(),
+    getAuditTrail: jest.fn(),
+    getInventoryTrend: jest.fn(),
+    getMaterialUsageTrend: jest.fn(),
+    getQcTrend: jest.fn(),
+    getAuditTrend: jest.fn(),
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(ELASTICSEARCH_CLIENT)
-      .useValue(mockEs)
-      .compile();
+      controllers: [ReportsController],
+      providers: [
+        ReportsService,
+        { provide: ReportsRepository, useValue: mockRepo },
+      ],
+    }).compile();
 
     app = moduleRef.createNestMicroservice<MicroserviceOptions>({
       transport: Transport.GRPC,
       options: {
-        package: 'metrics',
-        protoPath: join(__dirname, '../../proto/metrics.proto'),
+        package: "metrics",
+        protoPath: join(__dirname, "../../proto/metrics.proto"),
         url: `0.0.0.0:${TEST_GRPC_PORT}`,
-        loader: { keepCase: true, longs: String, enums: String, defaults: false, oneofs: true },
+        loader: {
+          keepCase: true,
+          longs: String,
+          enums: String,
+          defaults: false,
+          oneofs: true,
+        },
       },
     });
 
@@ -112,21 +186,29 @@ describe('MetricsReportsService (gRPC e2e)', () => {
       imports: [
         ClientsModule.register([
           {
-            name: 'METRICS_TEST_CLIENT',
+            name: "METRICS_TEST_CLIENT",
             transport: Transport.GRPC,
             options: {
-              package: 'metrics',
-              protoPath: join(__dirname, '../../proto/metrics.proto'),
+              package: "metrics",
+              protoPath: join(__dirname, "../../proto/metrics.proto"),
               url: `localhost:${TEST_GRPC_PORT}`,
-              loader: { keepCase: true, longs: String, enums: String, defaults: false, oneofs: true },
+              loader: {
+                keepCase: true,
+                longs: String,
+                enums: String,
+                defaults: false,
+                oneofs: true,
+              },
             },
           },
         ]),
       ],
     }).compile();
 
-    const grpcClient = clientModule.get<ClientGrpc>('METRICS_TEST_CLIENT');
-    reportsService = grpcClient.getService<MetricsReportsGrpc>('MetricsReportsService');
+    const grpcClient = clientModule.get<ClientGrpc>("METRICS_TEST_CLIENT");
+    reportsService = grpcClient.getService<MetricsReportsGrpc>(
+      "MetricsReportsService",
+    );
   });
 
   afterAll(async () => {
@@ -139,49 +221,34 @@ describe('MetricsReportsService (gRPC e2e)', () => {
 
   // ─── GetInventoryStatus ────────────────────────────────────────────────────
 
-  describe('GetInventoryStatus', () => {
-    it('returns inventory status report with items', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: {
-          by_status: {
-            buckets: [
-              {
-                key: 'Accepted',
-                sample_lots: {
-                  hits: {
-                    hits: [
-                      {
-                        _source: {
-                          material_id: 'MAT-01',
-                          lot_id: 'LOT-01',
-                          quantity: 100,
-                          status: 'Accepted',
-                          expiration_date: '2026-12-31T00:00:00Z',
-                        },
-                      },
-                    ],
-                  },
-                },
-              },
-            ],
-          },
+  describe("GetInventoryStatus", () => {
+    it("returns inventory status report with items", async () => {
+      mockRepo.getInventoryStatus.mockResolvedValue([
+        {
+          material_id: "MAT-01",
+          lot_id: "LOT-01",
+          quantity: 100,
+          status: "Accepted",
+          expiration_date: new Date("2026-12-31T00:00:00Z"),
         },
-      });
+      ]);
 
-      const result = await firstValueFrom(reportsService.GetInventoryStatus({}));
+      const result = await firstValueFrom(
+        reportsService.GetInventoryStatus({}),
+      );
 
       expect(result.total_lots).toBe(1);
-      expect(result.items[0].lot_id).toBe('LOT-01');
-      expect(result.items[0].status).toBe('Accepted');
+      expect(result.items[0].lot_id).toBe("LOT-01");
+      expect(result.items[0].status).toBe("Accepted");
       expect(result.generated_at).toBeTruthy();
     });
 
-    it('returns empty report when ES has no buckets', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: { by_status: { buckets: [] } },
-      });
+    it("returns empty report when ES has no buckets", async () => {
+      mockRepo.getInventoryStatus.mockResolvedValue([]);
 
-      const result = await firstValueFrom(reportsService.GetInventoryStatus({}));
+      const result = await firstValueFrom(
+        reportsService.GetInventoryStatus({}),
+      );
 
       expect(result.total_lots).toBe(0);
       // proto3 omits empty repeated fields — items is undefined when empty
@@ -191,70 +258,56 @@ describe('MetricsReportsService (gRPC e2e)', () => {
 
   // ─── GetMaterialUsage ──────────────────────────────────────────────────────
 
-  describe('GetMaterialUsage', () => {
-    it('returns material usage with date range', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: {
-          by_material: {
-            buckets: [
-              { key: 'MAT-02', doc_count: 5, total_quantity: { value: 250 } },
-            ],
-          },
-        },
-      });
+  describe("GetMaterialUsage", () => {
+    it("returns material usage with date range", async () => {
+      mockRepo.getMaterialUsage.mockResolvedValue([
+        { material_id: "MAT-02", transaction_count: 5, total_quantity: 250 },
+      ]);
 
       const result = await firstValueFrom(
-        reportsService.GetMaterialUsage({ from: '2026-01-01', to: '2026-03-31' }),
+        reportsService.GetMaterialUsage({
+          from: "2026-01-01",
+          to: "2026-03-31",
+        }),
       );
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].material_id).toBe('MAT-02');
+      expect(result.items[0].material_id).toBe("MAT-02");
       expect(result.items[0].transaction_count).toBe(5);
       expect(result.items[0].total_quantity).toBe(250);
       expect(result.from).toBeTruthy();
       expect(result.to).toBeTruthy();
     });
 
-    it('returns report with no date range (match_all)', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: { by_material: { buckets: [] } },
-      });
+    it("returns report with no date range (match_all)", async () => {
+      mockRepo.getMaterialUsage.mockResolvedValue([]);
 
       const result = await firstValueFrom(reportsService.GetMaterialUsage({}));
 
       // proto3 omits empty repeated fields — items is undefined when empty
       expect(result.items ?? []).toEqual([]);
-      expect(result.from).toBe('');
-      expect(result.to).toBe('');
+      expect(result.from).toBe("");
+      expect(result.to).toBe("");
     });
   });
 
   // ─── GetQcPerformance ──────────────────────────────────────────────────────
 
-  describe('GetQcPerformance', () => {
-    it('returns qc performance with quality rate', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: {
-          by_supplier: {
-            buckets: [
-              {
-                key: 'Supplier A',
-                by_result: {
-                  buckets: [
-                    { key: 'Pass', doc_count: 9 },
-                    { key: 'Fail', doc_count: 1 },
-                  ],
-                },
-              },
-            ],
-          },
+  describe("GetQcPerformance", () => {
+    it("returns qc performance with quality rate", async () => {
+      mockRepo.getQcPerformance.mockResolvedValue([
+        {
+          supplier_name: "Supplier A",
+          approved: 9,
+          rejected: 1,
+          quality_rate: 90,
         },
-      });
+      ]);
 
       const result = await firstValueFrom(reportsService.GetQcPerformance({}));
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].supplier_name).toBe('Supplier A');
+      expect(result.items[0].supplier_name).toBe("Supplier A");
       expect(result.items[0].approved).toBe(9);
       expect(result.items[0].rejected).toBe(1);
       expect(result.items[0].quality_rate).toBe(90);
@@ -263,39 +316,35 @@ describe('MetricsReportsService (gRPC e2e)', () => {
 
   // ─── GetAuditReport ────────────────────────────────────────────────────────
 
-  describe('GetAuditReport', () => {
-    it('returns audit entries sorted by date', async () => {
-      mockEs.search.mockResolvedValue({
-        hits: {
-          hits: [
-            {
-              _source: {
-                action: 'UPDATE',
-                entity: 'InventoryLot',
-                performed_by: 'user-manager',
-                performed_at: '2026-04-15T08:00:00Z',
-                details: { field: 'status', old: 'Pending', new: 'Accepted' },
-              },
-            },
-          ],
+  describe("GetAuditReport", () => {
+    it("returns audit entries sorted by date", async () => {
+      mockRepo.getAuditTrail.mockResolvedValue([
+        {
+          action: "UPDATE",
+          entity: "InventoryLot",
+          performed_by: "user-manager",
+          performed_at: new Date("2026-04-15T08:00:00Z"),
+          details: { field: "status", old: "Pending", new: "Accepted" },
         },
-      });
+      ]);
 
       const result = await firstValueFrom(
         reportsService.GetAuditReport({ page: 0, size: 20 }),
       );
 
       expect(result.entries).toHaveLength(1);
-      expect(result.entries[0].action).toBe('UPDATE');
-      expect(result.entries[0].entity).toBe('InventoryLot');
-      expect(result.entries[0].performed_by).toBe('user-manager');
+      expect(result.entries[0].action).toBe("UPDATE");
+      expect(result.entries[0].entity).toBe("InventoryLot");
+      expect(result.entries[0].performed_by).toBe("user-manager");
       expect(result.entries[0].performed_at).toBeTruthy();
     });
 
-    it('returns empty entries when no audit logs', async () => {
-      mockEs.search.mockResolvedValue({ hits: { hits: [] } });
+    it("returns empty entries when no audit logs", async () => {
+      mockRepo.getAuditTrail.mockResolvedValue([]);
 
-      const result = await firstValueFrom(reportsService.GetAuditReport({ page: 0, size: 20 }));
+      const result = await firstValueFrom(
+        reportsService.GetAuditReport({ page: 0, size: 20 }),
+      );
 
       // proto3 omits empty repeated fields — entries is undefined when empty
       expect(result.entries ?? []).toEqual([]);
@@ -304,27 +353,17 @@ describe('MetricsReportsService (gRPC e2e)', () => {
 
   // ─── Trend RPCs ───────────────────────────────────────────────────────────
 
-  describe('GetInventoryTrend', () => {
-    it('returns inventory trend points', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: {
-          by_period: {
-            buckets: [
-              {
-                key_as_string: '2026-04-01',
-                doc_count: 11,
-                total_quantity: { value: 1200 },
-              },
-            ],
-          },
-        },
-      });
+  describe("GetInventoryTrend", () => {
+    it("returns inventory trend points", async () => {
+      mockRepo.getInventoryTrend.mockResolvedValue([
+        { period: "2026-04-01", lot_count: 11, total_quantity: 1200 },
+      ]);
 
       const result = await firstValueFrom(
         reportsService.GetInventoryTrend({
-          from: '2026-04-01T00:00:00Z',
-          to: '2026-04-30T23:59:59Z',
-          interval: 'day',
+          from: "2026-04-01T00:00:00Z",
+          to: "2026-04-30T23:59:59Z",
+          interval: "day",
         }),
       );
 
@@ -334,75 +373,58 @@ describe('MetricsReportsService (gRPC e2e)', () => {
     });
   });
 
-  describe('GetMaterialUsageTrend', () => {
-    it('returns material usage trend points', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: {
-          by_period: {
-            buckets: [
-              {
-                key_as_string: '2026-04-01',
-                by_material: {
-                  buckets: [
-                    {
-                      key: 'MAT-01',
-                      doc_count: 5,
-                      total_quantity: { value: 250 },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
+  describe("GetMaterialUsageTrend", () => {
+    it("returns material usage trend points", async () => {
+      mockRepo.getMaterialUsageTrend.mockResolvedValue([
+        {
+          period: "2026-04-01",
+          material_id: "MAT-01",
+          transaction_count: 5,
+          total_quantity: 250,
         },
-      });
+      ]);
 
       const result = await firstValueFrom(
         reportsService.GetMaterialUsageTrend({
-          from: '2026-04-01T00:00:00Z',
-          to: '2026-04-30T23:59:59Z',
-          interval: 'day',
+          from: "2026-04-01T00:00:00Z",
+          to: "2026-04-30T23:59:59Z",
+          interval: "day",
           limit: 5,
         }),
       );
 
       expect(result.points).toHaveLength(1);
-      expect(result.points[0].material_id).toBe('MAT-01');
+      expect(result.points[0].material_id).toBe("MAT-01");
       expect(result.points[0].transaction_count).toBe(5);
     });
   });
 
-  describe('GetQcTrend', () => {
-    it('returns qc trend points and supplier rankings', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: {
-          by_period: {
-            buckets: [
-              {
-                key_as_string: '2026-04-01',
-                pass_count: { doc_count: 8 },
-                fail_count: { doc_count: 2 },
-                pending_count: { doc_count: 1 },
-              },
-            ],
+  describe("GetQcTrend", () => {
+    it("returns qc trend points and supplier rankings", async () => {
+      mockRepo.getQcTrend.mockResolvedValue({
+        points: [
+          {
+            period: "2026-04-01",
+            pass_count: 8,
+            fail_count: 2,
+            pending_count: 1,
           },
-          by_supplier: {
-            buckets: [
-              {
-                key: 'Supplier A',
-                pass_count: { doc_count: 8 },
-                fail_count: { doc_count: 2 },
-              },
-            ],
+        ],
+        supplier_rankings: [
+          {
+            supplier_name: "Supplier A",
+            pass_count: 8,
+            fail_count: 2,
+            quality_rate: 80,
           },
-        },
+        ],
       });
 
       const result = await firstValueFrom(
         reportsService.GetQcTrend({
-          from: '2026-04-01T00:00:00Z',
-          to: '2026-04-30T23:59:59Z',
-          interval: 'day',
+          from: "2026-04-01T00:00:00Z",
+          to: "2026-04-30T23:59:59Z",
+          interval: "day",
           limit: 5,
         }),
       );
@@ -413,27 +435,17 @@ describe('MetricsReportsService (gRPC e2e)', () => {
     });
   });
 
-  describe('GetAuditTrend', () => {
-    it('returns audit trend points', async () => {
-      mockEs.search.mockResolvedValue({
-        aggregations: {
-          by_period: {
-            buckets: [
-              {
-                key_as_string: '2026-04-01',
-                doc_count: 25,
-                unique_users: { value: 5 },
-              },
-            ],
-          },
-        },
-      });
+  describe("GetAuditTrend", () => {
+    it("returns audit trend points", async () => {
+      mockRepo.getAuditTrend.mockResolvedValue([
+        { period: "2026-04-01", activity_count: 25, unique_users: 5 },
+      ]);
 
       const result = await firstValueFrom(
         reportsService.GetAuditTrend({
-          from: '2026-04-01T00:00:00Z',
-          to: '2026-04-30T23:59:59Z',
-          interval: 'day',
+          from: "2026-04-01T00:00:00Z",
+          to: "2026-04-30T23:59:59Z",
+          interval: "day",
         }),
       );
 
