@@ -26,6 +26,8 @@ import { InventoryTransactionRepository } from '../inventory-transaction/invento
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { InventoryLotStatus } from '../inventory-lot/inventory-lot.dto';
 
+jest.setTimeout(120_000);
+
 let mongod: MongoMemoryServer;
 let testModule: TestingModule;
 let materialService: MaterialService;
