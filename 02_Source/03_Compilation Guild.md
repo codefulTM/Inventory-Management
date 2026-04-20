@@ -30,18 +30,30 @@ Thư mục code chính: `02_Source/01_Source Code`
    cd "02_Source/01_Source Code"
    ```
 2. Build và chạy tất cả service (ngầm/background):
+
    ```bash
    docker compose up --build -d
    ```
+
+   > Lưu ý: nếu bạn chạy stack bằng `docker compose`, tạo file `.env` nằm cùng cấp với `docker-compose.yml` và thêm:
+
+   ```text
+   MAIL_USER=your@gmail.com
+   MAIL_PASS=<your_smtp_app_password>
+   ```
+
+   Các dịch vụ (ví dụ `inventory-management-service`) sẽ tham chiếu các biến này từ `docker-compose.yml`.
+
 3. Một số endpoint & port mặc định (theo `docker-compose.yml`):
-   - MongoDB: `localhost:27017`
-   - Keycloak (admin): `http://localhost:8080`
-   - API Gateway: `http://localhost:3000`
-   - Backend (inventory-management-service): `http://localhost:3001` (gRPC: 50052)
-   - AI service: `http://localhost:3003`
-   - Frontend (Vite dev server): `http://localhost:5173`
-   - Elasticsearch: `http://localhost:9200`
-   - Redis: `localhost:6379`
+
+- MongoDB: `localhost:27017`
+- Keycloak (admin): `http://localhost:8080`
+- API Gateway: `http://localhost:3000`
+- Backend (inventory-management-service): `http://localhost:3001` (gRPC: 50052)
+- AI service: `http://localhost:3003`
+- Frontend (Vite dev server): `http://localhost:5173`
+- Elasticsearch: `http://localhost:9200`
+- Redis: `localhost:6379`
 
 4. Kiểm tra logs / trạng thái:
    ```bash
