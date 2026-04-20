@@ -145,7 +145,7 @@ export function DetailModal({
               <p className="flex items-center gap-1.5 text-xs font-bold text-blue-600 uppercase tracking-wider mb-3">
                 <MapPin size={13} /> Số lượng &amp; Lưu trữ
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                     Số lượng
@@ -163,6 +163,14 @@ export function DetailModal({
                   </p>
                   <p className="mt-1 font-semibold text-gray-900 text-sm">
                     {selectedLot.storage_location}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Kho chứa
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900 text-sm">
+                    {selectedLot.warehouse_id ?? "-"}
                   </p>
                 </div>
               </div>

@@ -6,6 +6,7 @@ import {
   BatchStatus,
   CreateProductionBatchDto,
 } from './dto/create-production-batch.dto';
+import { UserRole } from '../schemas/user.schema';
 import { UpdateProductionBatchDto } from './dto/update-production-batch.dto';
 import { CreateBatchComponentDto } from './dto/create-batch-component.dto';
 import { UpdateBatchComponentDto } from './dto/update-batch-component.dto';
@@ -76,6 +77,14 @@ describe('ProductionBatchController', () => {
     added_by: 'operator-01',
     created_date: new Date('2026-01-15T08:00:00.000Z'),
     modified_date: new Date('2026-01-15T08:00:00.000Z'),
+  };
+
+  const mockUser = {
+    keycloak_id: '',
+    username: '',
+    email: '',
+    role: UserRole.OPERATOR,
+    realm_roles: [] as string[],
   };
 
   beforeEach(async () => {
@@ -230,6 +239,7 @@ describe('ProductionBatchController', () => {
       const result = await controller.update(
         '3d594650-3436-453f-901f-f7f66f18f8eb',
         dto,
+        mockUser,
       );
 
       expect(batchService.update).toHaveBeenCalledWith(

@@ -502,9 +502,11 @@ export class ProductionBatchService {
               `Materials deducted, new lot ${finishedLot.lot_id} created in Quarantine status`,
           );
         } catch (error) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          const errStack = error instanceof Error ? error.stack : undefined;
           this.logger.error(
-            `Failed to complete batch ${batchId}: ${error.message}`,
-            error.stack,
+            `Failed to complete batch ${batchId}: ${errMsg}`,
+            errStack,
           );
           throw error; // Re-throw to return appropriate HTTP status
         }

@@ -7,3 +7,4 @@ export { useMaterialList } from "./useMaterialList";
 export { useMaterialSearch } from "./useMaterialSearch";
 export { useMaterialForm } from "./useMaterialForm";
 export { useMaterialDetail } from "./useMaterialDetail";
+export { useWarehouseList } from "./useWarehouseList";

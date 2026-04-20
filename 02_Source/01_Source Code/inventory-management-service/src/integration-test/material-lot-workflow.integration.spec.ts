@@ -9,11 +9,21 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Model } from 'mongoose';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { Material, MaterialSchema } from '../schemas/material.schema';
-import { InventoryLot, InventoryLotSchema } from '../schemas/inventory-lot.schema';
-import { InventoryTransaction, InventoryTransactionSchema } from '../schemas/inventory-transaction.schema';
+import {
+  InventoryLot,
+  InventoryLotSchema,
+} from '../schemas/inventory-lot.schema';
+import {
+  InventoryTransaction,
+  InventoryTransactionSchema,
+} from '../schemas/inventory-transaction.schema';
 import { AuditLog, AuditLogSchema } from '../audit-log/audit-log.schema';
 
 import { MaterialModule } from '../material/material.module';
@@ -37,7 +47,6 @@ beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   const uri = mongod.getUri();
 
-  
   testModule = await Test.createTestingModule({
     imports: [
       MongooseModule.forRoot(uri),
@@ -70,9 +79,15 @@ afterAll(async () => {
 
 afterEach(async () => {
   // Clear collections between tests
-  const materialModel = testModule.get<Model<Material>>(getModelToken(Material.name));
-  const lotModel = testModule.get<Model<InventoryLot>>(getModelToken(InventoryLot.name));
-  const txModel = testModule.get<Model<InventoryTransaction>>(getModelToken(InventoryTransaction.name));
+  const materialModel = testModule.get<Model<Material>>(
+    getModelToken(Material.name),
+  );
+  const lotModel = testModule.get<Model<InventoryLot>>(
+    getModelToken(InventoryLot.name),
+  );
+  const txModel = testModule.get<Model<InventoryTransaction>>(
+    getModelToken(InventoryTransaction.name),
+  );
   await Promise.all([
     materialModel.deleteMany({}),
     lotModel.deleteMany({}),
@@ -102,7 +117,9 @@ describe('MaterialService (integration)', () => {
   it('enforces unique material_id constraint', async () => {
     await materialService.create(createDto);
 
-    await expect(materialService.create(createDto)).rejects.toThrow(ConflictException);
+    await expect(materialService.create(createDto)).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('enforces unique part_number constraint', async () => {
@@ -191,9 +208,9 @@ describe('InventoryLotService (integration)', () => {
     expect(lot.status).toBe(InventoryLotStatus.QUARANTINE);
 
     // Verify Receipt transaction was created
-    const transactions = await lotService['inventoryTransactionService']?.getAll?.(
-      { lot_id: lot.lot_id }, 1, 10,
-    );
+    const transactions = await lotService[
+      'inventoryTransactionService'
+    ]?.getAll?.({ lot_id: lot.lot_id }, { page: 1, limit: 10 });
     // Transaction should exist (created by service internally)
     expect(lot.quantity).toBe(500);
   });
@@ -225,7 +242,9 @@ describe('InventoryLotService (integration)', () => {
   });
 
   it('throws NotFoundException for missing lot', async () => {
-    await expect(lotService.findById('non-existent-id')).rejects.toThrow(NotFoundException);
+    await expect(lotService.findById('non-existent-id')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('transitions lot status: Quarantine → Accepted', async () => {

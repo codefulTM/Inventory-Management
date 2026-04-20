@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.17.0
+    container_name: inventory_kibana
+    restart: unless-stopped
+    environment:
+      ELASTICSEARCH_HOSTS: 'http://inventory_elasticsearch:9200'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ''
+      KIBANA_DEFAULTAPPID: 'discover'
+      xpack.security.enabled: 'true'
+    ports:
+      - '5601:5601'
+    networks:
+      - inventory_network
+    healthcheck:
+      test: curl -s http://localhost:5601/api/status >/dev/null || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  inventory_network:
+    external: true

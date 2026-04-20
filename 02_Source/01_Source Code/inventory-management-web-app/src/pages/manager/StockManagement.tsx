@@ -1,25 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import Toast from "../../components/Toast";
+import { Link } from "react-router-dom";
 import ConfirmOrderDrawer from "../../components/operator/import-export-order/ConfirmOrderDrawer";
 import OrderDetailDrawer from "../../components/operator/import-export-order/OrderDetailDrawer";
 import OrderWorklistTable from "../../components/operator/import-export-order/OrderWorklistTable";
 import RejectOrderModal from "../../components/operator/import-export-order/RejectOrderModal";
 import {
-  confirmImportExportOrder,
-  fetchImportExportOrderDetail,
-  fetchImportExportOrderWorklist,
-  ImportExportOrderApiError,
-  rejectImportExportOrder,
-} from "../../services/importExportOrderService";
+  fetchWarehouseSlip,
+  approveWarehouseSlip,
+  rejectWarehouseSlip,
+} from "../../services/warehouseSlipService";
 import type {
-  ConfirmImportExportOrderPayload,
-  ImportExportOrder,
-  ImportExportOrderQueryParams,
-  ImportExportOrderType,
-} from "../../types/importExportOrder";
+  WarehouseSlip,
+  WarehouseSlipType,
+} from "../../types/warehouseSlip";
 
 interface WorklistFilters {
-  order_type: "" | ImportExportOrderType;
+  type: "" | WarehouseSlipType;
   from: string;
   to: string;
 }
@@ -32,7 +29,7 @@ type ToastState = {
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 const EMPTY_FILTERS: WorklistFilters = {
-  order_type: "",
+  type: "",
   from: "",
   to: "",
 };
@@ -81,32 +78,21 @@ function hasInvalidDateRange(from: string, to: string): boolean {
 }
 
 function mapBackendErrorMessage(error: unknown, fallback: string): string {
-  const statusCode =
-    error instanceof ImportExportOrderApiError ? error.statusCode : undefined;
+  const err: any = error as any;
+  const statusCode: number | undefined =
+    err?.statusCode ?? err?.originalError?.response?.status;
 
-  if (statusCode === 400) {
+  if (statusCode === 400)
     return "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin nhập.";
-  }
-
-  if (statusCode === 403) {
-    return "Bạn không có quyền thực hiện thao tác này.";
-  }
-
-  if (statusCode === 404) {
-    return "Phiếu không tồn tại hoặc đã bị xóa.";
-  }
-
-  if (statusCode === 409) {
+  if (statusCode === 403) return "Bạn không có quyền thực hiện thao tác này.";
+  if (statusCode === 404) return "Phiếu không tồn tại hoặc đã bị xóa.";
+  if (statusCode === 409)
     return "Phiếu đã được xử lý hoặc tồn kho không đủ để xác nhận.";
-  }
-
-  if (typeof statusCode === "number" && statusCode >= 500) {
+  if (typeof statusCode === "number" && statusCode >= 500)
     return "Hệ thống đang bận, vui lòng thử lại.";
-  }
 
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
+  if (err && typeof err.message === "string" && err.message.trim().length > 0)
+    return err.message;
 
   return fallback;
 }
@@ -114,15 +100,15 @@ function mapBackendErrorMessage(error: unknown, fallback: string): string {
 export default function StockManagement() {
   const [draftFilters, setDraftFilters] =
     useState<WorklistFilters>(EMPTY_FILTERS);
-  const [filters, setFilters] = useState<WorklistFilters>(EMPTY_FILTERS);
-  const [orders, setOrders] = useState<ImportExportOrder[]>([]);
+  const [filters, setFilters] = useState<Record<string, any>>(EMPTY_FILTERS);
+  const [orders, setOrders] = useState<WarehouseSlip[]>([]);
   const [page, setPage] = useState(DEFAULT_PAGE);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<ImportExportOrder | null>(
+  const [selectedOrder, setSelectedOrder] = useState<WarehouseSlip | null>(
     null,
   );
   const [detailLoading, setDetailLoading] = useState(false);
@@ -130,57 +116,20 @@ export default function StockManagement() {
 
   const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [actionOrder, setActionOrder] = useState<ImportExportOrder | null>(
-    null,
-  );
+  const [actionOrder, setActionOrder] = useState<WarehouseSlip | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
   const [isRejectSubmitting, setIsRejectSubmitting] = useState(false);
 
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [worklistReloadTrigger, setWorklistReloadTrigger] = useState<number>(0);
 
   const notify = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
   }, []);
 
-  const loadWorklist = useCallback(
-    async (nextPage: number, nextFilters: WorklistFilters): Promise<void> => {
-      setLoading(true);
-      setListError(null);
-
-      const params: ImportExportOrderQueryParams = {
-        page: nextPage,
-        limit: DEFAULT_LIMIT,
-        order_type: nextFilters.order_type || undefined,
-        from: toStartDate(nextFilters.from),
-        to: toEndDate(nextFilters.to),
-      };
-
-      try {
-        const response = await fetchImportExportOrderWorklist(params);
-        setOrders(response.items);
-        setTotal(response.total);
-        setPage(response.page || nextPage);
-      } catch (error) {
-        const message = mapBackendErrorMessage(
-          error,
-          "Không thể tải worklist pending. Vui lòng thử lại.",
-        );
-        setListError(message);
-        notify(message, "error");
-        setOrders([]);
-        setTotal(0);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [notify],
-  );
-
-  useEffect(() => {
-    void loadWorklist(DEFAULT_PAGE, EMPTY_FILTERS);
-  }, [loadWorklist]);
+  // Worklist is loaded by child table (warehouseSlip service)
 
   const handleApplyFilters = () => {
     const nextFilters = {
@@ -195,11 +144,18 @@ export default function StockManagement() {
       return;
     }
 
-    setFilters(nextFilters);
+    // convert date strings to start/end ISO datetimes for backend filtering
+    const apiFilters: Record<string, any> = {};
+    if (nextFilters.type) apiFilters.type = nextFilters.type;
+    const start = toStartDate(nextFilters.from);
+    const end = toEndDate(nextFilters.to);
+    if (start) apiFilters.from = start.toISOString();
+    if (end) apiFilters.to = end.toISOString();
+
+    setFilters(apiFilters);
     setPage(DEFAULT_PAGE);
     setListError(null);
     setToast(null);
-    void loadWorklist(DEFAULT_PAGE, nextFilters);
   };
 
   const handleResetFilters = () => {
@@ -207,7 +163,6 @@ export default function StockManagement() {
     setFilters(EMPTY_FILTERS);
     setPage(DEFAULT_PAGE);
     setToast(null);
-    void loadWorklist(DEFAULT_PAGE, EMPTY_FILTERS);
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -215,7 +170,7 @@ export default function StockManagement() {
       return;
     }
 
-    void loadWorklist(nextPage, filters);
+    setPage(nextPage);
   };
 
   const openDetail = async (orderId: string) => {
@@ -225,7 +180,7 @@ export default function StockManagement() {
     setDetailLoading(true);
 
     try {
-      const detail = await fetchImportExportOrderDetail(orderId);
+      const detail = await fetchWarehouseSlip(orderId);
       setSelectedOrder(detail);
     } catch (error) {
       const message = mapBackendErrorMessage(
@@ -271,11 +226,10 @@ export default function StockManagement() {
     setDetailDrawerOpen(false);
 
     try {
-      const detail = await fetchImportExportOrderDetail(orderId);
+      const detail = await fetchWarehouseSlip(orderId);
 
-      if (detail.status !== "PendingConfirmation") {
+      if (detail.status !== "PENDING") {
         notify("Phiếu đã được xử lý trước đó.", "error");
-        await loadWorklist(page, filters);
         return;
       }
 
@@ -296,11 +250,10 @@ export default function StockManagement() {
     setDetailDrawerOpen(false);
 
     try {
-      const detail = await fetchImportExportOrderDetail(orderId);
+      const detail = await fetchWarehouseSlip(orderId);
 
-      if (detail.status !== "PendingConfirmation") {
+      if (detail.status !== "PENDING") {
         notify("Phiếu đã được xử lý trước đó.", "error");
-        await loadWorklist(page, filters);
         return;
       }
 
@@ -315,24 +268,17 @@ export default function StockManagement() {
     }
   };
 
-  const handleConfirmOrder = async (
-    payload: ConfirmImportExportOrderPayload,
-  ) => {
-    if (!actionOrder) {
-      return;
-    }
+  const handleConfirmOrder = async (payload?: { confirm_note?: string }) => {
+    if (!actionOrder) return;
 
     setIsConfirmSubmitting(true);
     setConfirmError(null);
 
     try {
-      const updated = await confirmImportExportOrder(
-        actionOrder.order_id,
-        payload,
-      );
-      notify(`Đã xác nhận phiếu ${updated.order_id} thành công.`, "success");
+      const updated = await approveWarehouseSlip(actionOrder.slip_id, payload);
+      notify(`Đã xác nhận phiếu ${updated.slip_id} thành công.`, "success");
       closeConfirmDrawer();
-      await loadWorklist(page, filters);
+      setWorklistReloadTrigger((s) => s + 1);
     } catch (error) {
       const message = mapBackendErrorMessage(
         error,
@@ -346,20 +292,16 @@ export default function StockManagement() {
   };
 
   const handleRejectOrder = async (reason: string) => {
-    if (!actionOrder) {
-      return;
-    }
+    if (!actionOrder) return;
 
     setIsRejectSubmitting(true);
     setRejectError(null);
 
     try {
-      const updated = await rejectImportExportOrder(actionOrder.order_id, {
-        reason,
-      });
-      notify(`Đã từ chối phiếu ${updated.order_id}.`, "success");
+      const updated = await rejectWarehouseSlip(actionOrder.slip_id, reason);
+      notify(`Đã từ chối phiếu ${updated.slip_id}.`, "success");
       closeRejectModal();
-      await loadWorklist(page, filters);
+      setWorklistReloadTrigger((s) => s + 1);
     } catch (error) {
       const message = mapBackendErrorMessage(
         error,
@@ -376,16 +318,22 @@ export default function StockManagement() {
     <div className="min-h-screen bg-gray-100 p-4 md:p-6">
       <div className="space-y-5">
         <header className="rounded-lg bg-linear-to-br from-emerald-600 to-emerald-700 px-5 py-6 text-white shadow-md">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-100">
-            Manager / US25
-          </p>
-          <h1 className="mt-2 text-3xl font-black">
-            Worklist xác nhận nhập/xuất kho
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-emerald-100">
-            Theo dõi toàn bộ phiếu PendingConfirmation và xử lý xác nhận/từ chối
-            theo quyền Manager.
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="mt-2 text-3xl font-black">
+                Quản lý nhập/xuất kho
+              </h1>
+            </div>
+
+            <div className="shrink-0">
+              <Link
+                to="/manager/in-out/create"
+                className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow hover:bg-emerald-50"
+              >
+                Tạo phiếu
+              </Link>
+            </div>
+          </div>
         </header>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-md">
@@ -393,19 +341,18 @@ export default function StockManagement() {
             <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
               Loại phiếu
               <select
-                value={draftFilters.order_type}
+                value={draftFilters.type}
                 onChange={(event) =>
                   setDraftFilters((previous) => ({
                     ...previous,
-                    order_type: event.target
-                      .value as WorklistFilters["order_type"],
+                    type: event.target.value as WorklistFilters["type"],
                   }))
                 }
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               >
                 <option value="">Tất cả loại phiếu</option>
-                <option value="Inbound">Inbound</option>
-                <option value="Outbound">Outbound</option>
+                <option value="IN">Phiếu nhập kho</option>
+                <option value="OUT">Phiếu xuất kho</option>
               </select>
             </label>
 
@@ -467,26 +414,22 @@ export default function StockManagement() {
         ) : null}
 
         <OrderWorklistTable
-          orders={orders}
           loading={loading}
           page={page}
           limit={DEFAULT_LIMIT}
-          total={total}
           onPageChange={handlePageChange}
-          onViewDetail={(orderId) => {
-            void openDetail(orderId);
-          }}
-          onConfirmOrder={(orderId) => {
-            void openConfirm(orderId);
-          }}
-          onRejectOrder={(orderId) => {
-            void openReject(orderId);
-          }}
+          onViewDetail={(orderId) => void openDetail(orderId)}
+          onConfirmOrder={(orderId) => void openConfirm(orderId)}
+          onRejectOrder={(orderId) => void openReject(orderId)}
+          filters={filters}
+          reloadTrigger={worklistReloadTrigger}
         />
+
+        {/* Warehouse slip list merged into the main worklist; removed duplicate table. */}
       </div>
 
       <OrderDetailDrawer
-        key={selectedOrder?.order_id ?? "manager-order-detail-drawer"}
+        key={selectedOrder?.slip_id ?? "manager-order-detail-drawer"}
         open={detailDrawerOpen}
         order={selectedOrder}
         loading={detailLoading}
@@ -499,7 +442,7 @@ export default function StockManagement() {
       />
 
       <ConfirmOrderDrawer
-        key={`manager-confirm-${actionOrder?.order_id ?? "none"}`}
+        key={`manager-confirm-${actionOrder?.slip_id ?? "none"}`}
         open={confirmDrawerOpen}
         order={actionOrder}
         submitting={isConfirmSubmitting}
@@ -509,9 +452,9 @@ export default function StockManagement() {
       />
 
       <RejectOrderModal
-        key={`manager-reject-${actionOrder?.order_id ?? "none"}`}
+        key={`manager-reject-${actionOrder?.slip_id ?? "none"}`}
         open={rejectModalOpen}
-        orderId={actionOrder?.order_id}
+        orderId={actionOrder?.slip_id}
         submitting={isRejectSubmitting}
         errorMessage={rejectError}
         onClose={closeRejectModal}

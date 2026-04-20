@@ -54,7 +54,7 @@ export class InventoryLot {
   @Prop({ type: String, maxlength: 50, required: false })
   warehouse_id?: string;
 
-  @Prop({ type: String, maxlength: 100, required: false })
+  @Prop({ type: String, maxlength: 100, required: false, trim: true, uppercase: true })
   storage_location?: string;
 
   @Prop({ type: Boolean, default: false })
@@ -98,3 +98,7 @@ InventoryLotSchema.index({ expiration_date: 1 });
 InventoryLotSchema.index({ created_date: -1 });
 InventoryLotSchema.index({ material_id: 1, status: 1 });
 InventoryLotSchema.index({ is_sample: 1, parent_lot_id: 1 });
+
+// Indexes to support bin worklist (using storage_location as bin_code)
+InventoryLotSchema.index({ storage_location: 1 });
+InventoryLotSchema.index({ storage_location: 1, modified_date: -1 });

@@ -59,9 +59,10 @@ describe('MaterialModule', () => {
     );
   });
 
-  it('should export MaterialService only', () => {
-    expect(exportedProviders).toEqual([MaterialService]);
-    expect(exportedProviders).not.toContain(MaterialRepository);
+  it('should export MaterialService and MaterialRepository', () => {
+    expect(exportedProviders).toEqual(
+      expect.arrayContaining([MaterialService, MaterialRepository]),
+    );
   });
 
   it('should register mongoose feature import', () => {

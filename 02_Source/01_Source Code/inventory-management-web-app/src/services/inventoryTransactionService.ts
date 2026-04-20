@@ -72,11 +72,40 @@ function buildMyHistoryParams(
   const normalizedKeyword =
     typeof params.keyword === "string" ? params.keyword.trim() : undefined;
 
+  // Convert date-only strings (YYYY-MM-DD) to ISO datetimes representing
+  // start/end of day so backend receives a full datetime range.
+  function toStartIso(value?: string | Date): string | undefined {
+    if (!value) return undefined;
+    if (value instanceof Date) {
+      const d = new Date(value);
+      d.setHours(0, 0, 0, 0);
+      return d.toISOString();
+    }
+    // value is string
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  }
+
+  function toEndIso(value?: string | Date): string | undefined {
+    if (!value) return undefined;
+    if (value instanceof Date) {
+      const d = new Date(value);
+      d.setHours(23, 59, 59, 999);
+      return d.toISOString();
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    d.setHours(23, 59, 59, 999);
+    return d.toISOString();
+  }
+
   return {
     page: params.page,
     limit: params.limit,
-    from: toIso(params.from),
-    to: toIso(params.to),
+    from: toStartIso(params.from),
+    to: toEndIso(params.to),
     transaction_type: params.transaction_type,
     keyword: normalizedKeyword || undefined,
   };

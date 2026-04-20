@@ -11,10 +11,6 @@ import {
 } from '../inventory-transaction/dto/create-inventory-transaction.dto';
 import { UpdateInventoryTransactionDto } from '../inventory-transaction/dto/update-inventory-transaction.dto';
 
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'mock-transaction-id'),
-}));
-
 // utility helper
 function makeDto(
   overrides: Partial<CreateInventoryTransactionDto> = {},
@@ -50,6 +46,10 @@ describe('InventoryTransactionService', () => {
       remove: jest.fn().mockResolvedValue(null),
     };
     svc = new InventoryTransactionService(repo as any);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('basic delegation', () => {
@@ -99,6 +99,16 @@ describe('InventoryTransactionService', () => {
         quantity: 5,
       });
       const created = await svc.create(dto);
+      expect(created).toHaveProperty('_id');
+    });
+
+    it('assigns transaction_date and transaction_id when missing', async () => {
+      const dto = makeDto({ transaction_date: undefined });
+      const created = await svc.create(dto);
+      expect(repo.create).toHaveBeenCalled();
+      const calledArg = (repo.create as jest.Mock).mock.calls[0][0];
+      expect(calledArg.transaction_id).toBeDefined();
+      expect(typeof calledArg.transaction_date).toBe('string');
       expect(created).toHaveProperty('_id');
     });
 

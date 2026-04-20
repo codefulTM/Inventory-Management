@@ -319,9 +319,19 @@ export class InventoryLotService {
       const oldValues: Record<string, any> = {};
       const newValues: Record<string, any> = {};
       const tracked = [
-        'material_id', 'manufacturer_name', 'manufacturer_lot', 'supplier_name',
-        'manufacture_date', 'received_date', 'expiration_date', 'in_use_expiration_date',
-        'status', 'quantity', 'unit_of_measure', 'storage_location', 'notes',
+        'material_id',
+        'manufacturer_name',
+        'manufacturer_lot',
+        'supplier_name',
+        'manufacture_date',
+        'received_date',
+        'expiration_date',
+        'in_use_expiration_date',
+        'status',
+        'quantity',
+        'unit_of_measure',
+        'storage_location',
+        'notes',
       ] as const;
       for (const key of tracked) {
         if (key in updateDto) {
@@ -329,13 +339,15 @@ export class InventoryLotService {
           newValues[key] = (updateDto as any)[key] ?? null;
         }
       }
-      await this.auditLogService.log(
-        actor.username,
-        AuditAction.INVENTORY_LOT_UPDATED,
-        ctx,
-        { lot_id, old: oldValues, new: newValues },
-        actor.user_id,
-      ).catch(() => {});
+      await this.auditLogService
+        .log(
+          actor.username,
+          AuditAction.INVENTORY_LOT_UPDATED,
+          ctx,
+          { lot_id, old: oldValues, new: newValues },
+          actor.user_id,
+        )
+        .catch(() => {});
     }
 
     return this.convertToResponse(updatedLot);
@@ -550,7 +562,7 @@ export class InventoryLotService {
   }
 
   // ==================== QC-Test Integration Methods ====================
-  
+
   /**
    * Get multiple lots by their IDs
    * Used by qc-test.service.ts → getSupplierPerformance()

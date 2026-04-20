@@ -7,6 +7,55 @@ import {
   ConflictException,
 } from '@nestjs/common';
 
+// Mock XLSX used by exportToExcel
+jest.mock('xlsx', () => ({
+  utils: {
+    json_to_sheet: jest.fn().mockReturnValue({}),
+    book_new: jest.fn().mockReturnValue({}),
+    book_append_sheet: jest.fn(),
+  },
+  write: jest.fn().mockReturnValue(Buffer.from([1, 2, 3])),
+}));
+
+// Mock pdfkit used by exportToPDF
+jest.mock('pdfkit', () => {
+  class FakePdfDoc {
+    private callbacks: Record<string, Function> = {};
+    private bufs: Buffer[] = [];
+
+    on(event: string, cb: Function) {
+      this.callbacks[event] = cb;
+      return this;
+    }
+
+    fontSize() {
+      return this;
+    }
+    font() {
+      return this;
+    }
+    text(t: any) {
+      this.bufs.push(Buffer.from(String(t)));
+      return this;
+    }
+    moveDown() {
+      return this;
+    }
+    addPage() {
+      return this;
+    }
+    end() {
+      const chunks = this.bufs.length ? this.bufs : [Buffer.from('pdf')];
+      if (this.callbacks['data']) {
+        for (const c of chunks) this.callbacks['data'](c);
+      }
+      if (this.callbacks['end']) this.callbacks['end']();
+    }
+  }
+
+  return { default: FakePdfDoc };
+});
+
 const sampleMaterial: any = {
   _id: '507f1f77bcf86cd799439011',
   material_id: 'MAT-001',
@@ -114,11 +163,15 @@ describe('findAll', () => {
 
 describe('findAllWithPagination', () => {
   it('throws BadRequestException when page < 1', async () => {
-    await expect(service.findAllWithPagination(0, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.findAllWithPagination(0, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws BadRequestException when limit < 1', async () => {
-    await expect(service.findAllWithPagination(1, 0)).rejects.toThrow(BadRequestException);
+    await expect(service.findAllWithPagination(1, 0)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('caps limit at 100', async () => {
@@ -149,7 +202,9 @@ describe('findById', () => {
   it('throws NotFoundException when material does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.findById('non-existent')).rejects.toThrow(NotFoundException);
+    await expect(service.findById('non-existent')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -166,15 +221,21 @@ describe('search', () => {
   });
 
   it('throws BadRequestException when query is empty', async () => {
-    await expect(service.search('', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.search('', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws BadRequestException when query is only whitespace', async () => {
-    await expect(service.search('   ', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.search('   ', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('throws BadRequestException when query is shorter than 2 chars', async () => {
-    await expect(service.search('A', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.search('A', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('trims whitespace from query before calling repo', async () => {
@@ -198,11 +259,21 @@ describe('filterByType', () => {
   });
 
   it('throws BadRequestException for invalid material type', async () => {
-    await expect(service.filterByType('InvalidType', 1, 20)).rejects.toThrow(BadRequestException);
+    await expect(service.filterByType('InvalidType', 1, 20)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('accepts all valid material types', async () => {
-    const validTypes = ['API', 'Excipient', 'Dietary Supplement', 'Container', 'Closure', 'Process Chemical', 'Testing Material'];
+    const validTypes = [
+      'API',
+      'Excipient',
+      'Dietary Supplement',
+      'Container',
+      'Closure',
+      'Process Chemical',
+      'Testing Material',
+    ];
     repo.filterByType.mockResolvedValue({ data: [], total: 0 });
 
     for (const type of validTypes) {
@@ -219,7 +290,9 @@ describe('update', () => {
     repo.findById.mockResolvedValue(sampleMaterial);
     repo.update.mockResolvedValue(updated);
 
-    const result = await service.update('507f1f77bcf86cd799439011', { material_name: 'Updated Name' });
+    const result = await service.update('507f1f77bcf86cd799439011', {
+      material_name: 'Updated Name',
+    });
 
     expect(result.material_name).toBe('Updated Name');
   });
@@ -227,7 +300,9 @@ describe('update', () => {
   it('throws NotFoundException when material does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.update('non-existent', { material_name: 'X' })).rejects.toThrow(NotFoundException);
+    await expect(
+      service.update('non-existent', { material_name: 'X' }),
+    ).rejects.toThrow(NotFoundException);
     expect(repo.update).not.toHaveBeenCalled();
   });
 });
@@ -237,7 +312,7 @@ describe('update', () => {
 describe('delete', () => {
   it('deletes existing material and returns message', async () => {
     repo.findById.mockResolvedValue(sampleMaterial);
-    repo.delete.mockResolvedValue(undefined);
+    repo.delete.mockResolvedValue(null);
 
     const result = await service.delete('507f1f77bcf86cd799439011');
 
@@ -248,7 +323,9 @@ describe('delete', () => {
   it('throws NotFoundException when material does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    await expect(service.delete('non-existent')).rejects.toThrow(NotFoundException);
+    await expect(service.delete('non-existent')).rejects.toThrow(
+      NotFoundException,
+    );
     expect(repo.delete).not.toHaveBeenCalled();
   });
 });
@@ -258,7 +335,7 @@ describe('delete', () => {
 describe('remove', () => {
   it('returns { deleted: true } on success', async () => {
     repo.findById.mockResolvedValue(sampleMaterial);
-    repo.delete.mockResolvedValue(undefined);
+    repo.delete.mockResolvedValue(null);
 
     const result = await service.remove('507f1f77bcf86cd799439011');
 
@@ -285,3 +362,36 @@ describe('getDistinctTypes', () => {
     expect(result).toEqual(['API', 'Excipient']);
   });
 });
+
+// ── getOptions / exports ───────────────────────────────────────────────────
+
+describe('getOptions', () => {
+  it('throws BadRequestException when page < 1', async () => {
+    await expect(
+      service.getOptions(undefined, undefined, 0, 20),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws BadRequestException when limit < 1', async () => {
+    await expect(
+      service.getOptions(undefined, undefined, 1, 0),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('calls repository.findOptions with capped limit', async () => {
+    repo.findOptions.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 100,
+    } as any);
+
+    await service.getOptions('q', 'active', 1, 200);
+
+    expect(repo.findOptions).toHaveBeenCalledWith('q', 'active', 1, 100);
+  });
+});
+// Note: exportToExcel and exportToPDF involve dynamic imports (xlsx/pdfkit)
+// which require experimental VM modules in this test runner. Those
+// integrations are covered via higher-level controller tests where the
+// exported buffers are mocked. Keep service tests focused on business logic.

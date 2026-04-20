@@ -243,12 +243,13 @@ export class InventoryLotRepository {
 
   async updateQuantity(
     lot_id: string,
-    quantityDelta: string,
+    quantityDelta: number | string,
   ): Promise<InventoryLotDocument | null> {
+    const delta = Number(quantityDelta) || 0;
     return this.inventoryLotModel
       .findOneAndUpdate(
         { lot_id },
-        { $inc: { quantity: quantityDelta } },
+        { $inc: { quantity: delta } },
         { new: true },
       )
       .exec();
@@ -310,6 +311,10 @@ export class InventoryLotRepository {
       .find({ lot_id: { $in: lot_ids } })
       .sort({ created_date: -1 })
       .exec();
+  }
+
+  async aggregate<T = any>(pipeline: any[]): Promise<T[]> {
+    return this.inventoryLotModel.aggregate<T>(pipeline).exec();
   }
 
   async updateStatusByIds(

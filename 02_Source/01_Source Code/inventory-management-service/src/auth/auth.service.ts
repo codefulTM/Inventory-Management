@@ -141,15 +141,14 @@ export class AuthService {
         },
       };
     } catch (error) {
-      this.logger.warn(
-        `Login failed for username: ${dto.username} - ${error.message}`,
-      );
+      const msg: string =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Login failed for username: ${dto.username} - ${msg}`);
 
       if (error instanceof HttpException) {
         throw error;
       }
 
-      const msg: string = error.message || '';
       await this.auditLogService
         .log(dto.username, AuditAction.LOGIN_FAILED, ctx, { reason: msg })
         .catch(() => {});
@@ -212,16 +211,15 @@ export class AuthService {
     } catch (error) {
       // Ghi audit log khi logout thất bại
       if (username) {
-        this.logger.warn(
-          `Logout failed for username: ${username} - ${error.message}`,
-        );
+        const errMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Logout failed for username: ${username} - ${errMsg}`);
         console.log('[AuthService] Logging LOGOUT_FAILED for:', username);
         await this.auditLogService
           .log(
             username,
             AuditAction.LOGOUT_FAILED,
             ctx,
-            { reason: error.message },
+            { reason: errMsg },
             userId,
           )
           .catch(() => {});
@@ -289,7 +287,10 @@ export class AuthService {
   /**
    * Gửi link đặt lại mật khẩu về email
    */
-  async forgotPassword(email: string, ctx: LogContext = {}): Promise<{ message: string }> {
+  async forgotPassword(
+    email: string,
+    ctx: LogContext = {},
+  ): Promise<{ message: string }> {
     const user = await this.userService.findByEmail(email);
     // Trả về cùng message dù email có tồn tại hay không (tránh lộ thông tin)
     if (!user || !user.keycloak_id) {
@@ -317,14 +318,26 @@ export class AuthService {
     );
 
     this.logger.log(`Password reset requested for: ${user.email}`);
-    await this.auditLogService.log(user.username, AuditAction.PASSWORD_RESET_REQUESTED, ctx, { email: user.email }, user.user_id).catch(() => {});
+    await this.auditLogService
+      .log(
+        user.username,
+        AuditAction.PASSWORD_RESET_REQUESTED,
+        ctx,
+        { email: user.email },
+        user.user_id,
+      )
+      .catch(() => {});
     return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
   }
 
   /**
    * Đặt lại mật khẩu bằng token
    */
-  async resetPassword(token: string, newPassword: string, ctx: LogContext = {}): Promise<{ message: string }> {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+    ctx: LogContext = {},
+  ): Promise<{ message: string }> {
     const record = await this.resetTokenModel.findOne({ token });
 
     if (!record) throw new BadRequestException('Token không hợp lệ');
@@ -341,7 +354,15 @@ export class AuthService {
     await this.resetTokenModel.updateOne({ token }, { used: true });
 
     this.logger.log(`Password reset completed for: ${record.email}`);
-    await this.auditLogService.log(user.username, AuditAction.PASSWORD_RESET_COMPLETED, ctx, { email: user.email }, user.user_id).catch(() => {});
+    await this.auditLogService
+      .log(
+        user.username,
+        AuditAction.PASSWORD_RESET_COMPLETED,
+        ctx,
+        { email: user.email },
+        user.user_id,
+      )
+      .catch(() => {});
     return { message: 'Đặt lại mật khẩu thành công' };
   }
 }

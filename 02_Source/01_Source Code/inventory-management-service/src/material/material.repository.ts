@@ -92,6 +92,11 @@ export class MaterialRepository {
     return this.materialModel.findOne({ material_id: materialId }).exec();
   }
 
+  async findByMaterialIds(materialIds: string[]): Promise<MaterialDocument[]> {
+    if (!materialIds || materialIds.length === 0) return [];
+    return this.materialModel.find({ material_id: { $in: materialIds } }).lean().exec();
+  }
+
   /**
    * Find material by part_number
    * @param partNumber - Part number

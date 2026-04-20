@@ -63,7 +63,11 @@ describe('InventoryLotModule', () => {
   });
 
   it('should register InventoryLotController', () => {
-    expect(controllers).toEqual([InventoryLotController]);
+    // Module may register additional controllers (e.g. BinWorklistController)
+    // only assert that InventoryLotController is present.
+    expect(controllers).toEqual(
+      expect.arrayContaining([InventoryLotController]),
+    );
   });
 
   it('should register InventoryLotService and InventoryLotRepository providers', () => {

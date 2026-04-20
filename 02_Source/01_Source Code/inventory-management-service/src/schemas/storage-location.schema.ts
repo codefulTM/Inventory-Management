@@ -22,6 +22,9 @@ export class StorageLocation {
   @Prop({ type: String, required: false, maxlength: 50 })
   zone?: string;
 
+  @Prop({ type: Number, required: false })
+  expected_qty?: number;
+
   @Prop({ type: Boolean, required: true, default: true })
   is_active: boolean;
 

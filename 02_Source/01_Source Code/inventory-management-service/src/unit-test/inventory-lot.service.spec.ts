@@ -38,7 +38,7 @@ const sampleLot: any = {
 };
 
 let service: InventoryLotService;
-let repo: Record<keyof InventoryLotRepository, jest.Mock>;
+let repo: any;
 let transactionService: {
   create: jest.Mock;
   getAll: jest.Mock;
@@ -55,7 +55,6 @@ beforeEach(async () => {
     findByStatus: jest.fn(),
     findBySampleStatus: jest.fn(),
     findSamplesByParentLot: jest.fn(),
-    search: jest.fn(),
     search: jest.fn(),
     findByFilter: jest.fn(),
     update: jest.fn(),
