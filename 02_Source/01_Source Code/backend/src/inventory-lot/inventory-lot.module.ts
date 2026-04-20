@@ -5,6 +5,10 @@ import {
   InventoryLotSchema,
 } from '../schemas/inventory-lot.schema';
 import {
+  StorageLocation,
+  StorageLocationSchema,
+} from '../schemas/storage-location.schema';
+import {
   BinCountRecord,
   BinCountRecordSchema,
 } from '../schemas/bin-count-record.schema';
@@ -23,6 +27,7 @@ import { MailModule } from '../mail/mail.module';
   imports: [
     MongooseModule.forFeature([
       { name: InventoryLot.name, schema: InventoryLotSchema },
+      { name: StorageLocation.name, schema: StorageLocationSchema },
       { name: BinCountRecord.name, schema: BinCountRecordSchema },
     ]),
     InventoryTransactionModule,

@@ -34,7 +34,6 @@ import {
   getDashboardDrilldown,
 } from "../../services/dashboardService";
 import { fetchWarehouses } from "../../services/warehouseService";
-import { materialService } from "../../services/material.service";
 import type { Warehouse } from "../../types/warehouse";
 
 function isLowStock(quantity: number): boolean {
@@ -105,17 +104,20 @@ export default function DashboardManager() {
         setQcPerformance(qc);
         setAuditReport(audit);
         setWarehouses(whs.data || []);
-        // load minimal dashboard summary and trends
-        const sumResp = await getDashboardSummary();
-        if (sumResp.data) setSummary(sumResp.data);
+        // load minimal dashboard summary and trends (default last 7 days)
         const now = new Date();
-        const from = new Date(
+        const defaultFrom = new Date(
           now.getTime() - 7 * 24 * 3600 * 1000,
         ).toISOString();
-        const to = now.toISOString();
+        const defaultTo = now.toISOString();
+        const from = defaultFrom;
+        const to = defaultTo;
+        // Initial mount: don't depend on current filterWarehouse (avoids missing-deps lint)
+        const sumResp = await getDashboardSummary(undefined, from, to);
+        if (sumResp.data) setSummary(sumResp.data);
         const interval = computeInterval(from, to);
-        const inResp = await getDashboardTrends("in", from, to, interval);
-        const outResp = await getDashboardTrends("out", from, to, interval);
+        const inResp = await getDashboardTrends("in", from, to, interval, undefined);
+        const outResp = await getDashboardTrends("out", from, to, interval, undefined);
         if (inResp.data) setTrendsIn(inResp.data);
         if (outResp.data) setTrendsOut(outResp.data);
       } catch (err) {
@@ -140,8 +142,6 @@ export default function DashboardManager() {
 
   // removed unused derived values (were causing TS unused variable errors)
 
-  const [materialNames, setMaterialNames] = useState<Record<string, string>>({});
-
   type TopMaterialRow = {
     key: string;
     material_id: string;
@@ -152,10 +152,9 @@ export default function DashboardManager() {
   const topMaterialsColumns: ColumnsType<TopMaterialRow> = [
     {
       title: 'Xếp hạng',
-      dataIndex: 'rank',
       key: 'rank',
       width: 60,
-      render: (_: any, __: any, idx?: number) => (idx ?? 0) + 1,
+      render: (_value: any, _record: TopMaterialRow, idx: number) => idx + 1,
     },
     { title: 'Mã vật liệu', dataIndex: 'material_id', key: 'material_id' },
     { title: 'Tên vật liệu', dataIndex: 'material_name', key: 'material_name' },
@@ -168,29 +167,8 @@ export default function DashboardManager() {
     },
   ];
 
-  // Fetch material names for top materials for display
-  useEffect(() => {
-    const loadNames = async () => {
-      if (!Array.isArray(summary?.top_materials)) return;
-      const ids = (summary.top_materials as any[]).map((m) => m.material_id);
-      const map: Record<string, string> = {};
-      await Promise.all(
-        ids.map(async (id) => {
-          try {
-            const resp = await materialService.search(id, 1, 1);
-            const item = resp.data?.[0];
-            if (item) map[id] = item.material_name || item.material_id || id;
-            else map[id] = id;
-          } catch {
-            map[id] = id;
-          }
-        }),
-      );
-      setMaterialNames(map);
-    };
+  // no client-side material name lookup required — backend returns `material_name` in summary.top_materials
 
-    void loadNames();
-  }, [summary]);
 
   return (
     <div className="p-6 space-y-4">
@@ -200,6 +178,75 @@ export default function DashboardManager() {
           Real-time inventory overview, quality trend and recent operations
         </p>
       </div>
+
+      {/* Top controls: Range picker + Warehouse + Apply */}
+      <Row gutter={[12, 12]} align="middle">
+        <Col>
+          <DatePicker.RangePicker
+            value={dateRange as any}
+            onChange={(dates) => setDateRange(dates)}
+          />
+        </Col>
+        <Col>
+          <Select
+            style={{ width: 220 }}
+            placeholder="Warehouse"
+            allowClear
+            value={filterWarehouse}
+            onChange={(v) => setFilterWarehouse(v)}
+            options={(warehouses || []).map((w) => ({
+              label: w.warehouse_name || w.warehouse_id,
+              value: w.warehouse_id,
+            }))}
+          />
+        </Col>
+        <Col>
+          <Button
+            onClick={async () => {
+              // Nếu người dùng không chọn range thì dùng mặc định last 7 days
+              const now = new Date();
+              const defaultFrom = new Date(
+                now.getTime() - 7 * 24 * 3600 * 1000,
+              ).toISOString();
+              const defaultTo = now.toISOString();
+
+              const from = dateRange?.[0]
+                ? dateRange[0].toISOString()
+                : defaultFrom;
+              const to = dateRange?.[1] ? dateRange[1].toISOString() : defaultTo;
+
+              const interval = computeInterval(from, to);
+
+              // Fetch updated summary and trends based on selection
+              const sumResp = await getDashboardSummary(
+                filterWarehouse,
+                from,
+                to,
+              );
+              if (sumResp.data) setSummary(sumResp.data);
+
+              const inResp = await getDashboardTrends(
+                "in",
+                from,
+                to,
+                interval,
+                filterWarehouse,
+              );
+              const outResp = await getDashboardTrends(
+                "out",
+                from,
+                to,
+                interval,
+                filterWarehouse,
+              );
+              if (inResp.data) setTrendsIn(inResp.data);
+              if (outResp.data) setTrendsOut(outResp.data);
+            }}
+          >
+            Apply
+          </Button>
+        </Col>
+      </Row>
 
       {error ? <Alert type="error" showIcon message={error} /> : null}
 
@@ -246,7 +293,7 @@ export default function DashboardManager() {
           <Row className="mt-4">
             <Col xs={24} lg={24}>
               <Card title="Top Materials">
-                <Table
+                <Table<TopMaterialRow>
                   size="small"
                   columns={topMaterialsColumns}
                   dataSource={
@@ -254,7 +301,7 @@ export default function DashboardManager() {
                       ? (summary.top_materials as any[]).map((m) => ({
                           key: m.material_id,
                           material_id: m.material_id,
-                          material_name: materialNames[m.material_id] || '',
+                          material_name: m.material_name || m.material_id,
                           total_quantity: m.total_quantity,
                         }))
                       : []
@@ -267,66 +314,6 @@ export default function DashboardManager() {
 
           {/* Filter bar + Trends */}
           <Card className="mt-4">
-            <Row gutter={[12, 12]} align="middle">
-              <Col>
-                <DatePicker.RangePicker
-                  onChange={(dates) => setDateRange(dates)}
-                />
-              </Col>
-              <Col>
-                <Select
-                  style={{ width: 220 }}
-                  placeholder="Warehouse"
-                  allowClear
-                  onChange={(v) => setFilterWarehouse(v)}
-                  options={(warehouses || []).map((w) => ({
-                    label: w.warehouse_name || w.warehouse_id,
-                    value: w.warehouse_id,
-                  }))}
-                />
-              </Col>
-              <Col>
-                <Button
-                  onClick={async () => {
-                    // Nếu người dùng không chọn range thì dùng mặc định last 7 days
-                    const now = new Date();
-                    const defaultFrom = new Date(
-                      now.getTime() - 7 * 24 * 3600 * 1000,
-                    ).toISOString();
-                    const defaultTo = now.toISOString();
-
-                    const from = dateRange?.[0]
-                      ? dateRange[0].toISOString()
-                      : defaultFrom;
-                    const to = dateRange?.[1]
-                      ? dateRange[1].toISOString()
-                      : defaultTo;
-
-                    const interval = computeInterval(from, to);
-
-                    const inResp = await getDashboardTrends(
-                      "in",
-                      from,
-                      to,
-                      interval,
-                      filterWarehouse,
-                    );
-                    const outResp = await getDashboardTrends(
-                      "out",
-                      from,
-                      to,
-                      interval,
-                      filterWarehouse,
-                    );
-                    if (inResp.data) setTrendsIn(inResp.data);
-                    if (outResp.data) setTrendsOut(outResp.data);
-                  }}
-                >
-                  Apply
-                </Button>
-              </Col>
-            </Row>
-
             <Row gutter={[12, 12]} className="mt-4">
               <Col xs={24} lg={12}>
                 <h3 className="m-0">In (Receipts)</h3>

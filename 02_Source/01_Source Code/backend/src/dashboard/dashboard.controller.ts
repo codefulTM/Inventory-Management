@@ -6,8 +6,12 @@ export class DashboardController {
   constructor(private readonly svc: DashboardService) {}
 
   @Get('summary')
-  async summary(@Query('warehouseId') warehouseId?: string) {
-    return this.svc.getSummary({ warehouseId });
+  async summary(
+    @Query('warehouseId') warehouseId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.svc.getSummary({ warehouseId, from, to });
   }
 
   @Get('trends')

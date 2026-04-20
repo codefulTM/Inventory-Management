@@ -1,12 +1,21 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { InventoryLotRepository } from './inventory-lot.repository';
 import { BinCountRecordRepository } from './bin-count-record.repository';
 import type { SubmitBinCountDto } from './dto/bin-worklist.dto';
 import { WarehouseSlipService } from '../warehouse-slip/warehouse-slip.service';
-import { WarehouseSlipType, WarehouseSlipStatus } from '../warehouse-slip/dto/create-warehouse-slip.dto';
+import {
+  WarehouseSlipType,
+  WarehouseSlipStatus,
+} from '../warehouse-slip/dto/create-warehouse-slip.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
 import { MailService } from '../mail/mail.service';
+import {
+  StorageLocation,
+  StorageLocationDocument,
+} from '../schemas/storage-location.schema';
 
 @Injectable()
 export class BinWorklistService {
@@ -16,52 +25,103 @@ export class BinWorklistService {
     private readonly warehouseSlipService: WarehouseSlipService,
     private readonly auditLogService: AuditLogService,
     private readonly mailService: MailService,
+    @InjectModel(StorageLocation.name)
+    private readonly storageLocationModel: Model<StorageLocationDocument>,
   ) {}
 
+  async createBin(body: {
+    bin_code: string;
+    warehouse_id?: string;
+    location_name?: string;
+  }) {
+    if (!body || !body.bin_code)
+      throw new BadRequestException('bin_code required');
+    const location_id = body.bin_code.trim();
+    const warehouse_id =
+      body.warehouse_id || process.env.DEFAULT_WAREHOUSE_ID || 'default';
+    const location_name = body.location_name || location_id;
+
+    const created = await this.storageLocationModel
+      .findOneAndUpdate(
+        { location_id },
+        {
+          $setOnInsert: {
+            location_id,
+            warehouse_id,
+            location_name,
+            is_active: true,
+          },
+        },
+        { upsert: true, new: true },
+      )
+      .lean()
+      .exec();
+
+    return created;
+  }
+
+  async updateBin(
+    bin_code: string,
+    body: {
+      warehouse_id?: string;
+      location_name?: string;
+      is_active?: boolean;
+    },
+  ) {
+    if (!bin_code) throw new BadRequestException('bin_code required');
+    const location_id = bin_code.trim();
+    const update: any = {};
+    if (body.warehouse_id !== undefined)
+      update.warehouse_id = body.warehouse_id;
+    if (body.location_name !== undefined)
+      update.location_name = body.location_name;
+    if (body.is_active !== undefined)
+      update.is_active = Boolean(body.is_active);
+
+    const updated = await this.storageLocationModel
+      .findOneAndUpdate({ location_id }, { $set: update }, { new: true })
+      .lean()
+      .exec();
+
+    return updated;
+  }
+
+  async deleteBin(bin_code: string) {
+    if (!bin_code) throw new BadRequestException('bin_code required');
+    const location_id = bin_code.trim();
+    const deleted = await this.storageLocationModel
+      .findOneAndDelete({ location_id })
+      .lean()
+      .exec();
+    return { success: !!deleted };
+  }
+
   async getWorklist(warehouse_id?: string, page = 1, limit = 50) {
-    const match: any = {};
-    if (warehouse_id) match.warehouse_id = warehouse_id;
-    match.storage_location = { $ne: null };
+    // Return bins from storage_locations collection (show storage locations even if no inventory lots)
+    const query: any = { is_active: true };
+    if (warehouse_id) query.warehouse_id = warehouse_id;
 
     const skip = (page - 1) * limit;
 
-    const pipeline: any[] = [
-      { $match: match },
-      {
-        $group: {
-          _id: '$storage_location',
-          expected_qty: { $sum: '$quantity' },
-          lots: {
-            $push: {
-              lot_id: '$lot_id',
-              material_id: '$material_id',
-              qty: '$quantity',
-            },
-          },
-          last_modified: { $max: '$modified_date' },
-        },
-      },
-      {
-        $project: {
-          bin_code: '$_id',
-          expected_qty: 1,
-          lots: 1,
-          last_count_date: '$last_modified',
-        },
-      },
-      { $sort: { expected_qty: -1 } },
-      { $skip: skip },
-      { $limit: limit },
-    ];
-
-    const data = await this.inventoryLotRepo.aggregate(pipeline);
-    const totalAgg = await this.inventoryLotRepo.aggregate([
-      { $match: match },
-      { $group: { _id: '$storage_location' } },
-      { $count: 'total' },
+    const [docs, total] = await Promise.all([
+      this.storageLocationModel
+        .find(query, { location_id: 1, warehouse_id: 1, location_name: 1, modified_date: 1 })
+        .sort({ location_id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.storageLocationModel.countDocuments(query).exec(),
     ]);
-    const total = (totalAgg[0] && totalAgg[0].total) || 0;
-    return { data, total, page, limit };
+
+    const data = (docs || []).map((d: any) => ({
+      bin_code: d.location_id,
+      expected_qty: d.expected_qty ?? undefined,
+      lots: [], // intentionally empty; do not derive from inventory_lots here
+      last_count_date: d.modified_date ?? null,
+    }));
+
+    return { data, total: total || 0, page, limit };
   }
 
   async getBinDetails(bin_code: string) {
@@ -135,12 +195,17 @@ export class BinWorklistService {
 
     // audit log
     try {
-      await this.auditLogService.log(dto.counted_by, AuditAction.INVENTORY_LOT_UPDATED, undefined, {
-        bin_code,
-        record_id: record._id,
-        delta_pct: Math.round(deltaPct * 100) / 100,
-        flag_review,
-      });
+      await this.auditLogService.log(
+        dto.counted_by,
+        AuditAction.INVENTORY_LOT_UPDATED,
+        undefined,
+        {
+          bin_code,
+          record_id: record._id,
+          delta_pct: Math.round(deltaPct * 100) / 100,
+          flag_review,
+        },
+      );
     } catch (_) {}
 
     // notify manager when flagged
@@ -159,9 +224,12 @@ export class BinWorklistService {
     }
 
     // auto-create warehouse slips for small discrepancies if enabled
-    const autoAdjust = (process.env.AUTO_ADJUST_BIN_COUNT || '').toLowerCase() === 'true';
+    const autoAdjust =
+      (process.env.AUTO_ADJUST_BIN_COUNT || '').toLowerCase() === 'true';
     if (!flag_review && autoAdjust) {
-      const lotIds = dto.entries.map((e) => e.lot_id).filter(Boolean) as string[];
+      const lotIds = dto.entries
+        .map((e) => e.lot_id)
+        .filter(Boolean) as string[];
       const lotsInfo = await this.inventoryLotRepo.findByLotIds(lotIds);
       const lotMap = new Map(lotsInfo.map((l: any) => [l.lot_id, l]));
 
@@ -171,10 +239,12 @@ export class BinWorklistService {
         if (!e.lot_id || diff === 0) continue;
 
         const lot = lotMap.get(e.lot_id) as any;
-        const warehouse_id = lot?.warehouse_id || process.env.DEFAULT_WAREHOUSE_ID;
+        const warehouse_id =
+          lot?.warehouse_id || process.env.DEFAULT_WAREHOUSE_ID;
         if (!warehouse_id) continue;
 
-        const slipType = diff > 0 ? WarehouseSlipType.IN : WarehouseSlipType.OUT;
+        const slipType =
+          diff > 0 ? WarehouseSlipType.IN : WarehouseSlipType.OUT;
         try {
           await this.warehouseSlipService.create(
             {

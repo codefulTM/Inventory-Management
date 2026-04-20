@@ -1,9 +1,13 @@
 import { apiClient } from "./apiClient";
 import { API_ENDPOINTS } from "../config/api.config";
 
-export async function getDashboardSummary(warehouseId?: string) {
+export async function getDashboardSummary(
+  warehouseId?: string,
+  from?: string,
+  to?: string,
+) {
   const url = API_ENDPOINTS.DASHBOARD_SUMMARY;
-  const resp = await apiClient.get(url, { params: { warehouseId } });
+  const resp = await apiClient.get(url, { params: { warehouseId, from, to } });
   return resp;
 }
 

@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Param,
   Query,
   Body,
@@ -36,5 +38,35 @@ export class BinWorklistController {
     @Body(ValidationPipe) dto: SubmitBinCountDto,
   ) {
     return await this.service.submitCounts(bin_code, dto);
+  }
+
+  @Post()
+  async createBin(
+    @Body()
+    body: {
+      bin_code: string;
+      warehouse_id?: string;
+      location_name?: string;
+    },
+  ) {
+    return await this.service.createBin(body);
+  }
+
+  @Put(':bin_code')
+  async updateBin(
+    @Param('bin_code') bin_code: string,
+    @Body()
+    body: {
+      warehouse_id?: string;
+      location_name?: string;
+      is_active?: boolean;
+    },
+  ) {
+    return await this.service.updateBin(bin_code, body);
+  }
+
+  @Delete(':bin_code')
+  async deleteBin(@Param('bin_code') bin_code: string) {
+    return await this.service.deleteBin(bin_code);
   }
 }

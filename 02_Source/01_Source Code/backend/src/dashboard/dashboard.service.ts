@@ -41,7 +41,7 @@ export class DashboardService {
    * - Vẫn có thể bổ sung fallback (ví dụ: nếu không có line value thì dùng `lot.quantity * fallback_price`).
    * - Về hiệu năng: pipeline này thực hiện lookup + group per-lot; nếu dữ liệu lớn có thể cần pre-aggregate hoặc cache.
    */
-  async getSummary(filters: { warehouseId?: string } = {}) {
+  async getSummary(filters: { warehouseId?: string; from?: string; to?: string } = {}) {
     // Chuẩn bị điều kiện match cho pipeline
     const match: any = {};
     if (filters.warehouseId) match.warehouse_id = filters.warehouseId; // nếu truyền warehouseId thì lọc
@@ -67,41 +67,38 @@ export class DashboardService {
       { $match: match },
       {
         $lookup: {
-          // join sang collection `warehouse_slips`
           from: 'warehouse_slips',
-          // biến local để truyền vào pipeline lookup: $$lotId sẽ nhận giá trị của inventory_lots.lot_id
           let: { lotId: '$lot_id' },
           pipeline: [
-            // Chỉ tính các slip đã được duyệt/confirm — bỏ qua PENDING/REJECTED
-            { $match: { status: 'CONFIRMED' } },
-            // 1) $unwind: tách mảng `lines` ra để xử lý từng dòng riêng
+            {
+              $match: (function () {
+                const m: any = { status: 'CONFIRMED' };
+                if (filters.from || filters.to) {
+                  m.confirmed_at = {};
+                  if (filters.from) m.confirmed_at.$gte = new Date(filters.from);
+                  if (filters.to) m.confirmed_at.$lte = new Date(filters.to);
+                }
+                return m;
+              })(),
+            },
             { $unwind: '$lines' },
-            // 2) $match với $expr: so sánh các field của lines với biến $$lotId
             {
               $match: {
                 $expr: {
                   $and: [
-                    // điều kiện: dòng slip phải liên quan tới lot hiện tại
                     { $eq: ['$lines.lot_id', '$$lotId'] },
-                    // và chỉ tính các dòng có unit_price (không null)
                     { $ne: ['$lines.unit_price', null] },
                   ],
                 },
               },
             },
-            // 3) Nhóm các dòng phù hợp của cùng một lot để tính tổng giá trị: SUM(quantity * unit_price)
             {
               $group: {
                 _id: null,
-                // Tổng giá trị các dòng của lô: SUM(lines.quantity * lines.unit_price)
-                line_value_sum: {
-                  $sum: { $multiply: ['$lines.quantity', '$lines.unit_price'] },
-                },
-                // Tổng số lượng theo các dòng slip (không bắt buộc dùng, nhưng lưu để tham khảo)
+                line_value_sum: { $sum: { $multiply: ['$lines.quantity', '$lines.unit_price'] } },
                 line_quantity_sum: { $sum: '$lines.quantity' },
               },
             },
-            // 4) Chỉ giữ giá trị aggregate cần thiết
             { $project: { _id: 0, line_value_sum: 1, line_quantity_sum: 1 } },
           ],
           as: 'line_aggregates',
@@ -109,24 +106,32 @@ export class DashboardService {
       },
       {
         $addFields: {
-          // Lấy giá trị tổng line_value_sum từ kết quả lookup: line_aggregates[0].line_value_sum
-          // - $arrayElemAt lấy phần tử đầu tiên của mảng `line_aggregates` (nếu lookup không rỗng)
-          // - $ifNull đảm bảo nếu không có aggregate (mảng rỗng) thì trả về 0
           lot_value: {
-            $ifNull: [
-              { $arrayElemAt: ['$line_aggregates.line_value_sum', 0] },
-              0,
-            ],
+            $ifNull: [{ $arrayElemAt: ['$line_aggregates.line_value_sum', 0] }, 0],
           },
         },
       },
       {
         $group: {
           _id: '$material_id',
-          total_quantity: { $sum: '$quantity' }, // tổng lượng theo material
-          total_value: { $sum: '$lot_value' }, // tổng giá trị theo material (tổng các lot_value)
+          total_quantity: { $sum: '$quantity' },
+          total_value: { $sum: '$lot_value' },
         },
       },
+      {
+        $lookup: {
+          from: 'materials',
+          localField: '_id',
+          foreignField: 'material_id',
+          as: 'material_docs',
+        },
+      },
+      {
+        $addFields: {
+          material_name: { $arrayElemAt: ['$material_docs.material_name', 0] },
+        },
+      },
+      { $project: { material_docs: 0 } },
     ];
 
     // Chạy aggregation qua repository nhằm tách concerns
@@ -145,6 +150,7 @@ export class DashboardService {
       .slice(0, 10)
       .map((r: any) => ({
         material_id: r._id,
+        material_name: r.material_name || r._id,
         total_quantity: r.total_quantity,
       }));
 
