@@ -12,6 +12,20 @@ type UserRole =
   | "it_admin"
   | "unknown";
 
+type NearestExpiryLot = {
+  sourceId: string;
+  expirationDate: string;
+  daysRemaining: number;
+};
+
+type TransactionDigest = {
+  id: string;
+  type: string;
+  materialId: string;
+  quantity: string;
+  happenedAt: string;
+};
+
 @Injectable()
 export class InventoryAnalystAgent {
   private readonly profile = {
@@ -68,26 +82,28 @@ export class InventoryAnalystAgent {
       const page = Number(input.payload?.page ?? 1);
       const limit = Number(input.payload?.limit ?? 20);
       const userRole = this.normalizeUserRole(input.payload?.userRole);
+      const asksRecentTransactions = this.detectRecentTransactionsIntent(
+        normalizedQuery,
+      );
+      const requestedTransactionLimit = asksRecentTransactions
+        ? this.extractTransactionLimit(normalizedQuery)
+        : limit;
+      const transactionPage = asksRecentTransactions ? 1 : page;
 
       const [lotStats, transactions] = await Promise.all([
         this.backendDataService.getLotsStatistics(),
-        this.backendDataService.getTransactions(page, limit),
+        this.backendDataService.getTransactions(
+          transactionPage,
+          requestedTransactionLimit,
+        ),
       ]);
 
       const requestedDaysWindow = this.extractDaysWindow(normalizedQuery);
-      const asksExpiringSoon =
-        normalizedQuery.includes("sap het han") ||
-        normalizedQuery.includes("duoi 1 thang") ||
-        normalizedQuery.includes("con han") ||
-        normalizedQuery.includes("het han trong") ||
-        normalizedQuery.includes("can han") ||
-        normalizedQuery.includes("expiring");
-
-      const asksExpired =
-        normalizedQuery.includes("da het han") ||
-        normalizedQuery.includes("qua han") ||
-        (normalizedQuery.includes("het han") && !asksExpiringSoon) ||
-        normalizedQuery.includes("expired");
+      const asksExpiringSoon = this.detectExpiringIntent(normalizedQuery);
+      const asksExpired = this.detectExpiredIntent(
+        normalizedQuery,
+        asksExpiringSoon,
+      );
 
       let expiringLots: unknown[] = [];
       let expiredLots: unknown[] = [];
@@ -191,6 +207,13 @@ export class InventoryAnalystAgent {
           preview: (hit.rag_text || "").slice(0, 320),
         }));
 
+      const nearestExpiryLot =
+        this.extractNearestExpiryLotFromCitations(retrievalCitations);
+      const transactionDigests = this.extractTransactionDigests(
+        (transactions as any)?.items,
+        requestedTransactionLimit,
+      );
+
       const insights: string[] = [];
       if (!asksExpiringSoon && !asksExpired && (lotStats as any).expired > 0) {
         insights.push(
@@ -220,11 +243,14 @@ export class InventoryAnalystAgent {
         expiringLots,
         expiredLots,
         transactions: (transactions as any).items,
+        transaction_digests: transactionDigests,
         pagination: {
-          page,
-          limit,
+          page: transactionPage,
+          limit: requestedTransactionLimit,
           total: (transactions as any).total,
-          totalPages: Math.ceil((transactions as any).total / limit),
+          totalPages: Math.ceil(
+            (transactions as any).total / requestedTransactionLimit,
+          ),
         },
         retrieval: {
           total: retrieval.total,
@@ -234,6 +260,7 @@ export class InventoryAnalystAgent {
           highlights: retrievalHighlights,
           citations: retrievalCitations,
         },
+        nearest_expiry_lot: nearestExpiryLot,
         insights,
         query_window_days: requestedDaysWindow,
       };
@@ -257,6 +284,7 @@ export class InventoryAnalystAgent {
           sanitizedReply,
           asksExpiringSoon,
           asksExpired,
+          asksRecentTransactions,
         );
 
       const assistantReply = shouldUseSanitizedReply
@@ -267,9 +295,13 @@ export class InventoryAnalystAgent {
             expiredLots.length,
             asksExpiringSoon,
             asksExpired,
+            asksRecentTransactions,
             requestedDaysWindow,
             insights,
             userRole,
+            nearestExpiryLot,
+            transactionDigests,
+            requestedTransactionLimit,
           );
 
       return {
@@ -301,9 +333,13 @@ export class InventoryAnalystAgent {
     expiredLots: number,
     asksExpiringSoon: boolean,
     asksExpired: boolean,
+    asksRecentTransactions: boolean,
     days: number,
     insights: string[],
     userRole: UserRole,
+    nearestExpiryLot?: NearestExpiryLot,
+    transactionDigests: TransactionDigest[] = [],
+    transactionLimit = 10,
   ): string {
     const roleGuidance = this.buildRoleGuidance(
       userRole,
@@ -314,6 +350,22 @@ export class InventoryAnalystAgent {
 
     if (insights.length > 0) {
       return `${insights.join(" ")} ${roleGuidance}`.trim();
+    }
+
+    if (asksRecentTransactions) {
+      if (transactionDigests.length === 0) {
+        return `Hiện chưa có giao dịch kho gần đây trong phạm vi truy vấn. Bạn có thể thử lại với bộ lọc thời gian khác hoặc kiểm tra quyền truy cập dữ liệu.`;
+      }
+
+      const listed = transactionDigests
+        .slice(0, transactionLimit)
+        .map(
+          (tx, index) =>
+            `${index + 1}. ${tx.happenedAt} | ${tx.type} | ${tx.materialId} | ${tx.quantity} | mã giao dịch ${tx.id}`,
+        )
+        .join("; ");
+
+      return `Đây là ${Math.min(transactionLimit, transactionDigests.length)} giao dịch kho gần nhất: ${listed}`;
     }
 
     if (!asksExpiringSoon && !asksExpired) {
@@ -328,16 +380,29 @@ export class InventoryAnalystAgent {
       summaryParts.push(
         `Trong phạm vi hiện tại có ${lotSummary.expiringSoon} lô sắp hết hạn và ${lotSummary.expired} lô đã hết hạn.`,
       );
+      if (nearestExpiryLot) {
+        summaryParts.push(
+          `Lô gần hạn nhất là ${nearestExpiryLot.sourceId}, hết hạn vào ${this.formatDate(nearestExpiryLot.expirationDate)} (còn khoảng ${nearestExpiryLot.daysRemaining} ngày).`,
+        );
+      }
       summaryParts.push(roleGuidance);
 
       return summaryParts.join(" ").trim();
     }
 
-    if (asksExpiringSoon && !asksExpired)
-      return `Hiện chưa ghi nhận lô sắp hết hạn trong ${days} ngày theo điều kiện truy vấn. ${roleGuidance}`.trim();
+    if (asksExpiringSoon && !asksExpired) {
+      const nearestLotText = nearestExpiryLot
+        ? `Lô gần hạn nhất hiện tại là ${nearestExpiryLot.sourceId}, sẽ hết hạn vào ${this.formatDate(nearestExpiryLot.expirationDate)} (còn khoảng ${nearestExpiryLot.daysRemaining} ngày).`
+        : "";
+      return `Hiện chưa ghi nhận lô sắp hết hạn trong ${days} ngày theo điều kiện truy vấn. ${nearestLotText} ${roleGuidance}`.trim();
+    }
 
-    if (asksExpired && !asksExpiringSoon)
-      return `Hiện chưa ghi nhận lô đã hết hạn theo điều kiện truy vấn. ${roleGuidance}`.trim();
+    if (asksExpired && !asksExpiringSoon) {
+      const nearestLotText = nearestExpiryLot
+        ? `Lô gần hạn nhất hiện tại là ${nearestExpiryLot.sourceId}, hết hạn vào ${this.formatDate(nearestExpiryLot.expirationDate)}.`
+        : "";
+      return `Hiện chưa ghi nhận lô đã hết hạn theo điều kiện truy vấn. ${nearestLotText} ${roleGuidance}`.trim();
+    }
 
     return expiringLots > 0 || expiredLots > 0
       ? `Hiện có ${expiringLots} lô sắp hết hạn và ${expiredLots} lô đã hết hạn. ${roleGuidance}`.trim()
@@ -428,17 +493,34 @@ export class InventoryAnalystAgent {
     reply: string,
     asksExpiringSoon: boolean,
     asksExpired: boolean,
+    asksRecentTransactions: boolean,
   ): boolean {
     const normalized = this.normalizeForMatching(reply);
     const hasExpiringSignal =
       normalized.includes("sap het han") ||
       normalized.includes("can han") ||
       normalized.includes("con han") ||
+      normalized.includes("near expiry") ||
+      normalized.includes("near-expiry") ||
+      normalized.includes("lo gan han") ||
+      normalized.includes("se het han vao") ||
       normalized.includes("expiring");
     const hasExpiredSignal =
       normalized.includes("da het han") ||
       normalized.includes("qua han") ||
+      normalized.includes("het date") ||
+      normalized.includes("qua date") ||
       normalized.includes("expired");
+    const hasTransactionSignal =
+      normalized.includes("giao dich") ||
+      normalized.includes("transaction") ||
+      normalized.includes("xuat") ||
+      normalized.includes("nhap") ||
+      normalized.includes("ma giao dich");
+
+    if (asksRecentTransactions) {
+      return hasTransactionSignal;
+    }
 
     if (asksExpiringSoon) {
       return hasExpiringSignal && !hasExpiredSignal;
@@ -450,9 +532,10 @@ export class InventoryAnalystAgent {
 
     return (
       normalized.includes("tong quan") ||
-      normalized.includes("tong quan") ||
+      normalized.includes("stock overview") ||
+      normalized.includes("inventory status") ||
       normalized.includes("ton kho") ||
-      normalized.includes("ton kho")
+      normalized.includes("lo dang theo doi")
     );
   }
 
@@ -469,22 +552,124 @@ export class InventoryAnalystAgent {
       "het han",
       "sap het han",
       "con han",
+      "can han",
+      "can date",
+      "han dung",
+      "near expiry",
+      "near-expiry",
+      "expired",
+      "expiring",
+      "het date",
+      "qua date",
       "bao cao",
       "ton kho",
+      "stock",
       "inventory",
       "report",
       "lot",
+      "batch",
+      "fifo",
       "transaction",
       "giao dich",
+      "xuat nhap",
+      "lich su kho",
+      "recent transactions",
     ];
     return keywords.some((k) => normalized.includes(k));
   }
 
-  private extractDaysWindow(normalizedQuery: string): number {
-    const matched = normalizedQuery.match(/(\d+)\s*ngay/);
-    if (!matched?.[1]) return 30;
+  private detectRecentTransactionsIntent(normalizedQuery: string): boolean {
+    const keywords = [
+      "transaction",
+      "transactions",
+      "giao dich",
+      "xuat nhap",
+      "lich su kho",
+      "recent",
+      "gan day",
+      "moi nhat",
+      "latest",
+    ];
+
+    return this.containsAny(normalizedQuery, keywords);
+  }
+
+  private extractTransactionLimit(normalizedQuery: string): number {
+    const matched = normalizedQuery.match(/\b(\d{1,3})\b/);
+    if (!matched?.[1]) return 10;
     const parsed = Number(matched[1]);
-    return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, 365) : 30;
+    return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, 100) : 10;
+  }
+
+  private extractDaysWindow(normalizedQuery: string): number {
+    const dayMatched = normalizedQuery.match(/(\d+)\s*(ngay|day|d)\b/);
+    if (dayMatched?.[1]) {
+      const parsed = Number(dayMatched[1]);
+      return Number.isFinite(parsed) && parsed >= 1
+        ? Math.min(parsed, 365)
+        : 30;
+    }
+
+    const weekMatched = normalizedQuery.match(/(\d+)\s*(tuan|week|w)\b/);
+    if (weekMatched?.[1]) {
+      const parsed = Number(weekMatched[1]) * 7;
+      return Number.isFinite(parsed) && parsed >= 1
+        ? Math.min(parsed, 365)
+        : 30;
+    }
+
+    const monthMatched = normalizedQuery.match(
+      /(\d+)\s*(thang|month|months)\b/,
+    );
+    if (monthMatched?.[1]) {
+      const parsed = Number(monthMatched[1]) * 30;
+      return Number.isFinite(parsed) && parsed >= 1
+        ? Math.min(parsed, 365)
+        : 30;
+    }
+
+    return 30;
+  }
+
+  private detectExpiringIntent(normalizedQuery: string): boolean {
+    const keywords = [
+      "sap het han",
+      "duoi 1 thang",
+      "con han",
+      "het han trong",
+      "can han",
+      "can date",
+      "gan het han",
+      "near expiry",
+      "near-expiry",
+      "expiring",
+      "sap qua han",
+      "toi han",
+      "han dung",
+    ];
+
+    return this.containsAny(normalizedQuery, keywords);
+  }
+
+  private detectExpiredIntent(
+    normalizedQuery: string,
+    asksExpiringSoon: boolean,
+  ): boolean {
+    const explicitExpiredKeywords = [
+      "da het han",
+      "qua han",
+      "expired",
+      "het date",
+      "qua date",
+      "expire roi",
+      "het hsd",
+    ];
+
+    if (this.containsAny(normalizedQuery, explicitExpiredKeywords)) {
+      return true;
+    }
+
+    return normalizedQuery.includes("het han") && !asksExpiringSoon;
   }
 
   private normalizeForMatching(text: string): string {
@@ -497,5 +682,108 @@ export class InventoryAnalystAgent {
       .replace(/[!?.,]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  private extractNearestExpiryLotFromCitations(
+    citations: Array<{ source_id: string; preview?: string }>,
+  ): NearestExpiryLot | undefined {
+    const now = Date.now();
+    let nearest: NearestExpiryLot | undefined;
+
+    for (const citation of citations || []) {
+      const preview = citation.preview || "";
+      const matched = preview.match(/Expiration Date:\s*([0-9TZ:.-]+)/i);
+      if (!matched?.[1]) continue;
+
+      const expirationDate = matched[1];
+      const timestamp = Date.parse(expirationDate);
+      if (!Number.isFinite(timestamp) || timestamp < now) continue;
+
+      const daysRemaining = Math.ceil(
+        (timestamp - now) / (1000 * 60 * 60 * 24),
+      );
+      if (daysRemaining < 0) continue;
+
+      const candidate: NearestExpiryLot = {
+        sourceId: citation.source_id || "N/A",
+        expirationDate,
+        daysRemaining,
+      };
+
+      if (!nearest || candidate.daysRemaining < nearest.daysRemaining) {
+        nearest = candidate;
+      }
+    }
+
+    return nearest;
+  }
+
+  private formatDate(dateText: string): string {
+    const parsed = new Date(dateText);
+    if (Number.isNaN(parsed.getTime())) return dateText;
+    return parsed.toLocaleDateString("vi-VN");
+  }
+
+  private extractTransactionDigests(
+    transactions: unknown,
+    limit: number,
+  ): TransactionDigest[] {
+    if (!Array.isArray(transactions)) {
+      return [];
+    }
+
+    return transactions.slice(0, limit).map((item) => {
+      const tx = typeof item === "object" && item !== null ? item : {};
+      const record = tx as Record<string, unknown>;
+
+      const id =
+        this.toStringValue(record.transaction_id) ||
+        this.toStringValue(record.id) ||
+        "N/A";
+      const type =
+        this.toStringValue(record.transaction_type) ||
+        this.toStringValue(record.type) ||
+        "UNKNOWN";
+      const materialId =
+        this.toStringValue(record.material_id) ||
+        this.toStringValue(record.lot_id) ||
+        "N/A";
+      const quantityRaw =
+        this.toStringValue(record.quantity) || this.toStringValue(record.amount);
+      const unit =
+        this.toStringValue(record.unit_of_measure) ||
+        this.toStringValue(record.unit) ||
+        "";
+      const happenedAtRaw =
+        this.toStringValue(record.transaction_date) ||
+        this.toStringValue(record.created_date) ||
+        this.toStringValue(record.modified_date) ||
+        "N/A";
+
+      return {
+        id,
+        type,
+        materialId,
+        quantity: `${quantityRaw || "N/A"}${unit ? ` ${unit}` : ""}`.trim(),
+        happenedAt:
+          happenedAtRaw !== "N/A" ? this.formatDateTime(happenedAtRaw) : "N/A",
+      };
+    });
+  }
+
+  private toStringValue(value: unknown): string {
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    return "";
+  }
+
+  private formatDateTime(dateText: string): string {
+    const parsed = new Date(dateText);
+    if (Number.isNaN(parsed.getTime())) return dateText;
+    return parsed.toLocaleString("vi-VN");
+  }
+
+  private containsAny(text: string, keywords: string[]): boolean {
+    return keywords.some((keyword) => text.includes(keyword));
   }
 }

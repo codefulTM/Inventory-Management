@@ -73,6 +73,61 @@ const transcriptPrompts = [
     action: "qc_risk_scan",
     expectedIntent: AgentIntent.QC_COMPLIANCE_CHECKER,
   },
+  {
+    query: "Cho mình xem các lô cận date trong 45 ngày tới",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
+  {
+    query: "Lot nào near expiry trong 2 tuần?",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
+  {
+    query: "Stock overview hiện tại giúp mình",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
+  {
+    query: "Inventory status now",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
+  {
+    query: "Hàng hết date rồi chưa?",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
+  {
+    query: "Báo cáo hạn dùng theo batch tuần này",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
+  {
+    query: "Nhập lô nguyên liệu mới vào kho",
+    action: "create_lot",
+    expectedIntent: AgentIntent.WAREHOUSE_OPERATOR,
+  },
+  {
+    query: "Generate barcode cho lô mới",
+    action: "generate_barcode",
+    expectedIntent: AgentIntent.WAREHOUSE_OPERATOR,
+  },
+  {
+    query: "Quality compliance summary cho các lô rủi ro",
+    action: "qc_risk_scan",
+    expectedIntent: AgentIntent.QC_COMPLIANCE_CHECKER,
+  },
+  {
+    query: "Lấy cho tôi 10 inventory transaction gần đây nhất",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
+  {
+    query: "Cho mình xem lịch sử giao dịch kho mới nhất",
+    action: "inventory_summary",
+    expectedIntent: AgentIntent.INVENTORY_ANALYST,
+  },
 ] as const;
 
 async function buildSupervisor(): Promise<SupervisorAgent> {

@@ -16,6 +16,7 @@ type ChatMessage = {
   role: ChatRole;
   text: string;
   lots?: AssistantLotRow[];
+  transactions?: AssistantTransactionRow[];
   rag?: {
     mode: string;
     usedEmbedding: boolean;
@@ -24,15 +25,87 @@ type ChatMessage = {
   };
 };
 
+type AssistantTransactionRow = {
+  id: string;
+  type: string;
+  materialId: string;
+  quantity: string;
+  happenedAt: string;
+};
+
 const QUICK_SUGGESTIONS = [
   "Hàng sắp hết hạn",
   "Hàng còn hạn dưới 1 tháng",
+  "10 giao dịch kho gần nhất",
   "Tổng quan tồn kho hiện tại",
   "Các lô đã hết hạn",
 ];
 
 function normalizeText(value: string): string {
-  return value.toLowerCase();
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .replace(/[!?.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function containsAny(text: string, hints: string[]): boolean {
+  return hints.some((hint) => text.includes(hint));
+}
+
+function isExpiringIntent(normalized: string): boolean {
+  const expiringHints = [
+    "sap het han",
+    "can han",
+    "can date",
+    "gan het han",
+    "duoi 1 thang",
+    "het han trong",
+    "con han",
+    "near expiry",
+    "near-expiry",
+    "expiring",
+    "han dung",
+  ];
+
+  return containsAny(normalized, expiringHints);
+}
+
+function isExpiredIntent(normalized: string, asksExpiring: boolean): boolean {
+  const expiredHints = [
+    "da het han",
+    "qua han",
+    "expired",
+    "het date",
+    "qua date",
+    "het hsd",
+  ];
+
+  if (containsAny(normalized, expiredHints)) {
+    return true;
+  }
+
+  return normalized.includes("het han") && !asksExpiring;
+}
+
+function isRecentTransactionIntent(normalized: string): boolean {
+  const transactionHints = [
+    "transaction",
+    "transactions",
+    "giao dich",
+    "xuat nhap",
+    "lich su kho",
+    "recent",
+    "gan day",
+    "moi nhat",
+    "latest",
+  ];
+
+  return containsAny(normalized, transactionHints);
 }
 
 function logRouteFallback(params: {
@@ -84,34 +157,49 @@ function inferAgentAction(userText: string): string | undefined {
   const normalized = normalizeText(userText);
 
   const inventoryHints = [
-    "tồn kho",
     "ton kho",
-    "sắp hết hạn",
     "sap het han",
-    "hết hạn",
     "het han",
-    "còn hạn",
     "con han",
-    "dưới 1 tháng",
+    "can han",
+    "can date",
+    "gan het han",
     "duoi 1 thang",
+    "han dung",
+    "het date",
+    "qua date",
+    "stock",
+    "stock overview",
+    "inventory status",
     "inventory",
+    "near expiry",
+    "near-expiry",
     "expiry",
+    "expiring",
+    "expired",
+    "batch",
+    "lot",
+    "transaction",
+    "giao dich",
+    "xuat nhap",
+    "lich su kho",
   ];
 
   const qcHints = [
     "qc",
     "quality",
-    "kiểm tra chất lượng",
     "kiem tra chat luong",
     "fail",
+    "khong dat",
+    "lot qc",
     "compliance",
   ];
 
-  if (qcHints.some((hint) => normalized.includes(hint))) {
+  if (containsAny(normalized, qcHints)) {
     return "qc_risk_scan";
   }
 
-  if (inventoryHints.some((hint) => normalized.includes(hint))) {
+  if (containsAny(normalized, inventoryHints)) {
     return "inventory_summary";
   }
 
@@ -121,38 +209,75 @@ function inferAgentAction(userText: string): string | undefined {
 function isInventoryLikeQuery(userText: string): boolean {
   const normalized = normalizeText(userText);
   const hints = [
-    "tồn kho",
     "ton kho",
-    "sắp hết hạn",
     "sap het han",
-    "hết hạn",
     "het han",
-    "còn hạn",
     "con han",
-    "dưới 1 tháng",
+    "can han",
+    "can date",
+    "gan het han",
     "duoi 1 thang",
-    "lô",
+    "han dung",
+    "stock",
+    "inventory",
+    "near expiry",
+    "near-expiry",
+    "expired",
+    "expiring",
+    "het date",
+    "qua date",
+    "batch",
+    "lo",
     "lot",
+    "transaction",
+    "giao dich",
+    "xuat nhap",
+    "lich su kho",
   ];
 
-  return hints.some((hint) => normalized.includes(hint));
+  return containsAny(normalized, hints);
 }
 
 function extractDaysWindow(userText: string): number {
-  const matched = userText.match(/(\d+)\s*ngày/i);
+  const normalized = normalizeText(userText);
+
+  const dayMatch = normalized.match(/(\d+)\s*(ngay|day|d)\b/);
+  if (dayMatch?.[1]) {
+    const parsed = Number(dayMatch[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30;
+  }
+
+  const weekMatch = normalized.match(/(\d+)\s*(tuan|week|w)\b/);
+  if (weekMatch?.[1]) {
+    const parsed = Number(weekMatch[1]) * 7;
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30;
+  }
+
+  const monthMatch = normalized.match(/(\d+)\s*(thang|month|months)\b/);
+  if (monthMatch?.[1]) {
+    const parsed = Number(monthMatch[1]) * 30;
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30;
+  }
+
+  return 30;
+}
+
+function extractTransactionLimit(userText: string): number {
+  const normalized = normalizeText(userText);
+  const matched = normalized.match(/\b(\d{1,3})\b/);
   if (!matched?.[1]) {
-    return 30;
+    return 10;
   }
 
   const parsed = Number(matched[1]);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 10;
 }
 
 function isTechnicalSentence(value: string): boolean {
   const normalized = normalizeText(value);
   return (
-    normalized.includes("truy xuất") ||
-    normalized.includes("tài liệu") ||
+    normalized.includes("truy xuat") ||
+    normalized.includes("tai lieu") ||
     normalized.includes("rag") ||
     normalized.includes("retrieval") ||
     normalized.includes("embedding") ||
@@ -184,19 +309,31 @@ function isInventoryReplyAligned(params: {
   reply: string;
   asksExpiring: boolean;
   asksExpired: boolean;
+  asksTransactions: boolean;
 }): boolean {
   const normalized = normalizeText(params.reply);
   const hasExpiringSignal =
-    normalized.includes("sắp hết hạn") ||
     normalized.includes("sap het han") ||
-    normalized.includes("cận hạn") ||
+    normalized.includes("can han") ||
+    normalized.includes("can date") ||
     normalized.includes("con han") ||
-    normalized.includes("còn hạn");
+    normalized.includes("near expiry") ||
+    normalized.includes("expiring");
   const hasExpiredSignal =
-    normalized.includes("đã hết hạn") ||
     normalized.includes("da het han") ||
-    normalized.includes("quá hạn") ||
+    normalized.includes("qua han") ||
+    normalized.includes("het date") ||
     normalized.includes("expired");
+  const hasTransactionSignal =
+    normalized.includes("giao dich") ||
+    normalized.includes("transaction") ||
+    normalized.includes("xuat") ||
+    normalized.includes("nhap") ||
+    normalized.includes("ma giao dich");
+
+  if (params.asksTransactions) {
+    return hasTransactionSignal;
+  }
 
   if (params.asksExpiring) {
     return hasExpiringSignal && !hasExpiredSignal;
@@ -207,19 +344,83 @@ function isInventoryReplyAligned(params: {
   }
 
   return (
-    normalized.includes("tồn kho") ||
     normalized.includes("ton kho") ||
-    normalized.includes("tổng quan") ||
-    normalized.includes("tong quan")
+    normalized.includes("tong quan") ||
+    normalized.includes("stock overview") ||
+    normalized.includes("inventory status")
   );
+}
+
+function normalizeTransactionRows(raw: unknown, limit: number): AssistantTransactionRow[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.slice(0, limit).map((item, index) => {
+    const tx = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+
+    const id =
+      (typeof tx.transaction_id === "string" && tx.transaction_id) ||
+      (typeof tx.id === "string" && tx.id) ||
+      `TX-${index + 1}`;
+    const type =
+      (typeof tx.transaction_type === "string" && tx.transaction_type) ||
+      (typeof tx.type === "string" && tx.type) ||
+      "UNKNOWN";
+    const materialId =
+      (typeof tx.material_id === "string" && tx.material_id) ||
+      (typeof tx.lot_id === "string" && tx.lot_id) ||
+      "N/A";
+    const quantityValue =
+      typeof tx.quantity === "number" || typeof tx.quantity === "string"
+        ? String(tx.quantity)
+        : "N/A";
+    const unit =
+      (typeof tx.unit_of_measure === "string" && tx.unit_of_measure) ||
+      (typeof tx.unit === "string" && tx.unit) ||
+      "";
+    const happenedAtRaw =
+      (typeof tx.transaction_date === "string" && tx.transaction_date) ||
+      (typeof tx.created_date === "string" && tx.created_date) ||
+      (typeof tx.modified_date === "string" && tx.modified_date) ||
+      "N/A";
+
+    return {
+      id,
+      type,
+      materialId,
+      quantity: `${quantityValue}${unit ? ` ${unit}` : ""}`.trim(),
+      happenedAt:
+        happenedAtRaw !== "N/A"
+          ? new Date(happenedAtRaw).toLocaleString("vi-VN")
+          : "N/A",
+    };
+  });
+}
+
+function isVerboseTransactionReply(reply: string): boolean {
+  const normalized = normalizeText(reply);
+  const idMentions = (normalized.match(/ma giao dich/g) || []).length;
+  const numberedMentions = (normalized.match(/\d+\./g) || []).length;
+
+  return reply.length > 280 || idMentions >= 3 || numberedMentions >= 5;
+}
+
+function buildCompactTransactionsReply(
+  rows: AssistantTransactionRow[],
+  requestedLimit: number,
+): string {
+  if (rows.length === 0) {
+    return "Hiện chưa có giao dịch kho gần đây trong phạm vi truy vấn.";
+  }
+
+  return `Đã lấy ${Math.min(requestedLimit, rows.length)} giao dịch kho gần nhất. Bảng chi tiết hiển thị ngay bên dưới.`;
 }
 
 function isGenericQcReply(reply: string): boolean {
   const normalized = normalizeText(reply);
   return (
-    normalized.includes("xem chi tiết") ||
-    normalized.includes("dữ liệu đi kèm") ||
-    normalized.includes("du lieu di kem")
+    normalized.includes("xem chi tiet") || normalized.includes("du lieu di kem")
   );
 }
 
@@ -389,12 +590,7 @@ function shouldRenderExpiryTable(
 ): boolean {
   const normalized = normalizeText(userText);
   const asksExpiry =
-    normalized.includes("sắp hết hạn") ||
-    normalized.includes("sap het han") ||
-    normalized.includes("dưới 1 tháng") ||
-    normalized.includes("duoi 1 thang") ||
-    normalized.includes("hết hạn") ||
-    normalized.includes("het han");
+    isExpiringIntent(normalized) || isExpiredIntent(normalized, false);
 
   const expiringLots =
     (result.result.data?.expiringLots as unknown[] | undefined) ?? [];
@@ -415,19 +611,16 @@ function buildAssistantMessage(
   const expiredLots =
     (result.result.data?.expiredLots as AssistantLotRow[] | undefined) ?? [];
 
-  const asksExpiring =
-    normalized.includes("sắp hết hạn") ||
-    normalized.includes("sap het han") ||
-    normalized.includes("dưới 1 tháng") ||
-    normalized.includes("duoi 1 thang") ||
-    normalized.includes("hết hạn trong") ||
-    normalized.includes("het han trong");
-  const asksExpired =
-    normalized.includes("đã hết hạn") ||
-    normalized.includes("da het han") ||
-    (normalized.includes("hết hạn") && !asksExpiring) ||
-    normalized.includes("expired");
+  const asksExpiring = isExpiringIntent(normalized);
+  const asksExpired = isExpiredIntent(normalized, asksExpiring);
+  const asksTransactions = isRecentTransactionIntent(normalized);
   const daysWindow = extractDaysWindow(userText);
+  const requestedTransactionLimit = extractTransactionLimit(userText);
+
+  const transactionRows = normalizeTransactionRows(
+    result.result.data?.transactions,
+    requestedTransactionLimit,
+  );
 
   const lots = asksExpiring
     ? expiringLots
@@ -475,26 +668,41 @@ function buildAssistantMessage(
 
   const summary =
     result.intent === "inventory_analyst"
-      ? naturalModelReply &&
-        isInventoryReplyAligned({
-          reply: naturalModelReply,
-          asksExpiring,
-          asksExpired,
-        })
-        ? naturalModelReply
-        : buildNaturalInventoryReply({
+      ? asksTransactions
+        ? naturalModelReply &&
+          isInventoryReplyAligned({
+            reply: naturalModelReply,
             asksExpiring,
             asksExpired,
-            expiringCount,
-            expiredCount,
-            totalLots:
-              typeof lotSummary?.total === "number"
-                ? lotSummary.total
-                : undefined,
-            daysWindow,
-            shouldShowTable,
-            userRole,
-          })
+            asksTransactions,
+          }) &&
+          !isVerboseTransactionReply(naturalModelReply)
+          ? naturalModelReply
+          : buildCompactTransactionsReply(
+              transactionRows,
+              requestedTransactionLimit,
+            )
+        : naturalModelReply &&
+            isInventoryReplyAligned({
+              reply: naturalModelReply,
+              asksExpiring,
+              asksExpired,
+              asksTransactions,
+            })
+          ? naturalModelReply
+          : buildNaturalInventoryReply({
+              asksExpiring,
+              asksExpired,
+              expiringCount,
+              expiredCount,
+              totalLots:
+                typeof lotSummary?.total === "number"
+                  ? lotSummary.total
+                  : undefined,
+              daysWindow,
+              shouldShowTable,
+              userRole,
+            })
       : result.intent === "qc_compliance_checker"
         ? naturalModelReply && !isGenericQcReply(naturalModelReply)
           ? naturalModelReply
@@ -511,6 +719,7 @@ function buildAssistantMessage(
     role: "assistant",
     text: summary,
     lots: shouldShowTable ? lots : undefined,
+    transactions: asksTransactions ? transactionRows : undefined,
     rag: ragMeta,
   };
 }
@@ -649,28 +858,6 @@ export default function MyAssistantWidget() {
                     {message.text}
                   </div>
 
-                  {message.role === "assistant" && message.rag && (
-                    <details className="mt-2 rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2">
-                      <summary className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-sky-700 select-none">
-                        Chi tiết kỹ thuật (RAG)
-                      </summary>
-                      <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-sky-800">
-                        <span>mode: {message.rag.mode}</span>
-                        <span>
-                          embedding:{" "}
-                          {message.rag.usedEmbedding ? "true" : "false"}
-                        </span>
-                        <span>docs: {message.rag.total}</span>
-                        <span>
-                          sources:{" "}
-                          {message.rag.topSources.length > 0
-                            ? message.rag.topSources.join(", ")
-                            : "n/a"}
-                        </span>
-                      </div>
-                    </details>
-                  )}
-
                   {message.role === "assistant" &&
                     message.lots &&
                     message.lots.length > 0 && (
@@ -710,6 +897,41 @@ export default function MyAssistantWidget() {
                                   <td className="px-2 py-2 text-right text-slate-700">
                                     {lot.quantity} {lot.unit_of_measure}
                                   </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                  {message.role === "assistant" &&
+                    message.transactions &&
+                    message.transactions.length > 0 && (
+                      <div className="mt-2 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                        <div className="px-3 py-2 bg-slate-100 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                          Giao dịch kho gần đây
+                        </div>
+                        <div className="max-h-52 overflow-auto">
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-50 text-slate-500 uppercase">
+                              <tr>
+                                <th className="px-2 py-2 text-left">Thời gian</th>
+                                <th className="px-2 py-2 text-left">Loại</th>
+                                <th className="px-2 py-2 text-left">Material/Lot</th>
+                                <th className="px-2 py-2 text-left">Số lượng</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {message.transactions.map((tx) => (
+                                <tr
+                                  key={tx.id}
+                                  className="border-t border-slate-100"
+                                >
+                                  <td className="px-2 py-2 text-slate-600">{tx.happenedAt}</td>
+                                  <td className="px-2 py-2 font-semibold text-slate-800">{tx.type}</td>
+                                  <td className="px-2 py-2 text-slate-600">{tx.materialId}</td>
+                                  <td className="px-2 py-2 text-slate-700">{tx.quantity}</td>
                                 </tr>
                               ))}
                             </tbody>
