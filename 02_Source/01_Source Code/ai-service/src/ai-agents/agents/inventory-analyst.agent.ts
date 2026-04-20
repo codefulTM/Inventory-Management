@@ -82,9 +82,8 @@ export class InventoryAnalystAgent {
       const page = Number(input.payload?.page ?? 1);
       const limit = Number(input.payload?.limit ?? 20);
       const userRole = this.normalizeUserRole(input.payload?.userRole);
-      const asksRecentTransactions = this.detectRecentTransactionsIntent(
-        normalizedQuery,
-      );
+      const asksRecentTransactions =
+        this.detectRecentTransactionsIntent(normalizedQuery);
       const requestedTransactionLimit = asksRecentTransactions
         ? this.extractTransactionLimit(normalizedQuery)
         : limit;
@@ -749,7 +748,8 @@ export class InventoryAnalystAgent {
         this.toStringValue(record.lot_id) ||
         "N/A";
       const quantityRaw =
-        this.toStringValue(record.quantity) || this.toStringValue(record.amount);
+        this.toStringValue(record.quantity) ||
+        this.toStringValue(record.amount);
       const unit =
         this.toStringValue(record.unit_of_measure) ||
         this.toStringValue(record.unit) ||

@@ -351,13 +351,19 @@ function isInventoryReplyAligned(params: {
   );
 }
 
-function normalizeTransactionRows(raw: unknown, limit: number): AssistantTransactionRow[] {
+function normalizeTransactionRows(
+  raw: unknown,
+  limit: number,
+): AssistantTransactionRow[] {
   if (!Array.isArray(raw)) {
     return [];
   }
 
   return raw.slice(0, limit).map((item, index) => {
-    const tx = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+    const tx =
+      typeof item === "object" && item !== null
+        ? (item as Record<string, unknown>)
+        : {};
 
     const id =
       (typeof tx.transaction_id === "string" && tx.transaction_id) ||
@@ -916,10 +922,16 @@ export default function MyAssistantWidget() {
                           <table className="w-full text-xs">
                             <thead className="bg-slate-50 text-slate-500 uppercase">
                               <tr>
-                                <th className="px-2 py-2 text-left">Thời gian</th>
+                                <th className="px-2 py-2 text-left">
+                                  Thời gian
+                                </th>
                                 <th className="px-2 py-2 text-left">Loại</th>
-                                <th className="px-2 py-2 text-left">Material/Lot</th>
-                                <th className="px-2 py-2 text-left">Số lượng</th>
+                                <th className="px-2 py-2 text-left">
+                                  Material/Lot
+                                </th>
+                                <th className="px-2 py-2 text-left">
+                                  Số lượng
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -928,10 +940,18 @@ export default function MyAssistantWidget() {
                                   key={tx.id}
                                   className="border-t border-slate-100"
                                 >
-                                  <td className="px-2 py-2 text-slate-600">{tx.happenedAt}</td>
-                                  <td className="px-2 py-2 font-semibold text-slate-800">{tx.type}</td>
-                                  <td className="px-2 py-2 text-slate-600">{tx.materialId}</td>
-                                  <td className="px-2 py-2 text-slate-700">{tx.quantity}</td>
+                                  <td className="px-2 py-2 text-slate-600">
+                                    {tx.happenedAt}
+                                  </td>
+                                  <td className="px-2 py-2 font-semibold text-slate-800">
+                                    {tx.type}
+                                  </td>
+                                  <td className="px-2 py-2 text-slate-600">
+                                    {tx.materialId}
+                                  </td>
+                                  <td className="px-2 py-2 text-slate-700">
+                                    {tx.quantity}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
