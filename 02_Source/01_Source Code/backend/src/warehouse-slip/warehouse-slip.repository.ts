@@ -14,6 +14,7 @@ export interface WarehouseSlipFilterOptions {
   from?: Date;
   to?: Date;
   warehouse_id?: string;
+  type?: string;
 }
 
 export interface WarehouseSlipPaginationOptions {
@@ -50,6 +51,7 @@ export class WarehouseSlipRepository {
     const mongoQuery: any = {};
 
     if (filters.status) mongoQuery.status = filters.status;
+    if (filters.type) mongoQuery.type = filters.type;
     if (filters.created_by) mongoQuery.created_by = filters.created_by;
     if (filters.warehouse_id) mongoQuery.warehouse_id = filters.warehouse_id;
 

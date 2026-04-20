@@ -13,6 +13,11 @@ export enum WarehouseSlipQueryStatus {
   REJECTED = 'REJECTED',
 }
 
+export enum WarehouseSlipQueryType {
+  IN = 'IN',
+  OUT = 'OUT',
+}
+
 export class QueryWarehouseSlipDto {
   @IsOptional()
   @IsEnum(WarehouseSlipQueryStatus)
@@ -35,6 +40,10 @@ export class QueryWarehouseSlipDto {
   @IsOptional()
   @Type(() => Date)
   to?: Date;
+
+  @IsOptional()
+  @IsEnum(WarehouseSlipQueryType)
+  type?: WarehouseSlipQueryType;
 
   @IsOptional()
   @Type(() => Number)

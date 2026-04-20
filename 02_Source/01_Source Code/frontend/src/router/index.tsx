@@ -311,7 +311,7 @@ export const router = createBrowserRouter([
         ]),
       },
       {
-        path: "/manager/warehouse-slips/:id/print",
+        path: "/manager/in-out/:id/print",
         element: requireAuth(<WarehouseSlipPrint />, ["manager", "operator"]),
       },
       {

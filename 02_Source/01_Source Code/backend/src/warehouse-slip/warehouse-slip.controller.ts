@@ -106,6 +106,7 @@ export class WarehouseSlipController {
       created_by: query.created_by,
       from: query.from,
       to: query.to,
+      type: query.type,
     };
     const requester = this.toRequester(req);
     return this.service.getAll(filters, paging, requester);

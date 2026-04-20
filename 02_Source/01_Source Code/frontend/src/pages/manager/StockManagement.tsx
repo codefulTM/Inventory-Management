@@ -16,7 +16,7 @@ import type {
 } from "../../types/warehouseSlip";
 
 interface WorklistFilters {
-  order_type: "" | WarehouseSlipType;
+  type: "" | WarehouseSlipType;
   from: string;
   to: string;
 }
@@ -29,7 +29,7 @@ type ToastState = {
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 const EMPTY_FILTERS: WorklistFilters = {
-  order_type: "",
+  type: "",
   from: "",
   to: "",
 };
@@ -100,7 +100,7 @@ function mapBackendErrorMessage(error: unknown, fallback: string): string {
 export default function StockManagement() {
   const [draftFilters, setDraftFilters] =
     useState<WorklistFilters>(EMPTY_FILTERS);
-  const [filters, setFilters] = useState<WorklistFilters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<Record<string, any>>(EMPTY_FILTERS);
   const [orders, setOrders] = useState<WarehouseSlip[]>([]);
   const [page, setPage] = useState(DEFAULT_PAGE);
   const [total, setTotal] = useState(0);
@@ -144,7 +144,15 @@ export default function StockManagement() {
       return;
     }
 
-    setFilters(nextFilters);
+    // convert date strings to start/end ISO datetimes for backend filtering
+    const apiFilters: Record<string, any> = {};
+    if (nextFilters.type) apiFilters.type = nextFilters.type;
+    const start = toStartDate(nextFilters.from);
+    const end = toEndDate(nextFilters.to);
+    if (start) apiFilters.from = start.toISOString();
+    if (end) apiFilters.to = end.toISOString();
+
+    setFilters(apiFilters);
     setPage(DEFAULT_PAGE);
     setListError(null);
     setToast(null);
@@ -333,19 +341,18 @@ export default function StockManagement() {
             <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
               Loại phiếu
               <select
-                value={draftFilters.order_type}
+                value={draftFilters.type}
                 onChange={(event) =>
                   setDraftFilters((previous) => ({
                     ...previous,
-                    order_type: event.target
-                      .value as WorklistFilters["order_type"],
+                    type: event.target.value as WorklistFilters["type"],
                   }))
                 }
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               >
                 <option value="">Tất cả loại phiếu</option>
-                <option value="Inbound">Phiếu nhập kho</option>
-                <option value="Outbound">Phiếu xuất kho</option>
+                <option value="IN">Phiếu nhập kho</option>
+                <option value="OUT">Phiếu xuất kho</option>
               </select>
             </label>
 

@@ -99,6 +99,11 @@ export default function OrderWorklistTable({
         if (typeof v === "string" && v.trim() === "") return;
         cleaned[k] = v;
       });
+      // normalize legacy filter key `order_type` -> `type` expected by the API
+      if (cleaned.order_type && !cleaned.type) {
+        cleaned.type = cleaned.order_type;
+        delete cleaned.order_type;
+      }
 
       const params: any = { page, limit, ...cleaned };
       const res: any = await fetchWarehouseSlips(params);
@@ -296,7 +301,7 @@ export default function OrderWorklistTable({
                               </button>
 
                               <Link
-                                to={`${base}/warehouse-slips/${slip.slip_id}/print`}
+                                to={`${base}/in-out/${slip.slip_id}/print`}
                                 onClick={() => {
                                   setOpenMenu(null);
                                   setMenuPosition(null);
@@ -325,7 +330,7 @@ export default function OrderWorklistTable({
                             </button>
 
                             <Link
-                              to={`${base}/warehouse-slips/${slip.slip_id}/print`}
+                              to={`${base}/in-out/${slip.slip_id}/print`}
                               onClick={() => setOpenMenu(null)}
                               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-700 visited:text-gray-700 focus:text-gray-700 first:rounded-t-md last:rounded-b-md"
                             >
