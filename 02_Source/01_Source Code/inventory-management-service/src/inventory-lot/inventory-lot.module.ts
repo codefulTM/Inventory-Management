@@ -23,6 +23,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
 import { WarehouseSlipModule } from '../warehouse-slip';
 import { MailModule } from '../mail/mail.module';
 import { MaterialModule } from '../material/material.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { MaterialModule } from '../material/material.module';
     forwardRef(() => WarehouseSlipModule),
     MaterialModule,
     MailModule,
+    UserModule,
   ],
   controllers: [InventoryLotController, BinWorklistController],
   providers: [

@@ -41,6 +41,9 @@ describe('BinWorklistService', () => {
   const configServiceMock: any = {
     get: jest.fn(),
   };
+  const userServiceMock: any = {
+    findByRole: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -52,6 +55,7 @@ describe('BinWorklistService', () => {
       auditLogServiceMock,
       mailServiceMock,
       configServiceMock,
+      userServiceMock,
       storageLocationModelMock,
     );
   });

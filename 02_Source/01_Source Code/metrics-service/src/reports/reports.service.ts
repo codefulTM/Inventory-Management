@@ -1,26 +1,26 @@
-import { Injectable } from '@nestjs/common';
-import { ReportsRepository } from './repositories/reports.repository';
-import type { InventoryStatusReportDto } from './dto/inventory-status-report.dto';
-import type { MaterialUsageReportDto } from './dto/material-usage-report.dto';
-import type { QcPerformanceReportDto } from './dto/qc-performance-report.dto';
-import type { AuditReportDto } from './dto/audit-report.dto';
+import { Injectable } from "@nestjs/common";
+import { ReportsRepository } from "./repositories/reports.repository";
+import type { InventoryStatusReportDto } from "./dto/inventory-status-report.dto";
+import type { MaterialUsageReportDto } from "./dto/material-usage-report.dto";
+import type { QcPerformanceReportDto } from "./dto/qc-performance-report.dto";
+import type { AuditReportDto } from "./dto/audit-report.dto";
 import type {
   AuditTrendReportDto,
   InventoryTrendReportDto,
   MaterialUsageTrendReportDto,
   QcTrendReportDto,
   TrendInterval,
-} from './dto/trend-report.dto';
+} from "./dto/trend-report.dto";
 
 @Injectable()
 export class ReportsService {
   constructor(private readonly reportsRepository: ReportsRepository) {}
 
   private normalizeInterval(interval?: string): TrendInterval {
-    if (interval === 'week' || interval === 'month') {
+    if (interval === "week" || interval === "month") {
       return interval;
     }
-    return 'day';
+    return "day";
   }
 
   private resolveDateWindow(from?: string, to?: string, fallbackDays = 90) {
@@ -35,8 +35,19 @@ export class ReportsService {
     };
   }
 
-  async getInventoryStatusReport(): Promise<InventoryStatusReportDto> {
-    const items = await this.reportsRepository.getInventoryStatus();
+  async getInventoryStatusReport(
+    from?: string,
+    to?: string,
+    interval?: string,
+    warehouseId?: string,
+  ): Promise<InventoryStatusReportDto> {
+    const fromDate = from ? new Date(from) : undefined;
+    const toDate = to ? new Date(to) : undefined;
+    const items = await this.reportsRepository.getInventoryStatus(
+      fromDate,
+      toDate,
+      warehouseId,
+    );
     return {
       generated_at: new Date(),
       total_lots: items.length,
@@ -44,10 +55,18 @@ export class ReportsService {
     };
   }
 
-  async getMaterialUsageReport(from?: string, to?: string): Promise<MaterialUsageReportDto> {
+  async getMaterialUsageReport(
+    from?: string,
+    to?: string,
+    warehouseId?: string,
+  ): Promise<MaterialUsageReportDto> {
     const fromDate = from ? new Date(from) : undefined;
     const toDate = to ? new Date(to) : undefined;
-    const items = await this.reportsRepository.getMaterialUsage(fromDate, toDate);
+    const items = await this.reportsRepository.getMaterialUsage(
+      fromDate,
+      toDate,
+      warehouseId,
+    );
     return {
       generated_at: new Date(),
       from: fromDate,
@@ -56,16 +75,40 @@ export class ReportsService {
     };
   }
 
-  async getQcPerformanceReport(): Promise<QcPerformanceReportDto> {
-    const items = await this.reportsRepository.getQcPerformance();
+  async getQcPerformanceReport(
+    from?: string,
+    to?: string,
+    warehouseId?: string,
+  ): Promise<QcPerformanceReportDto> {
+    const fromDate = from ? new Date(from) : undefined;
+    const toDate = to ? new Date(to) : undefined;
+    const items = await this.reportsRepository.getQcPerformance(
+      fromDate,
+      toDate,
+      warehouseId,
+    );
     return {
       generated_at: new Date(),
       items,
     };
   }
 
-  async getAuditReport(page?: number, size?: number): Promise<AuditReportDto> {
-    const entries = await this.reportsRepository.getAuditTrail(page ?? 0, size ?? 20);
+  async getAuditReport(
+    page?: number,
+    size?: number,
+    from?: string,
+    to?: string,
+    warehouseId?: string,
+  ): Promise<AuditReportDto> {
+    const fromDate = from ? new Date(from) : undefined;
+    const toDate = to ? new Date(to) : undefined;
+    const entries = await this.reportsRepository.getAuditTrail(
+      page ?? 0,
+      size ?? 20,
+      fromDate,
+      toDate,
+      warehouseId,
+    );
     return {
       generated_at: new Date(),
       entries,
@@ -76,6 +119,7 @@ export class ReportsService {
     from?: string,
     to?: string,
     interval?: string,
+    warehouseId?: string,
   ): Promise<InventoryTrendReportDto> {
     const normalizedInterval = this.normalizeInterval(interval);
     const { fromDate, toDate } = this.resolveDateWindow(from, to, 120);
@@ -83,6 +127,7 @@ export class ReportsService {
       fromDate,
       toDate,
       normalizedInterval,
+      warehouseId,
     );
 
     return {
@@ -99,6 +144,7 @@ export class ReportsService {
     to?: string,
     interval?: string,
     limit?: number,
+    warehouseId?: string,
   ): Promise<MaterialUsageTrendReportDto> {
     const normalizedInterval = this.normalizeInterval(interval);
     const { fromDate, toDate } = this.resolveDateWindow(from, to, 90);
@@ -107,6 +153,7 @@ export class ReportsService {
       toDate,
       normalizedInterval,
       limit ?? 10,
+      warehouseId,
     );
 
     return {
@@ -123,15 +170,18 @@ export class ReportsService {
     to?: string,
     interval?: string,
     limit?: number,
+    warehouseId?: string,
   ): Promise<QcTrendReportDto> {
     const normalizedInterval = this.normalizeInterval(interval);
     const { fromDate, toDate } = this.resolveDateWindow(from, to, 90);
-    const { points, supplier_rankings } = await this.reportsRepository.getQcTrend(
-      fromDate,
-      toDate,
-      normalizedInterval,
-      limit ?? 10,
-    );
+    const { points, supplier_rankings } =
+      await this.reportsRepository.getQcTrend(
+        fromDate,
+        toDate,
+        normalizedInterval,
+        limit ?? 10,
+        warehouseId,
+      );
 
     return {
       generated_at: new Date(),
@@ -147,6 +197,7 @@ export class ReportsService {
     from?: string,
     to?: string,
     interval?: string,
+    warehouseId?: string,
   ): Promise<AuditTrendReportDto> {
     const normalizedInterval = this.normalizeInterval(interval);
     const { fromDate, toDate } = this.resolveDateWindow(from, to, 120);
@@ -154,6 +205,7 @@ export class ReportsService {
       fromDate,
       toDate,
       normalizedInterval,
+      warehouseId,
     );
 
     return {

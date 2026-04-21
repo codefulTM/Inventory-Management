@@ -14,31 +14,70 @@ import { UserRole } from "../schemas/user.schema";
 import { METRICS_SERVICE_TOKEN } from "../grpc/grpc.module";
 
 interface MetricsReportsGrpcService {
-  GetInventoryStatus(data: Record<string, never>): Observable<any>;
-  GetMaterialUsage(data: { from?: string; to?: string }): Observable<any>;
-  GetQcPerformance(data: Record<string, never>): Observable<any>;
-  GetAuditReport(data: { page?: number; size?: number }): Observable<any>;
+  GetInventoryStatus(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+    page?: number;
+    warehouse_id?: string;
+  }): Observable<any>;
+  GetMaterialUsage(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+    page?: number;
+    warehouse_id?: string;
+  }): Observable<any>;
+  GetQcPerformance(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+    page?: number;
+    warehouse_id?: string;
+  }): Observable<any>;
+  GetAuditReport(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    limit?: number;
+    page?: number;
+    size?: number;
+    warehouse_id?: string;
+  }): Observable<any>;
   GetInventoryTrend(data: {
     from?: string;
     to?: string;
     interval?: string;
+    limit?: number;
+    page?: number;
+    warehouse_id?: string;
   }): Observable<any>;
   GetMaterialUsageTrend(data: {
     from?: string;
     to?: string;
     interval?: string;
     limit?: number;
+    page?: number;
+    warehouse_id?: string;
   }): Observable<any>;
   GetQcTrend(data: {
     from?: string;
     to?: string;
     interval?: string;
     limit?: number;
+    page?: number;
+    warehouse_id?: string;
   }): Observable<any>;
   GetAuditTrend(data: {
     from?: string;
     to?: string;
     interval?: string;
+    limit?: number;
+    page?: number;
+    warehouse_id?: string;
   }): Observable<any>;
 }
 
@@ -60,9 +99,19 @@ export class ReportsController implements OnModuleInit {
 
   @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR, UserRole.OPERATOR)
   @Get("inventory-status")
-  async getInventoryStatus() {
+  async getInventoryStatus(
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("warehouse_id") warehouseId?: string,
+  ) {
     try {
-      return await firstValueFrom(this.metricsService.GetInventoryStatus({}));
+      return await firstValueFrom(
+        this.metricsService.GetInventoryStatus({
+          from,
+          to,
+          warehouse_id: warehouseId,
+        }),
+      );
     } catch (err) {
       const e: any = err;
       const msg = e?.message ?? String(err);
@@ -75,10 +124,15 @@ export class ReportsController implements OnModuleInit {
   async getMaterialUsage(
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("warehouse_id") warehouseId?: string,
   ) {
     try {
       return await firstValueFrom(
-        this.metricsService.GetMaterialUsage({ from, to }),
+        this.metricsService.GetMaterialUsage({
+          from,
+          to,
+          warehouse_id: warehouseId,
+        }),
       );
     } catch (err) {
       const e: any = err;
@@ -89,9 +143,19 @@ export class ReportsController implements OnModuleInit {
   }
 
   @Get("qc-performance")
-  async getQcPerformance() {
+  async getQcPerformance(
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("warehouse_id") warehouseId?: string,
+  ) {
     try {
-      return await firstValueFrom(this.metricsService.GetQcPerformance({}));
+      return await firstValueFrom(
+        this.metricsService.GetQcPerformance({
+          from,
+          to,
+          warehouse_id: warehouseId,
+        }),
+      );
     } catch (err) {
       const e: any = err;
       const msg = e?.message ?? String(err);
@@ -102,14 +166,20 @@ export class ReportsController implements OnModuleInit {
 
   @Get("audit")
   async getAuditReport(
+    @Query("from") from?: string,
+    @Query("to") to?: string,
     @Query("page") page?: string,
     @Query("size") size?: string,
+    @Query("warehouse_id") warehouseId?: string,
   ) {
     try {
       return await firstValueFrom(
         this.metricsService.GetAuditReport({
+          from,
+          to,
           page: page ? parseInt(page, 10) : 0,
           size: size ? parseInt(size, 10) : 20,
+          warehouse_id: warehouseId,
         }),
       );
     } catch (err) {
@@ -125,10 +195,16 @@ export class ReportsController implements OnModuleInit {
     @Query("from") from?: string,
     @Query("to") to?: string,
     @Query("interval") interval?: string,
+    @Query("warehouse_id") warehouseId?: string,
   ) {
     try {
       return await firstValueFrom(
-        this.metricsService.GetInventoryTrend({ from, to, interval }),
+        this.metricsService.GetInventoryTrend({
+          from,
+          to,
+          interval,
+          warehouse_id: warehouseId,
+        }),
       );
     } catch (err) {
       const e: any = err;
@@ -144,6 +220,7 @@ export class ReportsController implements OnModuleInit {
     @Query("to") to?: string,
     @Query("interval") interval?: string,
     @Query("limit") limit?: string,
+    @Query("warehouse_id") warehouseId?: string,
   ) {
     try {
       return await firstValueFrom(
@@ -152,6 +229,7 @@ export class ReportsController implements OnModuleInit {
           to,
           interval,
           limit: limit ? parseInt(limit, 10) : undefined,
+          warehouse_id: warehouseId,
         }),
       );
     } catch (err) {
@@ -168,6 +246,7 @@ export class ReportsController implements OnModuleInit {
     @Query("to") to?: string,
     @Query("interval") interval?: string,
     @Query("limit") limit?: string,
+    @Query("warehouse_id") warehouseId?: string,
   ) {
     try {
       return await firstValueFrom(
@@ -176,6 +255,7 @@ export class ReportsController implements OnModuleInit {
           to,
           interval,
           limit: limit ? parseInt(limit, 10) : undefined,
+          warehouse_id: warehouseId,
         }),
       );
     } catch (err) {
@@ -191,10 +271,16 @@ export class ReportsController implements OnModuleInit {
     @Query("from") from?: string,
     @Query("to") to?: string,
     @Query("interval") interval?: string,
+    @Query("warehouse_id") warehouseId?: string,
   ) {
     try {
       return await firstValueFrom(
-        this.metricsService.GetAuditTrend({ from, to, interval }),
+        this.metricsService.GetAuditTrend({
+          from,
+          to,
+          interval,
+          warehouse_id: warehouseId,
+        }),
       );
     } catch (err) {
       const e: any = err;
