@@ -14,7 +14,7 @@ export default function Sparkline({
   onPointClick,
 }: Props) {
   if (!points || points.length === 0)
-    return <svg width={width} height={height} />;
+    return <div className="text-xs text-gray-500">Không có dữ liệu</div>;
 
   const padding = 4;
   const w = width - padding * 2;
@@ -43,7 +43,9 @@ export default function Sparkline({
   });
 
   // Build path and area (filled) for better visual
-  const pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+  const pathD = coords
+    .map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`)
+    .join(" ");
   const areaD =
     pathD +
     ` L ${coords[coords.length - 1].x} ${padding + h} L ${coords[0].x} ${padding + h} Z`;
@@ -77,7 +79,12 @@ export default function Sparkline({
     const rect = containerRef.current?.getBoundingClientRect();
     const offsetX = rect ? e.clientX - rect.left : e.clientX;
     const offsetY = rect ? e.clientY - rect.top : e.clientY;
-    setTooltip((t) => ({ ...t, left: offsetX, top: offsetY, text: `${point.x} — ${point.y}` }));
+    setTooltip((t) => ({
+      ...t,
+      left: offsetX,
+      top: offsetY,
+      text: `${point.x} — ${point.y}`,
+    }));
   };
 
   const handleMouseLeave = () => {
@@ -85,7 +92,10 @@ export default function Sparkline({
   };
 
   return (
-    <div style={{ position: "relative", display: "inline-block" }} ref={containerRef}>
+    <div
+      style={{ position: "relative", display: "inline-block" }}
+      ref={containerRef}
+    >
       <svg
         width={width}
         height={height}
