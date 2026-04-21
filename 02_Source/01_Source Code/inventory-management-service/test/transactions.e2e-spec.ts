@@ -6,15 +6,8 @@ import { JwtAuthGuard } from '../src/common/auth/jwt-auth.guard';
 import { InventoryTransactionController } from '../src/inventory-transaction/inventory-transaction.controller';
 import { InventoryTransactionRepository } from '../src/inventory-transaction/inventory-transaction.repository';
 import { InventoryTransactionService } from '../src/inventory-transaction/inventory-transaction.service';
+import { RedisIdService } from '../src/redis-id/redis-id.service';
 import { TransactionType } from '../src/inventory-transaction/dto/create-inventory-transaction.dto';
-
-jest.mock(
-  'uuid',
-  () => ({
-    v4: () => '11111111-1111-4111-8111-111111111111',
-  }),
-  { virtual: true },
-);
 
 describe('InventoryTransactionController (e2e)', () => {
   let app: INestApplication;
@@ -53,6 +46,14 @@ describe('InventoryTransactionController (e2e)', () => {
       providers: [
         { provide: InventoryTransactionRepository, useValue: repo },
         InventoryTransactionService,
+        {
+          provide: RedisIdService,
+          useValue: {
+            nextId: jest.fn().mockImplementation((prefix: string) =>
+              Promise.resolve(`${prefix}-1`),
+            ),
+          },
+        },
       ],
     });
 
