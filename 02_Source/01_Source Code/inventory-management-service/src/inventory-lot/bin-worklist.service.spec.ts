@@ -178,6 +178,10 @@ describe('BinWorklistService', () => {
       return undefined;
     });
 
+    userServiceMock.findByRole.mockResolvedValueOnce({
+      data: [{ email: 'mgr@example.local' }],
+    });
+
     const dto: any = {
       counted_by: 'user1',
       entries: [{ lot_id: 'LOT-1', material_id: 'M1', counted_qty: 3 }],
