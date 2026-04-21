@@ -39,7 +39,6 @@ export async function getInventoryStatusReport(
     "/reports/inventory-status",
     { params: Object.keys(params).length > 0 ? params : undefined },
   );
-
   return unwrapOrThrow(data, error, "Unable to load inventory status report");
 }
 

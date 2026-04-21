@@ -1,6 +1,6 @@
-import { Controller } from '@nestjs/common';
-import { GrpcMethod } from '@nestjs/microservices';
-import { ReportsService } from './reports.service';
+import { Controller } from "@nestjs/common";
+import { GrpcMethod } from "@nestjs/microservices";
+import { ReportsService } from "./reports.service";
 
 /**
  * ReportsController — gRPC handler for MetricsReportsService.
@@ -10,9 +10,19 @@ import { ReportsService } from './reports.service';
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
-  @GrpcMethod('MetricsReportsService', 'GetInventoryStatus')
-  async getInventoryStatus(_data: Record<string, never>) {
-    const report = await this.reportsService.getInventoryStatusReport();
+  @GrpcMethod("MetricsReportsService", "GetInventoryStatus")
+  async getInventoryStatus(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    warehouse_id?: string;
+  }) {
+    const report = await this.reportsService.getInventoryStatusReport(
+      data.from,
+      data.to,
+      data.interval,
+      data.warehouse_id,
+    );
     return {
       generated_at: report.generated_at.toISOString(),
       total_lots: report.total_lots,
@@ -21,18 +31,28 @@ export class ReportsController {
         lot_id: item.lot_id,
         quantity: item.quantity,
         status: item.status,
-        expiration_date: item.expiration_date ? item.expiration_date.toISOString() : '',
+        expiration_date: item.expiration_date
+          ? item.expiration_date.toISOString()
+          : "",
       })),
     };
   }
 
-  @GrpcMethod('MetricsReportsService', 'GetMaterialUsage')
-  async getMaterialUsage(data: { from?: string; to?: string }) {
-    const report = await this.reportsService.getMaterialUsageReport(data.from, data.to);
+  @GrpcMethod("MetricsReportsService", "GetMaterialUsage")
+  async getMaterialUsage(data: {
+    from?: string;
+    to?: string;
+    warehouse_id?: string;
+  }) {
+    const report = await this.reportsService.getMaterialUsageReport(
+      data.from,
+      data.to,
+      data.warehouse_id,
+    );
     return {
       generated_at: report.generated_at.toISOString(),
-      from: report.from ? report.from.toISOString() : '',
-      to: report.to ? report.to.toISOString() : '',
+      from: report.from ? report.from.toISOString() : "",
+      to: report.to ? report.to.toISOString() : "",
       items: report.items.map((item) => ({
         material_id: item.material_id,
         transaction_count: item.transaction_count,
@@ -41,9 +61,17 @@ export class ReportsController {
     };
   }
 
-  @GrpcMethod('MetricsReportsService', 'GetQcPerformance')
-  async getQcPerformance(_data: Record<string, never>) {
-    const report = await this.reportsService.getQcPerformanceReport();
+  @GrpcMethod("MetricsReportsService", "GetQcPerformance")
+  async getQcPerformance(data: {
+    from?: string;
+    to?: string;
+    warehouse_id?: string;
+  }) {
+    const report = await this.reportsService.getQcPerformanceReport(
+      data.from,
+      data.to,
+      data.warehouse_id,
+    );
     return {
       generated_at: report.generated_at.toISOString(),
       items: report.items.map((item) => ({
@@ -55,9 +83,21 @@ export class ReportsController {
     };
   }
 
-  @GrpcMethod('MetricsReportsService', 'GetAuditReport')
-  async getAuditReport(data: { page?: number; size?: number }) {
-    const report = await this.reportsService.getAuditReport(data.page, data.size);
+  @GrpcMethod("MetricsReportsService", "GetAuditReport")
+  async getAuditReport(data: {
+    from?: string;
+    to?: string;
+    page?: number;
+    size?: number;
+    warehouse_id?: string;
+  }) {
+    const report = await this.reportsService.getAuditReport(
+      data.page,
+      data.size,
+      data.from,
+      data.to,
+      data.warehouse_id,
+    );
     return {
       generated_at: report.generated_at.toISOString(),
       entries: report.entries.map((entry) => ({
@@ -65,17 +105,23 @@ export class ReportsController {
         entity: entry.entity,
         performed_by: entry.performed_by,
         performed_at: entry.performed_at.toISOString(),
-        details: entry.details ? JSON.stringify(entry.details) : '',
+        details: entry.details ? JSON.stringify(entry.details) : "",
       })),
     };
   }
 
-  @GrpcMethod('MetricsReportsService', 'GetInventoryTrend')
-  async getInventoryTrend(data: { from?: string; to?: string; interval?: string }) {
+  @GrpcMethod("MetricsReportsService", "GetInventoryTrend")
+  async getInventoryTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    warehouse_id?: string;
+  }) {
     const report = await this.reportsService.getInventoryTrendReport(
       data.from,
       data.to,
       data.interval,
+      data.warehouse_id,
     );
 
     return {
@@ -87,18 +133,20 @@ export class ReportsController {
     };
   }
 
-  @GrpcMethod('MetricsReportsService', 'GetMaterialUsageTrend')
+  @GrpcMethod("MetricsReportsService", "GetMaterialUsageTrend")
   async getMaterialUsageTrend(data: {
     from?: string;
     to?: string;
     interval?: string;
     limit?: number;
+    warehouse_id?: string;
   }) {
     const report = await this.reportsService.getMaterialUsageTrendReport(
       data.from,
       data.to,
       data.interval,
       data.limit,
+      data.warehouse_id,
     );
 
     return {
@@ -110,18 +158,20 @@ export class ReportsController {
     };
   }
 
-  @GrpcMethod('MetricsReportsService', 'GetQcTrend')
+  @GrpcMethod("MetricsReportsService", "GetQcTrend")
   async getQcTrend(data: {
     from?: string;
     to?: string;
     interval?: string;
     limit?: number;
+    warehouse_id?: string;
   }) {
     const report = await this.reportsService.getQcTrendReport(
       data.from,
       data.to,
       data.interval,
       data.limit,
+      data.warehouse_id,
     );
 
     return {
@@ -134,12 +184,18 @@ export class ReportsController {
     };
   }
 
-  @GrpcMethod('MetricsReportsService', 'GetAuditTrend')
-  async getAuditTrend(data: { from?: string; to?: string; interval?: string }) {
+  @GrpcMethod("MetricsReportsService", "GetAuditTrend")
+  async getAuditTrend(data: {
+    from?: string;
+    to?: string;
+    interval?: string;
+    warehouse_id?: string;
+  }) {
     const report = await this.reportsService.getAuditTrendReport(
       data.from,
       data.to,
       data.interval,
+      data.warehouse_id,
     );
 
     return {
