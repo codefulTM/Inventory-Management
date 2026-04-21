@@ -123,4 +123,67 @@ export class IndexTemplateService {
       this.logger.log(`Applied ES index template for ${collection}`);
     }
   }
+
+  /**
+   * Deletes any existing indices that have critical aggregation fields mapped as
+   * "text" (ES auto-mapping) instead of the correct "keyword" type defined in
+   * our templates. Call this AFTER applyTemplates so that re-created indices
+   * pick up the correct mappings.
+   */
+  async purgeStaleIndices(collections?: string[]): Promise<void> {
+    const targetCollections =
+      collections && collections.length > 0
+        ? collections
+        : this.getManagedCollections();
+
+    for (const collection of targetCollections) {
+      const expectedMapping = COLLECTION_MAPPINGS[collection];
+      if (!expectedMapping) continue;
+
+      const expectedKeywordFields = Object.entries(
+        (expectedMapping as any).properties as Record<string, { type: string }>,
+      )
+        .filter(([, v]) => v.type === 'keyword')
+        .map(([k]) => k);
+
+      if (expectedKeywordFields.length === 0) continue;
+
+      let indices: string[];
+      try {
+        const response = await this.client.cat.indices({
+          index: `${collection}_*`,
+          format: 'json',
+          h: 'index',
+        });
+        indices = (response as any[]).map((r: any) => r.index as string);
+      } catch {
+        // No indices exist yet — nothing to purge
+        continue;
+      }
+
+      for (const indexName of indices) {
+        let mappingResp: any;
+        try {
+          mappingResp = await this.client.indices.getMapping({ index: indexName });
+        } catch {
+          continue;
+        }
+
+        const props: Record<string, any> =
+          mappingResp?.[indexName]?.mappings?.properties ?? {};
+
+        const staleFields = expectedKeywordFields.filter(
+          (field) => props[field]?.type === 'text',
+        );
+
+        if (staleFields.length > 0) {
+          this.logger.warn(
+            `[purgeStaleIndices] Index "${indexName}" has stale text mappings for fields: ${staleFields.join(', ')} — deleting to trigger re-index with correct template`,
+          );
+          await this.client.indices.delete({ index: indexName });
+          this.logger.log(`[purgeStaleIndices] Deleted stale index: ${indexName}`);
+        }
+      }
+    }
+  }
 }

@@ -4,7 +4,7 @@ import { InventoryLot, InventoryLotSchema } from '../schemas/inventory-lot.schem
 import { InventoryTransaction, InventoryTransactionSchema } from '../schemas/inventory-transaction.schema';
 import { QCTest, QCTestSchema } from '../schemas/qc-test.schema';
 import { Material, MaterialSchema } from '../schemas/material.schema';
-import { InventoryAuditReport, InventoryAuditReportSchema } from '../schemas/inventory-audit-report.schema';
+import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
 import { ImportExportOrder, ImportExportOrderSchema } from '../schemas/import-export-order.schema';
 import { InventoryLotsSync } from './collections/inventory-lots.sync';
 import { InventoryTransactionsSync } from './collections/inventory-transactions.sync';
@@ -22,7 +22,7 @@ import { SyncScheduler } from './sync.scheduler';
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
       { name: QCTest.name, schema: QCTestSchema },
       { name: Material.name, schema: MaterialSchema },
-      { name: InventoryAuditReport.name, schema: InventoryAuditReportSchema },
+      { name: AuditLog.name, schema: AuditLogSchema },
       { name: ImportExportOrder.name, schema: ImportExportOrderSchema },
     ]),
   ],

@@ -34,6 +34,7 @@ import StockOutOperator from "../pages/operator/StockOut";
 import InventoryTransactionListOperator from "../pages/operator/InventoryTransactionListOperator";
 import TransactionHistoryOperator from "../pages/operator/TransactionHistory";
 import LabelPrintOperator from "../pages/operator/LabelPrint";
+import BarcodeManager from "../pages/operator/BarcodeManager";
 import WarehouseSlipList from "../pages/operator/WarehouseSlipList";
 import WarehouseSlipCreate from "../pages/operator/WarehouseSlipCreate";
 import WarehouseSlipDetailPage from "../pages/operator/WarehouseSlipDetailPage";
@@ -333,8 +334,8 @@ export const router = createBrowserRouter([
         element: requireOperatorAuth(<InventoryAuditOperator />),
       },
       {
-        path: "/operator/material",
-        element: requireOperatorAuth(<MaterialManagementOperator />),
+        path: "/operator/inventory",
+        element: requireOperatorAuth(<InventoryLot />),
       },
       {
         path: "/operator/product",
@@ -379,6 +380,10 @@ export const router = createBrowserRouter([
       {
         path: "operator/labels",
         element: requireOperatorAuth(<LabelPrintOperator />),
+      },
+      {
+        path: "operator/barcodes",
+        element: requireOperatorAuth(<BarcodeManager />),
       },
       {
         path: "operator/production-batches",

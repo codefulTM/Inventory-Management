@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Tag,
   FlaskConical,
+  Barcode,
 } from "lucide-react";
 import MyAssistantWidget from "../components/assistant/MyAssistantWidget";
 import { AuthService } from "../services/auth.service";
@@ -278,9 +279,9 @@ export default function Layout() {
             label: "Dashboard",
           },
           {
-            to: "/operator/material",
+            to: "/operator/inventory",
             icon: <Package size={20} />,
-            label: "Quản lý nguyên liệu",
+            label: "Quản lý lô hàng",
           },
           {
             to: "/operator/product",
@@ -321,6 +322,11 @@ export default function Layout() {
             to: "/operator/labels",
             icon: <Tag size={20} />,
             label: "In nhãn",
+          },
+          {
+            to: "/operator/barcodes",
+            icon: <Barcode size={20} />,
+            label: "Barcode",
           },
           {
             to: "/ai/console",
@@ -548,7 +554,7 @@ export default function Layout() {
           <div className="px-8 py-6 flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-none uppercase">
-                Week 7 - Demo - 456
+                Inventory Management System
               </h1>
               <p className="text-[11px] text-gray-400 font-bold mt-2 flex items-center gap-1 uppercase tracking-widest">
                 Hệ thống Quản lý Dược phẩm <ChevronRight size={10} />{" "}
