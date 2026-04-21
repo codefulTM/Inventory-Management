@@ -7,7 +7,7 @@ Tài liệu này cập nhật các bước thực tế để chạy và phát tr
 ## 1. Yêu cầu cơ bản
 
 - Hệ điều hành: Windows / macOS / Linux
-- Node.js >= 20 (LTS)
+- Node.js >= 20 (LTS) (đề xuất v22)
 - npm >= 9 (hoặc `yarn` nếu project có `yarn.lock`)
 - Docker & Docker Compose (nếu muốn chạy toàn bộ bằng container)
 - Git
@@ -146,6 +146,15 @@ Nếu gặp lỗi thiếu biến môi trường cho service khi chạy trong con
 - Port conflict: kiểm tra cổng 3000/3001/5173/27017/8080.
 - Nếu backend không kết nối Mongo: kiểm tra `MONGODB_URI` trong `.env` hoặc container `mongo` đang chạy.
 - Nếu dùng `03_Deployment/01_Deployment_Package/base/docker-compose-mongo.yml` trên Windows, sửa volume host path (không dùng `/home/ubuntu/...`).
+- **Lỗi `no space left on device`**: ổ đĩa đầy do Docker images/containers/volumes tích lũy. Giải phóng bằng:
+  ```bash
+  # Xóa toàn bộ images, containers, networks, build cache không dùng
+  docker system prune -af
+  # Xóa thêm volumes không dùng (cẩn thận — mất data)
+  docker volume prune -f
+  # Kiểm tra dung lượng còn lại
+  df -h
+  ```
 
 ## 7. Tài liệu liên quan
 

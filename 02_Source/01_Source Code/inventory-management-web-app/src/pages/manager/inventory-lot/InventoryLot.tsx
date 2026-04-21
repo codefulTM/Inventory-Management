@@ -279,7 +279,7 @@ export default function InventoryLot() {
       />
 
       {/* Search and Filters */}
-      {!loading && (
+      {!loading && !isStockRoute && (
         <SearchAndFilters
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}

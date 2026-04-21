@@ -1,4 +1,4 @@
-import { Search, Filter, Download, Edit } from "lucide-react";
+import { Search, Edit } from "lucide-react";
 
 interface SearchAndFiltersProps {
   searchTerm: string;
@@ -27,14 +27,6 @@ export function SearchAndFilters({
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
-        <button className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center space-x-2 transition">
-          <Filter size={20} />
-          <span>Bộ lọc</span>
-        </button>
-        <button className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition">
-          <Download size={20} />
-          <span>Xuất Excel</span>
-        </button>
         <button
           type="button"
           onClick={onAdd}

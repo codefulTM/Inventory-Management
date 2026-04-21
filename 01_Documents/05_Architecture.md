@@ -640,6 +640,7 @@ Triển khai production trên cloud theo mô hình tách lớp, tất cả truy 
 - Keycloak (IdP, ngoài cụm K8s): `https://keycloak.inventory-system.cloud`
 - Grafana (monitoring dashboard): `https://grafana.inventory-system.cloud/`
 - Jenkins (CI/CD): `https://jenkins.inventory-system.cloud`
+- Kibana: `https://kibana.inventory-system.cloud`
 
 ### Security & Identity (prod)
 
