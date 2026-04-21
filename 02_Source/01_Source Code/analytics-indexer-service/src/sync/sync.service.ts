@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@elastic/elasticsearch';
@@ -64,7 +64,7 @@ export interface RunFullSyncSummary {
 }
 
 @Injectable()
-export class SyncService {
+export class SyncService implements OnModuleInit {
   private readonly logger = new Logger(SyncService.name);
   private readonly batchSize: number;
   private readonly syncers: CollectionSyncer[];
@@ -92,6 +92,13 @@ export class SyncService {
       importExportOrdersSync,
       ...(this.markdownKnowledgeSync ? [this.markdownKnowledgeSync] : []),
     ];
+  }
+
+  async onModuleInit(): Promise<void> {
+    this.logger.log('onModuleInit: applying ES templates and purging stale indices...');
+    await this.indexTemplateService.applyTemplates();
+    await this.indexTemplateService.purgeStaleIndices();
+    this.logger.log('onModuleInit: ES templates and stale index cleanup complete.');
   }
 
   getAvailableCollections(): string[] {
@@ -152,6 +159,7 @@ export class SyncService {
 
     if (options.ensureTemplates === true) {
       await this.indexTemplateService.applyTemplates(selectedCollections);
+      await this.indexTemplateService.purgeStaleIndices(selectedCollections);
     }
 
     const results: RunCollectionResult[] = [];

@@ -11,6 +11,8 @@ export type InventoryLotDocument = InventoryLot & Document;
 export class InventoryLot {
   @Prop() lot_id: string;
   @Prop() material_id: string;
+  @Prop() supplier_name: string;
+  @Prop() manufacturer_name: string;
   @Prop() status: string;
   @Prop() quantity: number;
   @Prop() unit_of_measure: string;

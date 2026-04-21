@@ -61,6 +61,29 @@ function isLowStock(quantity: number): boolean {
   return quantity <= 100;
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  LOGIN_SUCCESS: "Đăng nhập thành công",
+  LOGIN_FAILED: "Đăng nhập thất bại",
+  LOGOUT_SUCCESS: "Đăng xuất",
+  LOGOUT_FAILED: "Đăng xuất thất bại",
+  USER_CREATED: "Tạo tài khoản",
+  USER_UPDATED: "Cập nhật tài khoản",
+  USER_LOCKED: "Khóa tài khoản",
+  USER_UNLOCKED: "Mở khóa tài khoản",
+  PASSWORD_RESET_REQUESTED: "Yêu cầu đặt lại mật khẩu",
+  PASSWORD_RESET_COMPLETED: "Đặt lại mật khẩu thành công",
+  INVENTORY_LOT_UPDATED: "Cập nhật lô hàng",
+};
+
+function normalizeReport<T extends object>(raw: T | null): T | null {
+  if (!raw) return null;
+  // Handle backend wrapping { data: { ... } }
+  if ("data" in (raw as any) && !(raw as any).generated_at && !(raw as any).items && !(raw as any).entries && !(raw as any).points) {
+    return (raw as any).data as T;
+  }
+  return raw;
+}
+
 function toDateInput(date: Date): string {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -79,7 +102,7 @@ function toRangeIso(
 
 function MiniLineChart({ data, color }: { data: number[]; color: string }) {
   if (data.length === 0) {
-    return <div className="text-xs text-gray-500">No data</div>;
+    return <div className="text-xs text-gray-500">Không có dữ liệu</div>;
   }
 
   const width = 280;
@@ -226,14 +249,14 @@ export default function DashboardManager() {
           getAuditTrendReport(range.from, range.to, interval, filterWarehouse),
         ]);
 
-        setInventoryStatus(inventory);
-        setMaterialUsage(usage);
-        setQcPerformance(qc);
-        setAuditReport(audit);
-        setInventoryTrend(inventoryTrendData);
-        setMaterialTrend(materialTrendData);
-        setQcTrend(qcTrendData);
-        setAuditTrend(auditTrendData);
+        setInventoryStatus(normalizeReport(inventory));
+        setMaterialUsage(normalizeReport(usage));
+        setQcPerformance(normalizeReport(qc));
+        setAuditReport(normalizeReport(audit));
+        setInventoryTrend(normalizeReport(inventoryTrendData));
+        setMaterialTrend(normalizeReport(materialTrendData));
+        setQcTrend(normalizeReport(qcTrendData));
+        setAuditTrend(normalizeReport(auditTrendData));
         // Try to load condensed dashboard summary/trends and warehouses (non-blocking)
         void (async () => {
           try {
@@ -458,22 +481,22 @@ export default function DashboardManager() {
       <div className="p-6 space-y-6">
         <div className="animate-fadeInUp">
           <h1 className="text-2xl font-bold text-gray-900">
-            Manager Dashboard
+            Bảng Điều Khiển
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Analytics trends, report KPIs, and top operational signals.
+            Phân tích xu hướng, KPI báo cáo và tín hiệu vận hành.
           </p>
         </div>
 
         {error ? <Alert type="error" showIcon message={error} /> : null}
 
         <Card
-          title="Analytics Filters"
+          title="Bộ Lọc Phân Tích"
           className="hover:shadow-md transition-shadow duration-200"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <label className="text-xs font-semibold text-gray-600">
-              Date Range (Start - End)
+              Khoảng thời gian (Từ — Đến)
               <div className="mt-1">
                 <DatePicker.RangePicker
                   value={dateRange as any}
@@ -484,22 +507,22 @@ export default function DashboardManager() {
             </label>
 
             <label className="text-xs font-semibold text-gray-600">
-              Interval
+              Chu kỳ
               <select
                 value={interval}
                 onChange={(event) => setInterval(event.target.value as TrendInterval)}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
-                <option value="day">day</option>
-                <option value="week">week</option>
-                <option value="month">month</option>
+                <option value="day">Ngày</option>
+                <option value="week">Tuần</option>
+                <option value="month">Tháng</option>
               </select>
             </label>
 
             <div>
               <Select
                 allowClear
-                placeholder="Warehouse"
+                placeholder="Kho hàng"
                 value={filterWarehouse}
                 onChange={(v) => setFilterWarehouse(v)}
                 options={(warehouses || []).map((w) => ({
@@ -518,7 +541,7 @@ export default function DashboardManager() {
                     setFilterWarehouse(undefined);
                   }}
                 >
-                  Reset
+                  Đặt lại
                 </Button>
               </div>
             </div>
@@ -528,14 +551,14 @@ export default function DashboardManager() {
         <StatsGrid cols={4}>
           <div className="stagger-item" style={{ animationDelay: "0ms" }}>
             <StatCard
-              label="Total Lots"
+              label="Tổng số lô hàng"
               value={inventoryStatus?.total_lots || 0}
               icon={<Package className="w-5 h-5" />}
             />
           </div>
           <div className="stagger-item" style={{ animationDelay: "50ms" }}>
             <StatCard
-              label="Low-Stock Lots"
+              label="Lô sắp hết hàng"
               value={lowStockItems.length}
               icon={<AlertTriangle className="w-5 h-5" />}
               variant={lowStockItems.length > 0 ? "error" : "success"}
@@ -543,14 +566,14 @@ export default function DashboardManager() {
           </div>
           <div className="stagger-item" style={{ animationDelay: "100ms" }}>
             <StatCard
-              label="Total Material Usage"
+              label="Tổng sử dụng nguyên liệu"
               value={totalUsageQuantity}
               icon={<TrendingUp className="w-5 h-5" />}
             />
           </div>
           <div className="stagger-item" style={{ animationDelay: "150ms" }}>
             <StatCard
-              label="Average QC Pass Rate"
+              label="Tỷ lệ QC đạt TB"
               value={`${averageQcRate}%`}
               icon={<ShieldCheck className="w-5 h-5" />}
               variant={
@@ -568,7 +591,7 @@ export default function DashboardManager() {
         <Card className="mt-4">
           <Row gutter={[12, 12]} className="mt-4">
             <Col xs={24} lg={12}>
-              <h3 className="m-0">In (Receipts)</h3>
+              <h3 className="m-0">Nhập kho</h3>
               <Sparkline
                 points={(trendsIn || []).map((r) => ({
                   x: r.period,
@@ -593,7 +616,7 @@ export default function DashboardManager() {
               />
             </Col>
             <Col xs={24} lg={12}>
-              <h3 className="m-0">Out (Usage)</h3>
+              <h3 className="m-0">Xuất kho</h3>
               <Sparkline
                 points={(trendsOut || []).map((r) => ({
                   x: r.period,
@@ -622,22 +645,22 @@ export default function DashboardManager() {
 
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={12} xl={6}>
-            <Card title="Inventory Quantity Trend">
+            <Card title="Xu hướng tồn kho">
               <MiniLineChart data={inventoryTrendSeries} color="#0f766e" />
             </Card>
           </Col>
           <Col xs={24} lg={12} xl={6}>
-            <Card title="Material Usage Trend">
+            <Card title="Xu hướng sử dụng nguyên liệu">
               <MiniLineChart data={usageTrendSeries} color="#b45309" />
             </Card>
           </Col>
           <Col xs={24} lg={12} xl={6}>
-            <Card title="QC Pass Trend">
+            <Card title="Xu hướng QC đạt">
               <MiniLineChart data={qcTrendSeries} color="#2563eb" />
             </Card>
           </Col>
           <Col xs={24} lg={12} xl={6}>
-            <Card title="Audit Activity Trend">
+            <Card title="Xu hướng hoạt động hệ thống">
               <MiniLineChart data={auditTrendSeries} color="#7c3aed" />
             </Card>
           </Col>
@@ -646,7 +669,7 @@ export default function DashboardManager() {
         <Row gutter={[16, 16]}>
           <Col xs={24} xl={12}>
             <Card
-              title="Top Material Usage (Trend Aggregate)"
+              title="Top Nguyên Liệu Sử Dụng"
               extra={
                 <Button
                   icon={<Download className="w-4 h-4" />}
@@ -654,7 +677,7 @@ export default function DashboardManager() {
                     downloadCsv("top-material-usage.csv", topMaterials)
                   }
                 >
-                  Export CSV
+                  Xuất CSV
                 </Button>
               }
             >
@@ -663,9 +686,9 @@ export default function DashboardManager() {
                 pagination={{ pageSize: 8 }}
                 dataSource={topMaterials}
                 columns={[
-                  { title: "Material", dataIndex: "material_id" },
-                  { title: "Transactions", dataIndex: "transaction_count" },
-                  { title: "Total Quantity", dataIndex: "total_quantity" },
+                  { title: "Nguyên liệu", dataIndex: "material_id" },
+                  { title: "Giao dịch", dataIndex: "transaction_count" },
+                  { title: "Tổng số lượng", dataIndex: "total_quantity" },
                 ]}
                 size="middle"
               />
@@ -673,7 +696,7 @@ export default function DashboardManager() {
           </Col>
           <Col xs={24} xl={12}>
             <Card
-              title="Supplier Quality Ranking"
+              title="Xếp Hạng Chất Lượng Nhà Cung Cấp"
               extra={
                 <Button
                   icon={<Download className="w-4 h-4" />}
@@ -684,7 +707,7 @@ export default function DashboardManager() {
                     )
                   }
                 >
-                  Export CSV
+                  Xuất CSV
                 </Button>
               }
             >
@@ -693,11 +716,11 @@ export default function DashboardManager() {
                 pagination={{ pageSize: 8 }}
                 dataSource={qcTrend?.supplier_rankings || []}
                 columns={[
-                  { title: "Supplier", dataIndex: "supplier_name" },
-                  { title: "Pass", dataIndex: "pass_count" },
-                  { title: "Fail", dataIndex: "fail_count" },
+                  { title: "Nhà cung cấp", dataIndex: "supplier_name" },
+                  { title: "Đạt", dataIndex: "pass_count" },
+                  { title: "Không đạt", dataIndex: "fail_count" },
                   {
-                    title: "Quality Rate",
+                    title: "Tỷ lệ đạt",
                     dataIndex: "quality_rate",
                     render: (value: number) =>
                       `${Number(value || 0).toFixed(2)}%`,
@@ -710,7 +733,7 @@ export default function DashboardManager() {
         </Row>
 
         <Card
-          title="Low-Stock Watchlist"
+          title="Danh Sách Lô Sắp Hết Hàng"
           className="hover:shadow-md transition-shadow duration-200"
         >
           <Table
@@ -718,61 +741,23 @@ export default function DashboardManager() {
             pagination={{ pageSize: 8 }}
             dataSource={lowStockItems}
             columns={[
-              { title: "Material", dataIndex: "material_id" },
-              { title: "Lot", dataIndex: "lot_id" },
+              { title: "Nguyên liệu", dataIndex: "material_id" },
+              { title: "Lô hàng", dataIndex: "lot_id" },
               {
-                title: "Quantity",
+                title: "Số lượng",
                 dataIndex: "quantity",
                 render: (value: number) => (
                   <Tag color={isLowStock(value) ? "red" : "green"}>{value}</Tag>
                 ),
               },
-              { title: "Status", dataIndex: "status" },
-            ]}
-            size="middle"
-          />
-        </Card>
-
-        <Card
-          title="Recent Audit Events"
-          className="hover:shadow-md transition-shadow duration-200"
-        >
-          <Table
-            rowKey={(record: any, index?: number) =>
-              record && (record.entity || record.performed_at || record.action)
-                ? `${record.entity || 'x'}-${record.performed_at || record.timestamp || (index ?? 0)}-${record.action || 'x'}`
-                : String(index ?? 0)
-            }
-            pagination={{ pageSize: 8 }}
-            dataSource={(auditReport?.entries || []).slice(0, 40)}
-            columns={[
-              {
-                title: "Action",
-                render: (_: any, record: any) =>
-                  record.action || record.verb || record.event || (record.details && (record.details.action as string)) || "-",
-              },
-              {
-                title: "Entity",
-                render: (_: any, record: any) =>
-                  record.entity || record.entity_name || record.target || (record.details && (record.details.entity as string)) || "-",
-              },
-              {
-                title: "By",
-                render: (_: any, record: any) =>
-                  record.performed_by || record.user || record.actor || (record.details && (record.details.user as string)) || "-",
-              },
-              {
-                title: "At",
-                render: (_: any, record: any) =>
-                  formatDateShort(record.performed_at || record.performedAt || record.timestamp),
-              },
+              { title: "Trạng thái", dataIndex: "status" },
             ]}
             size="middle"
           />
         </Card>
 
         <Modal
-          title="Drilldown Transactions"
+          title="Chi Tiết Giao Dịch"
           open={drilldownVisible}
           onCancel={() => setDrilldownVisible(false)}
           footer={null}
@@ -788,11 +773,11 @@ export default function DashboardManager() {
               current: drilldownData.page || 1,
             }}
             columns={[
-              { title: "Transaction ID", dataIndex: "transaction_id" },
-              { title: "Lot", dataIndex: "lot_id" },
-              { title: "Type", dataIndex: "transaction_type" },
-              { title: "Quantity", dataIndex: "quantity" },
-              { title: "Date", dataIndex: "transaction_date" },
+              { title: "Mã giao dịch", dataIndex: "transaction_id" },
+              { title: "Lô hàng", dataIndex: "lot_id" },
+              { title: "Loại", dataIndex: "transaction_type" },
+              { title: "Số lượng", dataIndex: "quantity" },
+              { title: "Ngày", dataIndex: "transaction_date" },
             ]}
           />
         </Modal>
@@ -800,7 +785,7 @@ export default function DashboardManager() {
         <Divider />
 
         <p className="text-xs text-gray-400 m-0">
-          Last refresh: {new Date().toISOString()} | Interval: {interval}
+          Cập nhật lúc: {new Date().toLocaleString("vi-VN")} | Chu kỳ: {interval === "day" ? "Ngày" : interval === "week" ? "Tuần" : "Tháng"}
         </p>
       </div>
     </PageWrapper>

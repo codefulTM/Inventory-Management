@@ -3,9 +3,9 @@ import type { InventoryLot } from "../types/inventory";
 
 export async function fetchInventoryLots(): Promise<InventoryLot[]> {
   const { data, error } =
-    await apiClient.get<InventoryLot[]>("/inventory-lots");
+    await apiClient.get<any>("/inventory-lots");
   if (error) throw error;
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? data : Array.isArray((data as any)?.data) ? (data as any).data : [];
 }
 
 export async function fetchInventoryLotOptions(params?: {

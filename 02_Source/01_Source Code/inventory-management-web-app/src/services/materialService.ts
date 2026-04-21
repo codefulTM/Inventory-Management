@@ -13,9 +13,10 @@ function normalize(m: any): Material {
 }
 
 export async function fetchMaterials(): Promise<Material[]> {
-  const { data, error } = await apiClient.get<any[]>("/materials");
+  const { data, error } = await apiClient.get<any>("/materials");
   if (error) throw error;
-  return Array.isArray(data) ? data.map(normalize) : [];
+  const list = Array.isArray(data) ? data : Array.isArray((data as any)?.data) ? (data as any).data : [];
+  return list.map(normalize);
 }
 
 export async function fetchMaterial(id: string): Promise<Material> {
