@@ -56,6 +56,7 @@ describe('WarehouseSlipService', () => {
       inventoryTransactionService,
       inventoryLotService,
       auditLogService,
+      { nextId: jest.fn().mockResolvedValue('SLP-1') } as any,
     );
 
     // sensible defaults

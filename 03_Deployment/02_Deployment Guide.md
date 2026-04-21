@@ -269,11 +269,16 @@ docker logs inventory_redis --tail 10
 ### 6.4 Khởi động Elasticsearch
 
 Elasticsearch yêu cầu thư mục data phải thuộc UID 1000:
+# Tạo data directory với quyền đúng
+sudo mkdir -p data-elasticsearch
+sudo chown -R 1000:1000 data-elasticsearch
+sudo chmod -R 755 data-elasticsearch
 
 ```bash
 cd ~/data
 mkdir -p data-elasticsearch
 sudo chown -R 1000:1000 data-elasticsearch
+sudo chmod -R 755 data-elasticsearch
 docker compose -f docker-compose-elasticsearch.yml up -d
 docker logs inventory_elasticsearch --tail 20
 ```
@@ -282,6 +287,15 @@ Kiểm tra ES đã sẵn sàng:
 ```bash
 curl http://localhost:9200
 # Kết quả mong đợi: {"name":"...","cluster_name":"docker-cluster",...}
+```
+
+Tạo user kibana_system cho kibana connect:
+```bash
+docker exec -it inventory_elasticsearch bin/elasticsearch-reset-password -u kibana_system
+```
+Response (copy value dán vào ELASTICSEARCH_PASSWORD trong docker-compose-kibana.yml):
+```
+New value: abc...
 ```
 
 ### 6.5 Khởi động Keycloak

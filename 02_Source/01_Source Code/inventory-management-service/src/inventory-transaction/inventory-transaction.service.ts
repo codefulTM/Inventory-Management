@@ -16,18 +16,21 @@ import {
   TransactionType,
 } from './dto/create-inventory-transaction.dto';
 import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
-import { randomUUID } from 'crypto';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 @Injectable()
 export class InventoryTransactionService {
-  constructor(private readonly repo: InventoryTransactionRepository) {}
+  constructor(
+    private readonly repo: InventoryTransactionRepository,
+    private readonly redisIdService: RedisIdService,
+  ) {}
 
   async create(transactionDto: CreateInventoryTransactionDto) {
     // tiền xử lý chung: gán ngày giao dịch nếu chưa có, tạo transaction_id
     if (!transactionDto.transaction_date) {
       transactionDto.transaction_date = new Date().toISOString();
     }
-    transactionDto.transaction_id = randomUUID();
+    transactionDto.transaction_id = await this.redisIdService.nextId('TXN');
 
     // các kiểm tra validation được thực hiện bên trong mỗi hàm xử lý; quy tắc dấu theo loại đã ghi chú ở đó
     // (receipt>0, usage<0, disposal<0; split/adjustment/transfer !=0)

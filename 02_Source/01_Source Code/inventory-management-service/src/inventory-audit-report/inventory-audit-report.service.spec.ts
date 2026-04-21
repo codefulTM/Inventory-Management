@@ -90,6 +90,7 @@ describe('InventoryAuditReportService', () => {
       renderer as unknown as InventoryAuditReportRenderer,
       signatureService as unknown as SignatureService,
       storageService as unknown as InventoryAuditReportStorageService,
+      { nextId: jest.fn().mockResolvedValue('RPT-1') } as any,
     );
   });
 

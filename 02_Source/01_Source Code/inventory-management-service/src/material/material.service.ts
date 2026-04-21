@@ -18,6 +18,7 @@ import {
   MaterialResponseDto,
   PaginatedMaterialResponseDto,
 } from './material.dto';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 /**
  * Material Service
@@ -27,7 +28,10 @@ import {
 export class MaterialService {
   private readonly logger = new Logger(MaterialService.name);
 
-  constructor(private readonly repository: MaterialRepository) {}
+  constructor(
+    private readonly repository: MaterialRepository,
+    private readonly redisIdService: RedisIdService,
+  ) {}
 
   /**
    * Create a new material
@@ -37,6 +41,10 @@ export class MaterialService {
    * @throws ConflictException - If material_id or part_number already exists
    */
   async create(createDto: CreateMaterialDto): Promise<MaterialResponseDto> {
+    // Auto-generate material_id if not provided
+    if (!createDto.material_id) {
+      createDto.material_id = await this.redisIdService.nextId('MAT');
+    }
     this.logger.log(`Creating material: ${createDto.material_id}`);
 
     // Check for duplicate material_id

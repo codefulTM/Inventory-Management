@@ -48,6 +48,7 @@
     "bwip-js": "^4.8.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "ioredis": "^5.10.1",
     "jose": "^4.15.9",
     "jsbarcode": "^3.12.3",
     "jwks-rsa": "^4.0.1",

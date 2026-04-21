@@ -3,10 +3,11 @@ import { QCTestService } from './qc-test.service';
 import { QCTestRepository } from './qc-test.repository';
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { ProductionBatchService } from '../production-batch/production-batch.service';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'test-uuid-1'),
-}));
+const mockRedisIdService = {
+  nextId: jest.fn().mockImplementation((prefix: string) => Promise.resolve(`${prefix}-1`)),
+} as unknown as RedisIdService;
 
 describe('QCTestService batch init', () => {
   let service: QCTestService;
@@ -30,6 +31,7 @@ describe('QCTestService batch init', () => {
       mockRepository,
       mockInventoryLotService,
       mockProductionBatchService,
+      mockRedisIdService,
     );
 
     jest.clearAllMocks();

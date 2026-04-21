@@ -12,6 +12,7 @@ import { TransactionType } from '../inventory-transaction/dto/create-inventory-t
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 @Injectable()
 export class WarehouseSlipService {
@@ -20,6 +21,7 @@ export class WarehouseSlipService {
     private readonly inventoryTransactionService: InventoryTransactionService,
     private readonly inventoryLotService: InventoryLotService,
     private readonly auditLogService: AuditLogService,
+    private readonly redisIdService: RedisIdService,
   ) {}
 
   private generateSlipNumber() {
@@ -76,7 +78,7 @@ export class WarehouseSlipService {
     }
 
     const payload: any = {
-      slip_id: uuidv4(),
+      slip_id: await this.redisIdService.nextId('SLP'),
       slip_number: this.generateSlipNumber(),
       type: dto.type,
       warehouse_id: dto.warehouse_id,

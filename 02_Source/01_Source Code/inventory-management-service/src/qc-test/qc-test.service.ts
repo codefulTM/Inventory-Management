@@ -3,9 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
 import { QCTestRepository } from './qc-test.repository';
 import { QCTest, QCTestDocument } from '../schemas/qc-test.schema';
+import { RedisIdService } from '../redis-id/redis-id.service';
 import {
   InventoryLot,
   InventoryLotDocument,
@@ -26,6 +26,7 @@ export class QCTestService {
     private readonly repository: QCTestRepository,
     private readonly inventoryLotService: InventoryLotService,
     private readonly productionBatchService: ProductionBatchService,
+    private readonly redisIdService: RedisIdService,
   ) {}
 
   // ─── InventoryLotService helpers ─────────────────────────────────────
@@ -57,7 +58,7 @@ export class QCTestService {
 
     const data: Partial<QCTest> = {
       ...dto,
-      test_id: uuidv4(),
+      test_id: await this.redisIdService.nextId('QC'),
       test_date: new Date(dto.test_date),
       result_status: dto.result_status ?? 'Pending',
     };
@@ -235,7 +236,7 @@ export class QCTestService {
       });
 
       await this.repository.create({
-        test_id: uuidv4(),
+        test_id: await this.redisIdService.nextId('QC'),
         lot_id,
         test_type: 'Physical',
         test_method: 'Re-test',
@@ -253,7 +254,7 @@ export class QCTestService {
       );
 
       await this.repository.create({
-        test_id: uuidv4(),
+        test_id: await this.redisIdService.nextId('QC'),
         lot_id,
         test_type: 'Physical',
         test_method: 'Re-test - Discard',

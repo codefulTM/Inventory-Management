@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 import {
   InventoryLot,
   InventoryLotDocument,
@@ -16,6 +15,7 @@ import { ProductionBatchRepository } from './production-batch.repository';
 import { CreateBatchComponentDto } from './dto/create-batch-component.dto';
 import { UpdateBatchComponentDto } from './dto/update-batch-component.dto';
 import { BatchComponentResponseDto } from './production-batch.dto';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 /**
  * BatchComponent Service
@@ -30,6 +30,7 @@ export class BatchComponentService {
     private readonly batchRepository: ProductionBatchRepository,
     @InjectModel(InventoryLot.name)
     private readonly lotModel: Model<InventoryLotDocument>,
+    private readonly redisIdService: RedisIdService,
   ) {}
 
   private logDetailedError(error: any, context: string) {
@@ -109,7 +110,7 @@ export class BatchComponentService {
       const component = await this.componentRepository.create({
         ...createDto,
         batch_id: batchId,
-        component_id: uuidv4(),
+        component_id: await this.redisIdService.nextId('BC'),
         unit_of_measure,
         addition_date,
       });

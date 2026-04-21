@@ -392,7 +392,7 @@ describe('LabelTemplateController', () => {
         };
         const response = {
           ...templateResponse,
-          template_id: dto.template_id,
+          template_id: dto.template_id ?? templateResponse.template_id,
           template_name: dto.template_name,
           label_type: dto.label_type,
           width: dto.width,

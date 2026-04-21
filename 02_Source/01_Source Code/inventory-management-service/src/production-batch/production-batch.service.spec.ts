@@ -8,6 +8,7 @@ import {
 import { ProductionBatchService } from './production-batch.service';
 import { ProductionBatchRepository } from './production-batch.repository';
 import { BatchComponentRepository } from './batch-component.repository';
+import { RedisIdService } from '../redis-id/redis-id.service';
 import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repository';
 import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { Material } from '../schemas/material.schema';
@@ -110,6 +111,7 @@ describe('ProductionBatchService', () => {
         },
         { provide: InventoryLotService, useValue: mockInventoryLotService },
         { provide: getModelToken(Material.name), useValue: materialModel },
+        { provide: RedisIdService, useValue: { nextId: jest.fn().mockResolvedValue('BAT-1') } },
       ],
     }).compile();
 

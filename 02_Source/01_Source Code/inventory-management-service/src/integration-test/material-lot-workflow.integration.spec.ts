@@ -35,6 +35,7 @@ import { InventoryTransactionService } from '../inventory-transaction/inventory-
 import { InventoryTransactionRepository } from '../inventory-transaction/inventory-transaction.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { InventoryLotStatus } from '../inventory-lot/inventory-lot.dto';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 jest.setTimeout(120_000);
 
@@ -65,6 +66,7 @@ beforeAll(async () => {
       InventoryTransactionService,
       InventoryTransactionRepository,
       AuditLogService,
+      { provide: RedisIdService, useValue: { nextId: jest.fn().mockResolvedValue('ID-1') } },
     ],
   }).compile();
 

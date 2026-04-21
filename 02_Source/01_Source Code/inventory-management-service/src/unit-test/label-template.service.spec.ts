@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LabelTemplateService } from '../label-template/label-template.service';
 import { LabelTemplateRepository } from '../label-template/label-template.repository';
+import { RedisIdService } from '../redis-id/redis-id.service';
 import {
   CreateLabelTemplateDto,
   UpdateLabelTemplateDto,
@@ -126,6 +127,14 @@ describe('LabelTemplateService', () => {
         {
           provide: ProductionBatchService,
           useValue: mockProductionBatchService,
+        },
+        {
+          provide: 'REDIS_ID_CLIENT',
+          useValue: {},
+        },
+        {
+          provide: RedisIdService,
+          useValue: { nextId: jest.fn().mockImplementation((prefix: string) => Promise.resolve(`${prefix}-1`)) },
         },
       ],
     })

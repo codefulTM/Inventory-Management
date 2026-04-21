@@ -40,6 +40,7 @@ describe('InventoryAdjustmentService', () => {
 
     service = new InventoryAdjustmentService(
       repo as unknown as InventoryAdjustmentRepository,
+      { nextId: jest.fn().mockImplementation((prefix: string) => Promise.resolve(`${prefix}-1`)) } as any,
     );
 
     (repo.runInTransaction as jest.Mock).mockImplementation(

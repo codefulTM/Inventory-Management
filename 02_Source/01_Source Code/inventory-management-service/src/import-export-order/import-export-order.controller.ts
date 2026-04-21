@@ -7,7 +7,6 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
-  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -192,7 +191,7 @@ export class ImportExportOrderController {
   @Get(':id')
   @Roles(UserRole.OPERATOR, UserRole.MANAGER)
   async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Req() req: { user?: AuthenticatedUser },
   ) {
     const requester = this.toRequester(req);
@@ -225,7 +224,7 @@ export class ImportExportOrderController {
     }),
   )
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateImportExportOrderDto,
     @Req() req: { user?: AuthenticatedUser },
   ) {
@@ -250,7 +249,7 @@ export class ImportExportOrderController {
     }),
   )
   async uploadAttachment(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @UploadedFile()
     file: {
       originalname: string;
@@ -288,7 +287,7 @@ export class ImportExportOrderController {
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async confirm(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: ConfirmImportExportOrderDto,
     @Req() req: { user?: AuthenticatedUser },
   ) {
@@ -301,7 +300,7 @@ export class ImportExportOrderController {
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async reject(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: RejectImportExportOrderDto,
     @Req() req: { user?: AuthenticatedUser },
   ) {

@@ -19,6 +19,7 @@ import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { ProductionBatchService } from '../production-batch/production-batch.service';
 import type { InventoryLotResponseDto } from '../inventory-lot/inventory-lot.dto';
 import type { ProductionBatchResponseDto } from '../production-batch/production-batch.dto';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 /**
  * LabelTemplate Service
@@ -32,12 +33,17 @@ export class LabelTemplateService {
     private readonly repository: LabelTemplateRepository,
     private readonly inventoryLotService: InventoryLotService,
     private readonly productionBatchService: ProductionBatchService,
+    private readonly redisIdService: RedisIdService,
   ) {}
 
   /**
    * Create a new label template
    */
   async create(dto: CreateLabelTemplateDto): Promise<LabelTemplateResponseDto> {
+    // Auto-generate template_id if not provided
+    if (!dto.template_id) {
+      dto.template_id = await this.redisIdService.nextId('LBL');
+    }
     this.logger.log(`Creating label template: ${dto.template_id}`);
 
     const existing = await this.repository.findByTemplateId(dto.template_id);

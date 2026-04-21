@@ -4,7 +4,6 @@ import {
   IsString,
   IsEnum,
   IsNumber,
-  IsUUID,
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -20,11 +19,11 @@ export enum TransactionType {
 
 export class CreateInventoryTransactionDto {
   // nếu client không cung cấp thì service sẽ tự sinh UUID
-  @IsUUID()
+  @IsString()
   @IsOptional()
   transaction_id?: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   lot_id: string;
 
@@ -50,7 +49,7 @@ export class CreateInventoryTransactionDto {
   @IsString()
   reference_number?: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   performed_by: string;
 

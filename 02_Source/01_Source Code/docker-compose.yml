@@ -150,6 +150,9 @@ services:
       MONGO_URI: mongodb://mongo:27017/inventory # alias for MONGODB_URI / used by some scripts/tests
       MONGO_DB_NAME: inventory # alias for DB name (MONGODB_DB_NAME)
       KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs # alias for JWKS_URI
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     ports:
       - "3001:3001"
       - "50052:50052"

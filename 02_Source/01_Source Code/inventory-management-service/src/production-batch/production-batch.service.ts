@@ -30,6 +30,7 @@ import {
   PaginatedProductionBatchResponseDto,
 } from './production-batch.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 // Valid status transitions: current status -> allowed next statuses
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -57,8 +58,7 @@ export class ProductionBatchService {
     private readonly inventoryLotService: InventoryLotService,
     @InjectModel(Material.name)
     private readonly materialModel: Model<MaterialDocument>,
-    // @InjectModel(InventoryTransaction.name)
-    // private readonly inventoryTransactionModel: Model<InventoryTransactionDocument>,
+    private readonly redisIdService: RedisIdService,
   ) {}
 
   /**
@@ -229,7 +229,7 @@ export class ProductionBatchService {
 
     // Create new inventory lot for finished product using InventoryLotService
     const createdLot = await this.inventoryLotService.create({
-      lot_id: uuidv4(),
+      lot_id: await this.redisIdService.nextId('LOT'),
       material_id: batch.product_id,
       manufacturer_name: 'Internal',
       manufacturer_lot: batch.batch_number,
@@ -260,6 +260,10 @@ export class ProductionBatchService {
   async create(
     createDto: CreateProductionBatchDto,
   ): Promise<ProductionBatchResponseDto> {
+    // Auto-generate batch_id if not provided
+    if (!createDto.batch_id) {
+      createDto.batch_id = await this.redisIdService.nextId('BAT');
+    }
     this.logger.log(`Creating production batch: ${createDto.batch_number}`);
 
     // Check batch_number uniqueness
