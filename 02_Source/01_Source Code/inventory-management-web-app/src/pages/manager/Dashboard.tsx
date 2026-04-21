@@ -310,6 +310,8 @@ export default function DashboardManager() {
           }
         })();
       } catch (err) {
+        // Print full stack trace when available
+        console.error(err instanceof Error ? err.stack : err);
         setError(
           err instanceof Error ? err.message : "Failed to load dashboard data",
         );
@@ -410,6 +412,8 @@ export default function DashboardManager() {
       setToDate(toDateInput(new Date(to)));
       setRefreshToken((v) => v + 1);
     } catch (err) {
+      // Print full stack trace when available
+      console.error(err instanceof Error ? err.stack : err);
       setError(
         err instanceof Error ? err.message : "Failed to refresh dashboard",
       );
@@ -534,6 +538,7 @@ export default function DashboardManager() {
             onClick={() => {
               setDateRange(null);
               setFilterWarehouse(undefined);
+              setInterval("month");
             }}
           >
             Đặt lại

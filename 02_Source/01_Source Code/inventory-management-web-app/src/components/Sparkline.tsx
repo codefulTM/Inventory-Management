@@ -2,23 +2,29 @@ import React, { useState, useRef } from "react";
 
 type Props = {
   points: Array<{ x: string; y: number }>; // x label, y value
-  width?: number;
+  // width can be a number (px) or '100%'
+  width?: number | string;
   height?: number;
+  dotRadius?: number;
+  // optional fixed spacing between points in px
+  spacing?: number;
   onPointClick?: (index: number, point: { x: string; y: number }) => void;
 };
 
 export default function Sparkline({
   points,
-  width = 300,
+  width = "100%",
   height = 60,
+  spacing = 36,
+  dotRadius = 3,
   onPointClick,
 }: Props) {
   if (!points || points.length === 0)
     return <div className="text-xs text-gray-500">Không có dữ liệu</div>;
 
   const padding = 4;
-  const w = width - padding * 2;
   const h = height - padding * 2;
+
   const ys = points.map((p) => p.y);
   let maxY = Math.max(...ys, 1);
   let minY = Math.min(...ys, 0);
@@ -33,10 +39,17 @@ export default function Sparkline({
     }
   }
 
-  const stepX = w / Math.max(points.length - 1, 1);
+  // Fixed spacing between points. SVG width grows with number of points.
+  const fixedStep = Math.max(4, spacing);
+  const svgContentWidth =
+    padding * 2 + fixedStep * Math.max(points.length - 1, 0) + 2;
+
+  // If caller passed a numeric width, ensure svg is at least that wide; otherwise svgWidth is content width.
+  const numericMinWidth = typeof width === "number" ? width : 0;
+  const svgWidth = Math.max(numericMinWidth, svgContentWidth);
 
   const coords = points.map((p, i) => {
-    const x = padding + i * stepX;
+    const x = padding + i * fixedStep;
     const ratio = (p.y - minY) / (maxY - minY);
     const y = padding + h - ratio * h;
     return { x, y };
@@ -66,8 +79,12 @@ export default function Sparkline({
     coord: { x: number; y: number },
   ) => {
     const rect = containerRef.current?.getBoundingClientRect();
-    const left = rect ? coord.x : coord.x;
-    const top = rect ? coord.y : coord.y;
+    const left = rect
+      ? e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0)
+      : coord.x;
+    const top = rect
+      ? e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0)
+      : coord.y;
     setTooltip({ visible: true, left, top, text: `${point.x} — ${point.y}` });
   };
 
@@ -77,8 +94,12 @@ export default function Sparkline({
     coord: { x: number; y: number },
   ) => {
     const rect = containerRef.current?.getBoundingClientRect();
-    const offsetX = rect ? e.clientX - rect.left : e.clientX;
-    const offsetY = rect ? e.clientY - rect.top : e.clientY;
+    const offsetX = rect
+      ? e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0)
+      : e.clientX;
+    const offsetY = rect
+      ? e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0)
+      : e.clientY;
     setTooltip((t) => ({
       ...t,
       left: offsetX,
@@ -93,14 +114,19 @@ export default function Sparkline({
 
   return (
     <div
-      style={{ position: "relative", display: "inline-block" }}
+      style={{
+        position: "relative",
+        width: "100%",
+        overflowX: "auto",
+        display: "block",
+      }}
       ref={containerRef}
     >
       <svg
-        width={width}
+        width={svgWidth}
         height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
+        viewBox={`0 0 ${svgWidth} ${height}`}
+        preserveAspectRatio="xMinYMin meet"
         style={{ display: "block" }}
       >
         {/* subtle filled area */}
@@ -118,7 +144,7 @@ export default function Sparkline({
             key={i}
             cx={c.x}
             cy={c.y}
-            r={Math.max(2, Math.min(4, width / 120))}
+            r={dotRadius}
             fill="#fff"
             stroke="#1890ff"
             strokeWidth={1.5}
