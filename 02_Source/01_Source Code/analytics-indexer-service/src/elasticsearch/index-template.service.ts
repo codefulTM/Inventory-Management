@@ -189,7 +189,7 @@ export class IndexTemplateService {
         : this.getManagedCollections();
 
     for (const collection of targetCollections) {
-      const expectedMapping = COLLECTION_MAPPINGS[collection];
+      const expectedMapping = this.getCollectionMappings()[collection];
       if (!expectedMapping) continue;
 
       const expectedKeywordFields = Object.entries(

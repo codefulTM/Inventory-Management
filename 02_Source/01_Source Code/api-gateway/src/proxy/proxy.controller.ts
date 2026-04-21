@@ -89,7 +89,23 @@ export class ProxyController {
 
       const contentType =
         upstream.headers.get("content-type") ?? "application/json";
-      const responseBody = await upstream.text();
+
+      // Binary responses (PDF, etc.) must be forwarded as raw buffers,
+      // not decoded as text — text() corrupts binary data.
+      const isBinary =
+        contentType.includes("application/pdf") ||
+        contentType.includes("application/octet-stream") ||
+        contentType.includes("image/");
+
+      const responseBody = isBinary
+        ? Buffer.from(await upstream.arrayBuffer())
+        : await upstream.text();
+
+      // Forward Content-Disposition header if present (e.g. PDF download filename)
+      const disposition = upstream.headers.get("content-disposition");
+      if (disposition) {
+        res.set("content-disposition", disposition);
+      }
 
       res
         .status(upstream.status)

@@ -75,6 +75,8 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "transformIgnorePatterns": ["node_modules/(?!(uuid)/)"]
+    "transformIgnorePatterns": [
+      "node_modules/(?!(uuid)/)"
+    ]
   }
 }
