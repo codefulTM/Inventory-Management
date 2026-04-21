@@ -49,7 +49,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
     setLoading(true);
     try {
       const payload: CreateWarehouseRequest | UpdateWarehouseRequest = {
-        warehouse_id: warehouseIdInput,
+        ...(warehouseId ? { warehouse_id: warehouseIdInput } : {}),
         warehouse_name: name,
         description,
         is_active: isActive,
@@ -86,12 +86,18 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <label className="font-bold text-gray-800 text-sm">Mã kho</label>
-            <input
-              value={warehouseIdInput}
-              onChange={(e) => setWarehouseIdInput(e.target.value)}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:border-blue-600 focus:ring-3 focus:ring-blue-100"
-              placeholder="VD: WH-001"
-            />
+            {warehouseId ? (
+              <input
+                value={warehouseIdInput}
+                onChange={(e) => setWarehouseIdInput(e.target.value)}
+                className="px-3 py-2.5 border rounded-lg text-sm focus:border-blue-600 focus:ring-3 focus:ring-blue-100"
+                placeholder="VD: WH-001"
+              />
+            ) : (
+              <div className="px-3 py-2.5 bg-gray-50 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 italic">
+                Tự động sinh bởi hệ thống (WH-xxx)
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">

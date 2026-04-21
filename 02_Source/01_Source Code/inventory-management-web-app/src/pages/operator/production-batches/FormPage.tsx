@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, FlaskConical } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
 import type { BatchStatus } from '../../../types/production';
 import { BATCH_STATUS_LIST } from '../../../types/production';
 import {
@@ -9,6 +8,8 @@ import {
   createProductionBatch,
   updateProductionBatch,
 } from '../../../services/productionBatchService';
+import { fetchMaterials } from '../../../services/materialService';
+import SelectMenu, { type SelectItem } from '../../../components/SelectMenu';
 
 interface FormState {
   batch_id: string;
@@ -37,10 +38,27 @@ export default function OperatorProductionBatchForm() {
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
-  const [form, setForm] = useState<FormState>({ ...EMPTY_FORM, batch_id: uuidv4() });
+  const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Product/Material options
+  const [materialItems, setMaterialItems] = useState<SelectItem[]>([]);
+  const [materialSearch, setMaterialSearch] = useState('');
+
+  useEffect(() => {
+    fetchMaterials()
+      .then((list) => {
+        setMaterialItems(
+          list.map((m) => ({
+            id: m.material_id,
+            label: `${m.material_id} — ${m.material_name} (${m.material_type})`,
+          })),
+        );
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -124,18 +142,22 @@ export default function OperatorProductionBatchForm() {
           </div>
         )}
 
-        {/* Batch ID (readonly on edit) */}
+        {/* Batch ID (readonly on edit, auto-generated on create) */}
         <div>
           <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">
             Batch ID
           </label>
-          <input
-            readOnly={isEdit}
-            value={form.batch_id}
-            onChange={set('batch_id')}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 read-only:bg-gray-50 read-only:text-gray-400"
-          />
-          <p className="text-[10px] text-gray-400 mt-1">UUID tự động sinh, không cần chỉnh sửa</p>
+          {isEdit ? (
+            <input
+              readOnly
+              value={form.batch_id}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-400"
+            />
+          ) : (
+            <div className="w-full px-4 py-2.5 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 italic">
+              Tự động sinh bởi hệ thống (BAT-xxx)
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -156,17 +178,28 @@ export default function OperatorProductionBatchForm() {
 
           {/* Product ID */}
           <div>
-            <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">
+            <label className='block text-xs font-black text-gray-500 uppercase tracking-wider mb-1'>
               Product ID *
             </label>
-            <input
-              required
-              maxLength={20}
-              value={form.product_id}
-              onChange={set('product_id')}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="PROD-VC-500"
-            />
+            {isEdit ? (
+              <input
+                readOnly
+                value={form.product_id}
+                className='w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none bg-gray-50 text-gray-400'
+              />
+            ) : (
+              <SelectMenu
+                items={materialItems}
+                value={form.product_id}
+                onChange={(v) => setForm((prev) => ({ ...prev, product_id: String(v) }))}
+                placeholder='— Chọn sản phẩm —'
+                showSearch
+                searchValue={materialSearch}
+                onSearchChange={setMaterialSearch}
+                searchPlaceholder='Tìm product ID...'
+                selectClassName='w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white'
+              />
+            )}
           </div>
 
           {/* Batch Size */}

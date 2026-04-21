@@ -47,10 +47,8 @@ const initialFormData: CreateMaterialRequest = {
 const validateForm = (data: CreateMaterialRequest): FormErrors => {
   const errors: FormErrors = {};
 
-  // Validate material_id (1-20 chars, required)
-  if (!data.material_id.trim()) {
-    errors.material_id = "Material ID is required";
-  } else if (data.material_id.length > 20) {
+  // Validate material_id (1-20 chars, required only if provided)
+  if (data.material_id && data.material_id.length > 20) {
     errors.material_id = "Material ID must be 20 characters or less";
   }
 

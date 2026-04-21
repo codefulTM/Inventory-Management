@@ -112,30 +112,35 @@ export const MaterialForm: React.FC<MaterialFormProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        {/* Material ID - Read Only in Edit Mode */}
+        {/* Material ID - Read Only in Edit Mode, Auto-generated in Create Mode */}
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="material_id"
             className="font-bold text-gray-800 text-sm"
           >
-            Material ID <span className="text-red-600 ml-0.5">*</span>
+            Material ID
           </label>
-          <input
-            id="material_id"
-            type="text"
-            value={formData.material_id}
-            onChange={(e) => setFieldValue("material_id", e.target.value)}
-            disabled={mode === "edit"}
-            maxLength={20}
-            className={`px-3 py-2.5 border rounded-lg text-sm font-inherit transition-all ${errors.material_id ? "border-red-600" : "border-gray-300 focus:border-blue-600 focus:ring-3 focus:ring-blue-100"} ${mode === "edit" ? "bg-gray-100 text-gray-600 cursor-not-allowed" : ""}`}
-            placeholder="e.g., MAT-001"
-          />
+          {mode === "edit" ? (
+            <input
+              id="material_id"
+              type="text"
+              value={formData.material_id}
+              onChange={(e) => setFieldValue("material_id", e.target.value)}
+              disabled={true}
+              maxLength={20}
+              className="px-3 py-2.5 border rounded-lg text-sm font-inherit transition-all border-gray-300 bg-gray-100 text-gray-600 cursor-not-allowed"
+              placeholder="e.g., MAT-001"
+            />
+          ) : (
+            <div className="px-3 py-2.5 bg-gray-50 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 italic">
+              Tự động sinh bởi hệ thống (MAT-xxx)
+            </div>
+          )}
           {errors.material_id && (
             <span className="text-xs text-red-600 font-medium">
               {errors.material_id}
             </span>
           )}
-          <span className="text-xs text-gray-600">Max 20 characters</span>
         </div>
 
         {/* Part Number */}

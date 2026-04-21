@@ -1,14 +1,16 @@
 /**
  * LabelPrint component
  * Generate and print a label by populating a template with lot/batch data.
- * Uses mock data (TODO: integrate with real InventoryLot / ProductionBatch APIs).
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Printer, X, RefreshCw, Tag, Copy } from "lucide-react";
 import type { LabelTemplate, LabelType } from "../../types/label";
 import { LABEL_TYPES } from "../../types/label";
 import { labelService } from "../../services/label.service";
+import { fetchInventoryLotOptions } from "../../services/inventoryLotService";
+import { fetchProductionBatches } from "../../services/productionBatchService";
+import SelectMenu, { type SelectItem } from "../SelectMenu";
 
 interface LabelPrintProps {
   /** Pre-selected template (optional; user can pick from select) */
@@ -38,12 +40,60 @@ export const LabelPrint: React.FC<LabelPrintProps> = ({
   const [lotId, setLotId] = useState("");
   const [batchId, setBatchId] = useState("");
   const [populatedContent, setPopulatedContent] = useState<string | null>(null);
-  const [sourceData, setSourceData] = useState<Record<string, unknown> | null>(
-    null,
-  );
+  const [sourceData, setSourceData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Lot options
+  const [lotItems, setLotItems] = useState<SelectItem[]>([]);
+  const [lotLoading, setLotLoading] = useState(false);
+  const [lotSearch, setLotSearch] = useState("");
+  const [lotPage, setLotPage] = useState(1);
+  const [lotTotalPages, setLotTotalPages] = useState(1);
+
+  // Batch options
+  const [batchItems, setBatchItems] = useState<SelectItem[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchSearch, setBatchSearch] = useState("");
+  const [batchPage, setBatchPage] = useState(1);
+  const [batchTotalPages, setBatchTotalPages] = useState(1);
+
+  const loadLots = (q: string, page: number) => {
+    setLotLoading(true);
+    fetchInventoryLotOptions({ q, page, limit: 50 })
+      .then(({ items, pagination }) => {
+        setLotItems(
+          items.map((lot: any) => ({
+            id: lot.lot_id,
+            label: `${lot.lot_id} — ${lot.material_id ?? ""} (${lot.quantity ?? ""} ${lot.unit_of_measure ?? ""})`,
+          })),
+        );
+        setLotTotalPages(pagination.totalPages ?? 1);
+      })
+      .catch(() => {})
+      .finally(() => setLotLoading(false));
+  };
+
+  const loadBatches = (q: string, page: number) => {
+    setBatchLoading(true);
+    fetchProductionBatches({ page, limit: 50, q } as any)
+      .then((res) => {
+        const list = res.data ?? [];
+        setBatchItems(
+          list.map((b: any) => ({
+            id: b.batch_id,
+            label: `${b.batch_id} — ${b.batch_number ?? ""} (${b.status ?? ""})`,
+          })),
+        );
+        setBatchTotalPages(res.pagination?.totalPages ?? 1);
+      })
+      .catch(() => {})
+      .finally(() => setBatchLoading(false));
+  };
+
+  useEffect(() => { loadLots(lotSearch, lotPage); }, [lotSearch, lotPage]);
+  useEffect(() => { loadBatches(batchSearch, batchPage); }, [batchSearch, batchPage]);
 
   const selectedTemplate = templates.find(
     (t) => t.template_id === selectedTemplateId,
@@ -167,37 +217,49 @@ export const LabelPrint: React.FC<LabelPrintProps> = ({
           )}
         </div>
 
-        {/* Source IDs */}
+        {/* Source IDs — searchable dropdowns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5">
               Inventory Lot ID (optional)
             </label>
-            <input
-              type="text"
+            <SelectMenu
+              items={lotItems}
               value={lotId}
-              onChange={(e) => setLotId(e.target.value)}
-              placeholder="e.g. LOT-2025-001"
-              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              onChange={(v) => { setLotId(String(v)); setPopulatedContent(null); }}
+              placeholder="— Chọn lot —"
+              showSearch
+              searchValue={lotSearch}
+              onSearchChange={(q) => { setLotSearch(q); setLotPage(1); }}
+              searchPlaceholder="Tìm lot ID..."
+              showPagination={lotTotalPages > 1}
+              page={lotPage}
+              totalPages={lotTotalPages}
+              onPageChange={(p) => setLotPage(p)}
+              loading={lotLoading}
+              selectClassName="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
             />
-            <p className="text-[10px] text-gray-400 mt-1">
-              TODO: integrates with InventoryLot module
-            </p>
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5">
               Production Batch ID (optional)
             </label>
-            <input
-              type="text"
+            <SelectMenu
+              items={batchItems}
               value={batchId}
-              onChange={(e) => setBatchId(e.target.value)}
-              placeholder="e.g. PB-2025-0001"
-              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              onChange={(v) => { setBatchId(String(v)); setPopulatedContent(null); }}
+              placeholder="— Chọn batch —"
+              showSearch
+              searchValue={batchSearch}
+              onSearchChange={(q) => { setBatchSearch(q); setBatchPage(1); }}
+              searchPlaceholder="Tìm batch ID..."
+              showPagination={batchTotalPages > 1}
+              page={batchPage}
+              totalPages={batchTotalPages}
+              onPageChange={(p) => setBatchPage(p)}
+              loading={batchLoading}
+              selectClassName="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
             />
-            <p className="text-[10px] text-gray-400 mt-1">
-              TODO: integrates with ProductionBatch module
-            </p>
           </div>
         </div>
 
@@ -227,9 +289,6 @@ export const LabelPrint: React.FC<LabelPrintProps> = ({
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-gray-600">
                 Label Preview
-                <span className="ml-2 text-gray-400 font-normal">
-                  (using mock data — TODO: replace with real integration)
-                </span>
               </p>
               <div className="flex gap-2">
                 <button
@@ -263,7 +322,7 @@ export const LabelPrint: React.FC<LabelPrintProps> = ({
             {sourceData && (
               <details className="mt-3">
                 <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
-                  View source data (mock)
+                  View source data
                 </summary>
                 <div className="mt-2 overflow-x-auto">
                   <table className="text-xs w-full border border-gray-200 rounded-lg overflow-hidden">

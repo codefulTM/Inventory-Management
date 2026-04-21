@@ -66,8 +66,8 @@ export const LabelForm: React.FC<LabelFormProps> = ({
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (!form.template_id.trim()) e.template_id = "Template ID is required";
-    if (form.template_id.length > 20) e.template_id = "Max 20 characters";
+    if (mode === 'edit' && !form.template_id.trim()) e.template_id = "Template ID is required";
+    if (mode === 'edit' && form.template_id.length > 20) e.template_id = "Max 20 characters";
     if (!form.template_name.trim()) e.template_name = "Template name is required";
     if (form.template_name.length > 100) e.template_name = "Max 100 characters";
     if (!form.template_content.trim())
@@ -148,19 +148,25 @@ export const LabelForm: React.FC<LabelFormProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {field(
             "template_id",
-            "Template ID *",
-            <input
-              type="text"
-              value={form.template_id}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, template_id: e.target.value }))
-              }
-              disabled={mode === "edit"}
-              placeholder="e.g. LBL-RAW-001"
-              className={`${inputClass(!!errors.template_id)} ${
-                mode === "edit" ? "bg-gray-50 cursor-not-allowed" : ""
-              }`}
-            />,
+            "Template ID",
+            mode === "create" ? (
+              <div className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-dashed border-gray-300 rounded-xl text-gray-500 italic">
+                Tự động sinh bởi hệ thống (LBL-xxx)
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={form.template_id}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, template_id: e.target.value }))
+                }
+                disabled={mode === "edit"}
+                placeholder="e.g. LBL-RAW-001"
+                className={`${inputClass(!!errors.template_id)} ${
+                  mode === "edit" ? "bg-gray-50 cursor-not-allowed" : ""
+                }`}
+              />
+            ),
           )}
 
           {field(

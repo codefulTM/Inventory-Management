@@ -132,12 +132,10 @@ export function AddModal({
                 <Package size={13} /> Thông tin lô hàng
               </p>
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="Mã lô *" error={errors.lot_id?.message}>
-                  <input
-                    {...register("lot_id", { required: "Bắt buộc nhập" })}
-                    className={errors.lot_id ? INPUT_ERR_CLS : INPUT_CLS}
-                    placeholder="lot-001-d3-2025"
-                  />
+                <FormField label="Mã lô" error={errors.lot_id?.message}>
+                  <div className="px-3 py-2 bg-gray-50 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 italic">
+                    Tự động sinh bởi hệ thống (LOT-xxx)
+                  </div>
                 </FormField>
                 <FormField
                   label="Mã vật tư *"

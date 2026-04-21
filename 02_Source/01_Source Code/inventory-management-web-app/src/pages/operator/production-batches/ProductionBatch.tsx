@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+
 
 const API = 'http://localhost:3000';
 
@@ -241,7 +241,7 @@ function SectionCreate({ onCreated }: { onCreated: (id: string) => void }) {
   const twoYears = new Date(Date.now() + 2 * 365 * 86400000).toISOString().slice(0, 10);
 
   const [f, setF] = useState({
-    batch_id: uuidv4(),
+    batch_id: '',
     product_id: 'PROD-001',
     batch_number: `PB-${Date.now()}`,
     unit_of_measure: 'units',
@@ -263,7 +263,7 @@ function SectionCreate({ onCreated }: { onCreated: (id: string) => void }) {
     setLoading(false);
     if (r.ok && (r.data as any)?.batch_id) {
       onCreated((r.data as any).batch_id);
-      setF((prev) => ({ ...prev, batch_id: uuidv4(), batch_number: `PB-${Date.now()}` }));
+      setF((prev) => ({ ...prev, batch_id: '', batch_number: `PB-${Date.now()}` }));
     }
   };
 
@@ -272,16 +272,8 @@ function SectionCreate({ onCreated }: { onCreated: (id: string) => void }) {
       <SectionTitle title="Create Batch" badge="POST" />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="col-span-2 sm:col-span-4 flex items-end gap-2">
-          <div className="flex-1">
-            <Field label="batch_id (UUID v4)" value={f.batch_id} onChange={(v) => set('batch_id', v)} />
-          </div>
-          <button
-            onClick={() => set('batch_id', uuidv4())}
-            className="mb-0.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-[10px] font-black text-gray-600"
-          >
-            New UUID
-          </button>
+        <div className="col-span-2 sm:col-span-4">
+          <Field label="batch_id (để trống = tự sinh)" value={f.batch_id} onChange={(v) => set('batch_id', v)} placeholder="Để trống để backend tự sinh BAT-n" />
         </div>
         <Field label="batch_number" value={f.batch_number} onChange={(v) => set('batch_number', v)} />
         <Field label="product_id" value={f.product_id} onChange={(v) => set('product_id', v)} placeholder="e.g. PROD-001" />
@@ -432,7 +424,7 @@ function SectionComponents({ batchId: propBatchId }: { batchId: string }) {
   }
 
   const [newComp, setNewComp] = useState({
-    lot_id: uuidv4(),
+    lot_id: '',
     planned_quantity: '100',
     actual_quantity: '',
     unit_of_measure: 'kg',
@@ -577,13 +569,8 @@ function SectionComponents({ batchId: propBatchId }: { batchId: string }) {
           ⚠ lot_id must exist in MongoDB (InventoryLot collection). Seed one first or use an existing lot_id.
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="col-span-2 sm:col-span-3 flex items-end gap-2">
-            <div className="flex-1">
-              <Field label="lot_id (UUID — must exist in inventory-lots)" value={newComp.lot_id} onChange={(v) => setN('lot_id', v)} />
-            </div>
-            <button onClick={() => setN('lot_id', uuidv4())} className="mb-0.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-[10px] font-black text-gray-600">
-              New UUID
-            </button>
+          <div className="col-span-2 sm:col-span-3">
+            <Field label="lot_id (phải tồn tại trong inventory-lots)" value={newComp.lot_id} onChange={(v) => setN('lot_id', v)} placeholder="EX-LOT-1 hoặc ID tạo bởi hệ thống" />
           </div>
           <Field label="planned_quantity" value={newComp.planned_quantity} onChange={(v) => setN('planned_quantity', v)} type="number" />
           <Field label="actual_quantity (optional)" value={newComp.actual_quantity} onChange={(v) => setN('actual_quantity', v)} type="number" placeholder="optional" />
@@ -618,7 +605,7 @@ function SectionSeedInventoryLot({ onSeeded }: { onSeeded: (lotId: string) => vo
   const [result, setResult] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [f, setF] = useState({
-    lot_id: uuidv4(),
+    lot_id: '',
     material_id: 'MAT-001',
     manufacturer_name: 'Acme Pharma',
     manufacturer_lot: 'MFR-LOT-001',
@@ -648,13 +635,8 @@ function SectionSeedInventoryLot({ onSeeded }: { onSeeded: (lotId: string) => vo
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="col-span-2 sm:col-span-4 flex items-end gap-2">
-          <div className="flex-1">
-            <Field label="lot_id (UUID)" value={f.lot_id} onChange={(v) => set('lot_id', v)} />
-          </div>
-          <button onClick={() => set('lot_id', uuidv4())} className="mb-0.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-[10px] font-black text-gray-600">
-            New UUID
-          </button>
+        <div className="col-span-2 sm:col-span-4">
+          <Field label="lot_id (để trống = tự sinh LOT-n)" value={f.lot_id} onChange={(v) => set('lot_id', v)} placeholder="Để trống để backend tự sinh" />
         </div>
         <Field label="material_id" value={f.material_id} onChange={(v) => set('material_id', v)} placeholder="MAT-001" />
         <Field label="manufacturer_name" value={f.manufacturer_name} onChange={(v) => set('manufacturer_name', v)} />
