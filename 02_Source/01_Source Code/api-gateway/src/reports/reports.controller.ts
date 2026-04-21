@@ -58,6 +58,7 @@ export class ReportsController implements OnModuleInit {
     );
   }
 
+  @Roles(UserRole.MANAGER, UserRole.IT_ADMINISTRATOR, UserRole.OPERATOR)
   @Get("inventory-status")
   async getInventoryStatus() {
     try {

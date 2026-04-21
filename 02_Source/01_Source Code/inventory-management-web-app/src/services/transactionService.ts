@@ -56,7 +56,7 @@ export const transactionService = {
     payload: CreateTransactionPayload,
   ): Promise<InventoryTransaction> {
     const { data, error } = await apiClient.post<InventoryTransaction>(
-      '/inventory-transactions',
+      '/transactions',
       payload,
     );
 
@@ -100,7 +100,7 @@ export const transactionService = {
     params.limit = limit;
 
     const { data, error } = await apiClient.get<any>(
-      '/inventory-transactions',
+      '/transactions',
       { params },
     );
 
@@ -124,7 +124,7 @@ export const transactionService = {
    */
   async getTransactionsByLotId(lotId: string): Promise<InventoryTransaction[]> {
     const { data, error } = await apiClient.get<any>(
-      '/inventory-transactions',
+      '/transactions',
       { params: { lot_id: lotId } },
     );
 

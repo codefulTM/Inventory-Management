@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Card, Table } from 'antd';
 import { Package, Archive, TrendingUp, Clock } from 'lucide-react';
 import { getInventoryStatusReport } from '../../services/reportsService';
-import { transactionService } from '../../services/transactionService';
+import { apiClient } from '../../services/apiClient';
 import type { InventoryStatusReport } from '../../types/reports';
 import { PageWrapper, StatsGrid, StatCard, LoadingSkeleton } from '../../components/ui';
 
@@ -19,10 +19,10 @@ export default function DashboardOperator() {
       try {
         const [inventoryReport, txResult] = await Promise.all([
           getInventoryStatusReport(),
-          transactionService.getTransactions({}, 1, 1),
+          apiClient.get<any>('/transactions/my-history', { params: { page: 1, limit: 1 } }),
         ]);
         setInventory(inventoryReport);
-        setTransactionTotal(txResult.pagination?.total || 0);
+        setTransactionTotal(txResult.data?.payload?.pagination?.total || 0);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load operator dashboard');
       } finally {
