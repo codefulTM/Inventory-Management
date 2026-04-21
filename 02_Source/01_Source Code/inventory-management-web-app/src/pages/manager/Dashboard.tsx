@@ -78,7 +78,13 @@ const ACTION_LABELS: Record<string, string> = {
 function normalizeReport<T extends object>(raw: T | null): T | null {
   if (!raw) return null;
   // Handle backend wrapping { data: { ... } }
-  if ("data" in (raw as any) && !(raw as any).generated_at && !(raw as any).items && !(raw as any).entries && !(raw as any).points) {
+  if (
+    "data" in (raw as any) &&
+    !(raw as any).generated_at &&
+    !(raw as any).items &&
+    !(raw as any).entries &&
+    !(raw as any).points
+  ) {
     return (raw as any).data as T;
   }
   return raw;
@@ -92,11 +98,15 @@ function toDateInput(date: Date): string {
 }
 
 function toRangeIso(
-  fromInput: string,
-  toInput: string,
-): { from: string; to: string } {
-  const from = new Date(`${fromInput}T00:00:00.000Z`).toISOString();
-  const to = new Date(`${toInput}T23:59:59.999Z`).toISOString();
+  fromInput: string | undefined | null,
+  toInput: string | undefined | null,
+): { from: string | undefined; to: string | undefined } {
+  const from = fromInput
+    ? new Date(`${fromInput}T00:00:00.000Z`).toISOString()
+    : undefined;
+  const to = toInput
+    ? new Date(`${toInput}T23:59:59.999Z`).toISOString()
+    : undefined;
   return { from, to };
 }
 
@@ -167,12 +177,8 @@ function downloadCsv(
 }
 
 export default function DashboardManager() {
-  const now = new Date();
-  const defaultFrom = new Date(now);
-  defaultFrom.setUTCDate(defaultFrom.getUTCDate() - 30);
-
-  const [fromDate, setFromDate] = useState<string>(toDateInput(defaultFrom));
-  const [toDate, setToDate] = useState<string>(toDateInput(now));
+  const [fromDate, setFromDate] = useState<string | null>(null);
+  const [toDate, setToDate] = useState<string | null>(null);
   const [interval, setInterval] = useState<TrendInterval>("day");
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -237,7 +243,12 @@ export default function DashboardManager() {
           getMaterialUsageReport(range.from, range.to, filterWarehouse),
           getQcPerformanceReport(range.from, range.to, filterWarehouse),
           getAuditReport(range.from, range.to, filterWarehouse),
-          getInventoryTrendReport(range.from, range.to, interval, filterWarehouse),
+          getInventoryTrendReport(
+            range.from,
+            range.to,
+            interval,
+            filterWarehouse,
+          ),
           getMaterialUsageTrendReport(
             range.from,
             range.to,
@@ -306,12 +317,28 @@ export default function DashboardManager() {
     mountedRef.current = true;
   }, []);
 
-  // Auto-apply filters when user changes the range/warehouse/interval (skip initial mount)
+  // Keep fromDate / toDate in sync when user picks a range.
+  // If either end is invalid/missing, set the corresponding state to null.
   useEffect(() => {
-    if (!mountedRef.current) return;
-    void applyRangeAndWarehouse();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, filterWarehouse, interval]);
+    if (!dateRange) {
+      setFromDate(null);
+      setToDate(null);
+      return;
+    }
+
+    if (!dateRange[0]) setFromDate(null);
+    else setFromDate(toDateInput(new Date(dateRange[0].toISOString())));
+    if (!dateRange[1]) setToDate(null);
+    else setToDate(toDateInput(new Date(dateRange[1].toISOString())));
+    // only depend on dateRange
+  }, [dateRange]);
+
+  // Auto-apply filters when user changes the range/warehouse/interval (skip initial mount)
+  // useEffect(() => {
+  //   if (!mountedRef.current) return;
+  //   void applyRangeAndWarehouse();
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [dateRange, filterWarehouse, interval]);
 
   function formatDateShort(iso?: string): string {
     if (!iso) return "-";
@@ -480,9 +507,7 @@ export default function DashboardManager() {
     <PageWrapper>
       <div className="p-6 space-y-6">
         <div className="animate-fadeInUp">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Bảng Điều Khiển
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Bảng Điều Khiển</h1>
           <p className="text-sm text-gray-500 mt-1">
             Phân tích xu hướng, KPI báo cáo và tín hiệu vận hành.
           </p>
@@ -510,7 +535,9 @@ export default function DashboardManager() {
               Chu kỳ
               <select
                 value={interval}
-                onChange={(event) => setInterval(event.target.value as TrendInterval)}
+                onChange={(event) =>
+                  setInterval(event.target.value as TrendInterval)
+                }
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
                 <option value="day">Ngày</option>
@@ -785,7 +812,8 @@ export default function DashboardManager() {
         <Divider />
 
         <p className="text-xs text-gray-400 m-0">
-          Cập nhật lúc: {new Date().toLocaleString("vi-VN")} | Chu kỳ: {interval === "day" ? "Ngày" : interval === "week" ? "Tuần" : "Tháng"}
+          Cập nhật lúc: {new Date().toLocaleString("vi-VN")} | Chu kỳ:{" "}
+          {interval === "day" ? "Ngày" : interval === "week" ? "Tuần" : "Tháng"}
         </p>
       </div>
     </PageWrapper>

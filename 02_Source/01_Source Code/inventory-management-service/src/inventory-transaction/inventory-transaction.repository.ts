@@ -85,8 +85,13 @@ export class InventoryTransactionRepository {
     return { items, total };
   }
 
-  async findOne(id: string) {
-    return this.model.findById(id).exec();
+  /**
+   * Find a transaction by its external `transaction_id` (e.g. "TXN-023").
+   * Repository MUST NOT operate on MongoDB `_id`.
+   */
+  async findOne(transactionId: string) {
+    if (!transactionId) return null;
+    return this.model.findOne({ transaction_id: transactionId }).exec();
   }
 
   async findMyHistory(
@@ -206,12 +211,20 @@ export class InventoryTransactionRepository {
     return this.model.insertMany(dtos);
   }
 
-  async update(id: string, dto: any) {
-    return this.model.findByIdAndUpdate(id, dto, { new: true }).exec();
+  /** Update by `transaction_id` (no _id). */
+  async update(transactionId: string, dto: any) {
+    if (!transactionId) return null;
+    return this.model
+      .findOneAndUpdate({ transaction_id: transactionId }, dto, { new: true })
+      .exec();
   }
 
-  async remove(id: string) {
-    return this.model.findByIdAndDelete(id).exec();
+  /** Remove by `transaction_id` (no _id). */
+  async remove(transactionId: string) {
+    if (!transactionId) return null;
+    return this.model
+      .findOneAndDelete({ transaction_id: transactionId })
+      .exec();
   }
 
   async deleteByLotId(lot_id: string): Promise<DeleteResult> {
