@@ -9,7 +9,7 @@ import type {
 import { apiClient } from "./apiClient";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export class InventoryAuditReportApiError extends Error {
   statusCode?: number;
@@ -97,15 +97,15 @@ export async function downloadInventoryAuditReport(reportId: string): Promise<{
   fileName: string;
 }> {
   const token = localStorage.getItem("auth_token");
-  const response = await fetch(
-    `${API_BASE_URL}${API_ENDPOINTS.INVENTORY_AUDIT_REPORT_DOWNLOAD(reportId)}`,
-    {
-      method: "GET",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:3000";
+  const url = `${baseUrl}${API_ENDPOINTS.INVENTORY_AUDIT_REPORT_DOWNLOAD(reportId)}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-  );
+  });
 
   if (!response.ok) {
     let message = "Không thể tải báo cáo kiểm kê.";

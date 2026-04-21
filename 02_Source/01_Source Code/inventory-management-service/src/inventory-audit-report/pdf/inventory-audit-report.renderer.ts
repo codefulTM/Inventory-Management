@@ -44,13 +44,21 @@ export class InventoryAuditReportRenderer {
       this.renderSummary(doc, input);
       this.renderTable(doc, input.items);
 
-      doc.moveDown(2);
-      doc
-        .fontSize(9)
-        .text(
-          `Nguoi lap bao cao: ${input.generatedBy} | Nguoi phe duyet: ${input.approvedBy ?? 'N/A'}`,
-        );
-      doc.fontSize(9).text('Tai lieu da duoc dong dau so o metadata he thong.');
+      // Footer — inline after table, no fixed y (avoids spurious new pages)
+      doc.moveDown(1.5).fontSize(8);
+      const footerY = doc.y;
+      doc.text(`Nguoi lap bao cao: ${input.generatedBy}`, 40, footerY, {
+        width: 250,
+        lineBreak: false,
+      });
+      doc.text(`Nguoi phe duyet: ${input.approvedBy ?? 'N/A'}`, 300, footerY, {
+        width: 255,
+        lineBreak: false,
+        align: 'right',
+      });
+      doc.moveDown(0.8).text('[Da dong dau so trong metadata he thong]', {
+        align: 'right',
+      });
 
       doc.end();
     });
@@ -88,41 +96,57 @@ export class InventoryAuditReportRenderer {
     doc.fontSize(11).text('Chi tiet kiem ke:');
     doc.moveDown(0.5);
 
+    // Column definitions: [label, x, width]
+    const cols: [string, number, number][] = [
+      ['LOT',       40,  90],
+      ['MATERIAL',  135, 75],
+      ['KHO',       215, 70],
+      ['VI TRI',    290, 80],
+      ['SO LUONG',  375, 60],
+      ['DON VI',    440, 45],
+      ['TRANG THAI',490, 75],
+    ];
+
     const maxRows = 120;
     const rows = items.slice(0, maxRows);
+    const rowHeight = 14;
 
-    doc
-      .fontSize(9)
-      .text('LOT', 40, doc.y, { continued: true, width: 70 })
-      .text('MATERIAL', { continued: true, width: 70 })
-      .text('KHO', { continued: true, width: 55 })
-      .text('VI TRI', { continued: true, width: 65 })
-      .text('SO LUONG', { continued: true, width: 65, align: 'right' })
-      .text('DON VI', { continued: true, width: 45 })
-      .text('TRANG THAI', { width: 80 });
-
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
-
-    for (const row of rows) {
-      const y = doc.y + 3;
-      doc
-        .fontSize(8)
-        .text(row.lot_id, 40, y, { continued: true, width: 70 })
-        .text(row.material_id, { continued: true, width: 70 })
-        .text(row.warehouse_id, { continued: true, width: 55 })
-        .text(row.storage_location, { continued: true, width: 65 })
-        .text(String(row.quantity), {
-          continued: true,
-          width: 65,
-          align: 'right',
-        })
-        .text(row.unit_of_measure, { continued: true, width: 45 })
-        .text(row.status, { width: 80 });
-
-      if (doc.y > 760) {
-        doc.addPage();
-      }
+    // Header row
+    let y = doc.y;
+    doc.fontSize(8).font('Helvetica-Bold');
+    for (const [label, x, w] of cols) {
+      doc.text(label, x, y, { width: w, lineBreak: false });
     }
+    y += rowHeight - 2;
+    doc.moveTo(40, y).lineTo(565, y).lineWidth(0.5).stroke();
+    y += 4;
+
+    doc.font('Helvetica');
+    for (const row of rows) {
+      if (y > 780) {
+        doc.addPage();
+        y = 40;
+      }
+
+      const cells: [string, number, number][] = [
+        [row.lot_id,          40,  90],
+        [row.material_id,     135, 75],
+        [row.warehouse_id,    215, 70],
+        [row.storage_location,290, 80],
+        [String(row.quantity),375, 60],
+        [row.unit_of_measure, 440, 45],
+        [row.status,          490, 75],
+      ];
+
+      doc.fontSize(7.5);
+      for (const [val, x, w] of cells) {
+        doc.text(val ?? '-', x, y, { width: w, lineBreak: false, ellipsis: true });
+      }
+      y += rowHeight;
+    }
+
+    // Move cursor past the table
+    doc.y = y + 4;
 
     if (items.length > maxRows) {
       doc

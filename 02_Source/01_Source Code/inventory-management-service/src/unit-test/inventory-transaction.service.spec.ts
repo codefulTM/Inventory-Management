@@ -35,7 +35,7 @@ describe('InventoryTransactionService', () => {
   beforeEach(() => {
     repo = {
       findAll: jest.fn().mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue(null),
+      findOne: jest.fn().mockResolvedValue({ _id: 'id', lot_id: 'lot1' }),
       findMyHistory: jest.fn().mockResolvedValue({ items: [], total: 0 }),
       findOneByTransactionIdAndActor: jest.fn().mockResolvedValue(null),
       findOneByTransactionId: jest.fn().mockResolvedValue(null),

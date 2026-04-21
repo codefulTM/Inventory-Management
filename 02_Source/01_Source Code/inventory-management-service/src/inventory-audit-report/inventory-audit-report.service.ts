@@ -100,10 +100,12 @@ export class InventoryAuditReportService {
       });
 
       const signature = this.signatureService.signPdf(pdfBuffer);
-      const signedPdfBuffer = this.attachSignatureFooter(pdfBuffer, signature);
+      // Store the canonical PDF buffer only — signature metadata is persisted
+      // in the database (file_sha256, signature_provider, etc.).
+      // Appending extra bytes after %%EOF corrupts the PDF structure.
       const stored = await this.storageService.saveReport(
         reportId,
-        signedPdfBuffer,
+        pdfBuffer,
       );
 
       const ready = await this.repo.markReady(reportId, {

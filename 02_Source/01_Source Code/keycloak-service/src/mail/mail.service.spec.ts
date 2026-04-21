@@ -1,16 +1,16 @@
-jest.mock("nodemailer");
+const sendMailMock = jest.fn();
+
+jest.mock("nodemailer", () => ({
+  createTransport: jest.fn(() => ({ sendMail: sendMailMock })),
+}));
+
 import * as nodemailer from "nodemailer";
 import { MailService } from "./mail.service";
 
 describe("MailService (keycloak-service)", () => {
-  const sendMailMock = jest.fn();
-
   beforeEach(() => {
-    // ensure the transport is mocked before constructing the service
-    (nodemailer as any).createTransport = jest
-      .fn()
-      .mockReturnValue({ sendMail: sendMailMock });
     sendMailMock.mockReset();
+    (nodemailer.createTransport as jest.Mock).mockReturnValue({ sendMail: sendMailMock });
     process.env.MAIL_USER = "test@example.com";
     process.env.MAIL_PASS = "secret";
   });

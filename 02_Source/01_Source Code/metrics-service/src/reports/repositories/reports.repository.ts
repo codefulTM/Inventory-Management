@@ -98,11 +98,29 @@ export class ReportsRepository {
   /**
    * Query inventory_transactions_* — filter by date range, aggregate by material_id.
    */
-  async getMaterialUsage(_from?: Date, _to?: Date): Promise<MaterialUsageItemDto[]> {
+  async getMaterialUsage(from?: Date, to?: Date): Promise<MaterialUsageItemDto[]> {
+    const query =
+      from || to
+        ? {
+            bool: {
+              must: [
+                {
+                  range: {
+                    transaction_date: {
+                      ...(from ? { gte: from.toISOString() } : {}),
+                      ...(to ? { lte: to.toISOString() } : {}),
+                    },
+                  },
+                },
+              ],
+            },
+          }
+        : { match_all: {} };
+
     const result = await this.es.search({
       index: 'inventory_transactions_*',
       size: 0,
-      query: { match_all: {} },
+      query,
       aggs: {
         by_material: {
           terms: { field: 'material_id', size: 500 },

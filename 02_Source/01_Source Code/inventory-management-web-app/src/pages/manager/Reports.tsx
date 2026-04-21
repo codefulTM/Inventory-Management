@@ -238,6 +238,32 @@ export default function ReportsManager() {
     void loadDetail(selectedReportId);
   }, [loadDetail, selectedReportId]);
 
+  // Poll a newly created report until it reaches READY or FAILED
+  const [pollingReportId, setPollingReportId] = useState<string>("");
+  useEffect(() => {
+    if (!pollingReportId) return;
+    if (
+      selectedReport?.report_id === pollingReportId &&
+      (selectedReport.status === "READY" || selectedReport.status === "FAILED")
+    ) {
+      setPollingReportId("");
+      void loadReports();
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      const detail = await fetchInventoryAuditReportDetail(pollingReportId).catch(() => null);
+      if (!detail) return;
+      setSelectedReport(detail);
+      if (detail.status === "READY" || detail.status === "FAILED") {
+        setPollingReportId("");
+        void loadReports();
+      }
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [pollingReportId, selectedReport, loadReports]);
+
   const handleCreateReport = async (
     payload: CreateInventoryAuditReportRequest,
   ) => {
@@ -258,6 +284,7 @@ export default function ReportsManager() {
       await loadReports(1);
       setSelectedReportId(created.report_id);
       await loadDetail(created.report_id);
+      setPollingReportId(created.report_id);
     } catch (error) {
       setToast({
         type: "error",
@@ -323,11 +350,11 @@ export default function ReportsManager() {
     <div className="space-y-4">
       <header className="rounded-lg border border-gray-200 bg-white p-5 shadow-md">
         <h1 className="text-2xl font-black text-gray-900">
-          Xuất báo cáo kiểm kê
+          Báo cáo kiểm kê tồn kho
         </h1>
         <p className="mt-1 text-sm text-gray-600">
-          Tạo yêu cầu xuất báo cáo, theo dõi tiến trình xử lý và tải file PDF đã
-          ký số.
+          Tạo báo cáo tổng hợp trạng thái tồn kho theo kỳ, theo dõi tiến trình xử lý và tải file PDF.
+          Báo cáo đang xử lý sẽ tự động cập nhật mỗi 3 giây.
         </p>
       </header>
 

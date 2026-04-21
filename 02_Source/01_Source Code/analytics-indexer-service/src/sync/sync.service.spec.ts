@@ -18,6 +18,7 @@ describe('SyncService', () => {
 
   const mockIndexTemplateService = {
     applyTemplates: jest.fn(),
+    purgeStaleIndices: jest.fn(),
   };
 
   const createSyncer = (collectionName: string) => ({
