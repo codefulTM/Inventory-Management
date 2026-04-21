@@ -837,23 +837,32 @@ Toàn bộ services chạy trong Docker, quản lý qua Docker Compose:
 
 ### 14.1 Link Video YouTube
 
-[![Inventory Management System - Demo Triển Khai](https://img.youtube.com/vi/htWpwCmERTY/maxresdefault.jpg)](https://youtu.be/htWpwCmERTY?si=dBmVg1VUtBh3J6bx)
+[![Inventory Management System - Demo Triển Khai](https://img.youtube.com/vi/htWpwCmERTY/maxresdefault.jpg)](https://youtu.be/I9oKUKRT588?si=AYfabRE6cB7O3Z6l)
 
-**URL:** [https://youtu.be/htWpwCmERTY?si=dBmVg1VUtBh3J6bx](https://youtu.be/htWpwCmERTY?si=dBmVg1VUtBh3J6bx)
+**URL:** [https://youtu.be/I9oKUKRT588?si=AYfabRE6cB7O3Z6l](https://youtu.be/I9oKUKRT588?si=AYfabRE6cB7O3Z6l)
 
 ### 14.2 Nội dung video
 
-| Thời điểm | Nội dung |
+**Tech stack được demo trong video:**
+- Docker & Docker Compose
+- Jenkins CI/CD
+- Nginx Reverse Proxy
+- Keycloak (Authentication)
+- Elasticsearch + Kibana
+
+**Các bước được trình bày:**
+
+| # | Nội dung |
 |---|---|
-| 0:00 – 1:00 | Giới thiệu hệ thống và kiến trúc tổng quan |
-| 1:00 – 3:00 | Đăng ký VPS, domain, cấu hình DNS |
-| 3:00 – 6:00 | Cài đặt môi trường: Docker, Nginx, SSL |
-| 6:00 – 10:00 | Khởi động hạ tầng IaC: MongoDB, Redis, Elasticsearch, Keycloak |
-| 10:00 – 13:00 | Cài đặt và cấu hình Jenkins CI/CD pipeline |
-| 13:00 – 16:00 | Deploy ứng dụng lần đầu, kiểm tra containers |
-| 16:00 – 20:00 | Demo kết quả: Web UI, APIs, Keycloak, Jenkins |
-| 20:00 – 23:00 | Demo tính năng: Đăng nhập, quản lý vật tư, tạo phiếu nhập/xuất |
-| 23:00 – 25:00 | Demo CI/CD: Push code → Jenkins tự động build và deploy |
+| 1 | Setup VPS + domain |
+| 2 | Cấu hình bảo mật cơ bản |
+| 3 | Setup Docker environment |
+| 4 | Deploy database services (Elasticsearch, Kibana, …) |
+| 5 | Deploy hệ thống bằng Docker Compose |
+| 6 | Setup Jenkins CI/CD pipeline |
+| 7 | Tự động deploy khi push code (Webhook) |
+
+> **Phù hợp cho:** Backend Developer, DevOps beginner → intermediate, người muốn build CI/CD thực tế.
 
 ---
 
