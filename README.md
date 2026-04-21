@@ -1,8 +1,8 @@
 # Inventory Management
 
-## Member
+## Thông tin nhóm
 
-Thành viên nhóm:
+Nhóm 1 - Thành viên nhóm:
 
 | Họ và tên                     | MSSV     |
 |-------------------------------|----------|
