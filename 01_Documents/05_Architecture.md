@@ -722,6 +722,152 @@ JEN --> BE : deploy pipeline
 * **Kibana:** `https://kibana.inventory-system.cloud/`
 ---
 
+## 3.7 CI/CD View (góc nhìn pipeline vận hành)
+
+Hệ thống hiện dùng Jenkins Pipeline (declarative) với các stage chuẩn hóa cho kiểm thử và triển khai bằng Docker Compose.
+
+### Luồng CI/CD hiện tại (theo Jenkinsfile)
+
+1. **Prepare ENV**
+  - Copy file `.env` từ đường dẫn chuẩn trên Jenkins host vào gói deploy.
+2. **Unit Test**
+  - Chạy trong container `node:20-alpine`.
+  - Thực thi test unit cho `inventory-management-service` (`src/unit-test`).
+3. **Integration Test**
+  - Chạy trong container `node:20`.
+  - Thực thi test tích hợp (loại trừ unit test).
+4. **Stop Old Containers**
+  - Dừng stack cũ qua `docker compose --env-file .env down`.
+5. **Build**
+  - Build image/services bằng `docker compose --env-file .env build`.
+6. **Deploy**
+  - Khởi chạy stack mới bằng `docker compose --env-file .env up -d`.
+7. **E2E Test**
+  - Chạy test end-to-end bằng Jest config `test/jest-e2e.json`.
+8. **Post-failure rollback**
+  - Nếu pipeline fail, Jenkins thực hiện `down` rồi `up -d` để khôi phục trạng thái chạy gần nhất.
+
+### Đặc điểm kiến trúc CI/CD
+
+- **Build/Test isolation:** test chạy trong ephemeral Docker agent (`node:20*`), giảm phụ thuộc runtime host.
+- **Deployment unit:** gói triển khai tại `03_Deployment/01_Deployment_Package`.
+- **Execution model:** pipeline tuần tự theo stage, có chốt E2E sau deploy.
+- **Rollback strategy:** rollback mức hạ tầng container (compose-level), phù hợp môi trường hiện tại.
+
+### PlantUML - CI/CD Pipeline Flow
+![CI/CD pipeline](Images/Architecture/cicd.png)
+
+```plantuml
+@startuml
+left to right direction
+
+actor Developer
+participant "Jenkins" as JEN
+participant "Docker Agent (node:20*)" as AG
+participant "Deploy Package\n03_Deployment/01_Deployment_Package" as PKG
+participant "Docker Compose Runtime" as DCR
+participant "Inventory Service Tests" as TST
+
+Developer -> JEN : Trigger pipeline
+JEN -> PKG : Prepare ENV (.env)
+
+JEN -> AG : Unit Test stage
+AG -> TST : jest unit tests
+TST --> AG : pass/fail
+
+JEN -> AG : Integration Test stage
+AG -> TST : jest integration tests
+TST --> AG : pass/fail
+
+JEN -> DCR : Stop old containers (compose down)
+JEN -> DCR : Build images (compose build)
+JEN -> DCR : Deploy (compose up -d)
+
+JEN -> AG : E2E Test stage
+AG -> TST : jest e2e
+TST --> AG : pass/fail
+
+alt any stage failed
+  JEN -> DCR : rollback (down ; up -d)
+end
+@enduml
+```
+
+---
+
+## 3.8 Monitoring & Observability View
+
+Hệ thống giám sát hiện tại dùng stack Prometheus + Grafana, kết hợp exporter ở mức host/container/database và mở rộng với ELK cho log analytics trên môi trường production.
+
+### Thành phần monitoring đang triển khai
+
+- **Prometheus** (`9090`): thu thập metrics theo chu kỳ `5s`.
+- **Grafana** (`3002`): dashboard trực quan hóa, datasource Prometheus được provision tự động.
+- **node-exporter** (`9100`): metrics máy chủ.
+- **cAdvisor** (`8081` host -> `8080` container): metrics container Docker.
+- **mongodb-exporter** (`9216`): metrics MongoDB.
+
+Stack observability chạy bằng compose tại:
+- `03_Deployment/01_Deployment_Package/observability/docker-compose-grafana.yml`
+- `03_Deployment/01_Deployment_Package/observability/prometheus.yml`
+
+Cấu hình provisioning và script tiện ích nằm tại:
+- `02_Source/01_Source Code/infra/monitoring/grafana/provisioning/datasources/prometheus.yml`
+- `02_Source/01_Source Code/infra/monitoring/scripts/import-dashboards.sh`
+- `02_Source/01_Source Code/infra/monitoring/scripts/check-grafana.sh`
+
+### Monitoring scope (theo prometheus.yml)
+
+Prometheus đang scrape các nhóm target chính:
+- Hạ tầng host (`node-exporter`).
+- Runtime container (`cadvisor`).
+- MongoDB (`mongodb-exporter`).
+- Backend service (`inventory_backend:3001`).
+- Keycloak (`inventory_keycloak:8080`).
+- Jenkins (`/prometheus` trên `jenkins:8080`).
+
+### Dashboard & Health operations
+
+- Grafana có script import dashboard chuẩn (Node Exporter, cAdvisor, MongoDB) qua API.
+- Có script health-check để kiểm tra trạng thái Grafana/auth datasource/dashboard/targets.
+
+### PlantUML - Monitoring Data Flow
+![Monitoring](Images/Architecture/monitoring-view.png)
+
+```plantuml
+@startuml
+left to right direction
+
+node "Inventory Platform" {
+  component "inventory_backend:3001" as BE
+  component "inventory_keycloak:8080" as KC
+  component "Jenkins:8080/prometheus" as JEN
+  component "Docker Host" as HOST
+  component "Containers" as CTR
+  database "MongoDB" as MDB
+}
+
+component "node-exporter:9100" as NEXP
+component "cAdvisor:8080" as CAD
+component "mongodb-exporter:9216" as MEXP
+component "Prometheus:9090" as PROM
+component "Grafana:3002" as GRA
+
+HOST --> NEXP : host metrics
+CTR --> CAD : container metrics
+MDB --> MEXP : db metrics
+
+BE --> PROM : scrape target
+KC --> PROM : scrape target
+JEN --> PROM : scrape target
+NEXP --> PROM : scrape
+CAD --> PROM : scrape
+MEXP --> PROM : scrape
+
+PROM --> GRA : datasource queries
+@enduml
+```
+
 ---
 
 ## 4. Công nghệ và công cụ được lựa chọn
@@ -738,6 +884,8 @@ JEN --> BE : deploy pipeline
 | OLTP Database | MongoDB | Lưu dữ liệu nghiệp vụ chính |
 | Cache/State | Redis | Lưu watermark đồng bộ cho indexer |
 | Search/Analytics | Elasticsearch | Read model cho báo cáo và phân tích |
+| Monitoring | Prometheus, Grafana, node-exporter, cAdvisor, mongodb-exporter | Thu thập metrics hạ tầng + ứng dụng, cảnh báo và trực quan hóa |
+| Logging/Observability | ELK Stack (Elasticsearch, Logstash, Kibana) | Thu thập, lưu trữ và truy vấn log phục vụ audit/vận hành |
 | Service Communication | HTTP/REST, gRPC | Giao tiếp giữa các lớp/services |
 | Containerization | Docker, Docker Compose | Đóng gói và chạy toàn bộ stack local |
 | CI | Jenkinsfile | Pipeline CI/CD (theo repo) |

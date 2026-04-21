@@ -118,13 +118,18 @@ Mục tiêu nghiệp vụ:
 - discard: lot về Depleted.
 4) QC/Manager có thể bulk-quarantine nhiều lot khi cần.
 
-### 5.3 Luồng production batch
-1) Tạo production batch (thường bắt đầu On Hold).
-2) Thêm/sửa/xóa batch component chỉ khi batch ở On Hold.
+### 5.3 Luồng production batch - inventory lot - transaction
+1) Tạo production batch (thường bắt đầu On Hold) để đại diện cho một lần sản xuất thành phẩm.
+2) Thêm danh sách batch component theo từng material, mỗi component gắn với inventory lot nguyên liệu cụ thể và số lượng cần dùng.
 3) Khi chuyển batch sang Complete:
-- Verify đủ tồn cho component.
-- Trừ kho nguyên liệu đã dùng.
-- Tạo lot thành phẩm mới với trạng thái Quarantine.
+- Verify từng inventory lot nguyên liệu đủ số lượng khả dụng.
+- Trừ kho theo đúng số lượng material thực tế đã lấy từ từng inventory lot nguyên liệu.
+- Sinh inventory transaction loại Usage cho từng dòng tiêu hao (thể hiện rõ material nào, lấy từ lot nào, số lượng bao nhiêu, thuộc batch nào).
+- Tạo inventory lot mới cho thành phẩm (product lot) với trạng thái Quarantine.
+- Sinh inventory transaction loại Receipt cho inventory lot thành phẩm mới.
+4) Truy vết hai chiều sau sản xuất:
+- Từ production batch có thể biết đã dùng bao nhiêu loại material, lấy từ các inventory lot nào.
+- Từ inventory transaction có thể biết lịch sử tiêu hao nguyên liệu và thời điểm tạo ra inventory lot thành phẩm.
 
 ### 5.4 Luồng điều chỉnh tồn kho
 1) Manager tạo inventory adjustment (bắt buộc reason code; reason note bắt buộc khi OTHER).
@@ -145,6 +150,11 @@ Mục tiêu nghiệp vụ:
 - qc performance
 - audit report
 3) api-gateway expose nhóm /reports cho Manager và IT Administrator.
+
+### 5.7 Mối quan hệ dữ liệu cốt lõi (rút gọn)
+- inventory lot: bao gồm cả lot nguyên liệu đầu vào và lot thành phẩm đầu ra.
+- production batch: chứa thông tin sản phẩm được tạo, cùng danh sách material đã sử dụng để tạo sản phẩm đó.
+- inventory transaction: nhật ký biến động tồn kho theo từng lot, đóng vai trò chứng từ truy vết cho cả chiều tiêu hao nguyên liệu và chiều nhập kho thành phẩm.
 
 ---
 
