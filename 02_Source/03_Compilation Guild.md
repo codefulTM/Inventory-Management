@@ -117,8 +117,8 @@ docker compose exec inventory_metrics_service sh -c "cd /usr/src/app && npm ci &
 
 Notes:
 
-- Container names come từ `docker-compose.yml` (`inventory_backend`, `inventory_api_gateway`, `inventory_analytics_indexer`, `inventory_metrics_service`, ...). Nếu khác, dùng `docker compose ps` để xem tên.
-- `npm ci` đảm bảo devDependencies cho test được cài trong container image; nếu image already contains node_modules you can skip it.
+- Tên container đến từ `docker-compose.yml` (`inventory_backend`, `inventory_api_gateway`, `inventory_analytics_indexer`, `inventory_metrics_service`, ...). Nếu khác, dùng `docker compose ps` để xem tên.
+- `npm ci` đảm bảo devDependencies cho test được cài trong container image; nếu image đã chứa node_modules, có thể bỏ qua bước này.
 
 4. Sau khi test xong, dừng và xóa containers nếu muốn:
 
@@ -126,7 +126,7 @@ Notes:
 docker compose down
 ```
 
-Nếu bạn gặp lỗi thiếu biến môi trường cho service khi chạy trong container, đảm bảo `.env` (cùng cấp với `docker-compose.yml`) đã chứa `MAIL_USER`/`MAIL_PASS` và các biến khác cần thiết.
+Nếu gặp lỗi thiếu biến môi trường cho service khi chạy trong container, đảm bảo `.env` (cùng cấp với `docker-compose.yml`) đã chứa `MAIL_USER`/`MAIL_PASS` và các biến khác cần thiết.
 
 - Seed sample data (scripts có sẵn):
   ```bash
