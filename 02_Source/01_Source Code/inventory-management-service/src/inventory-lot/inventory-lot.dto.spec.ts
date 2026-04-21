@@ -95,7 +95,6 @@ describe('InventoryLot DTO Validation', () => {
     );
 
     it.each([
-      'lot_id',
       'material_id',
       'manufacturer_name',
       'manufacturer_lot',
@@ -140,7 +139,6 @@ describe('InventoryLot DTO Validation', () => {
     );
 
     it.each([
-      { field: 'lot_id', value: '' },
       { field: 'material_id', value: '' },
       { field: 'manufacturer_name', value: '' },
       { field: 'manufacturer_lot', value: '' },

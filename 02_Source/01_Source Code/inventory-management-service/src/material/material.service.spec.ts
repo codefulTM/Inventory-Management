@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MaterialService } from './material.service';
 import { MaterialRepository } from './material.repository';
+import { RedisIdService } from '../redis-id/redis-id.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -91,6 +92,7 @@ beforeEach(async () => {
     providers: [
       MaterialService,
       { provide: MaterialRepository, useValue: repo },
+      { provide: RedisIdService, useValue: { nextId: jest.fn().mockResolvedValue('MAT-1') } },
     ],
   }).compile();
 

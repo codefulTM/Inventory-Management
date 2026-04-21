@@ -7,7 +7,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -57,7 +56,7 @@ export class WarehouseSlipController {
   @Post(':id/approve')
   @Roles(UserRole.MANAGER)
   async approve(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Req() req: { user?: AuthenticatedUser },
   ) {
     const requester = this.toRequester(req);
@@ -67,7 +66,7 @@ export class WarehouseSlipController {
   @Post(':id/reject')
   @Roles(UserRole.MANAGER)
   async reject(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: RejectWarehouseSlipDto,
     @Req() req: { user?: AuthenticatedUser },
   ) {
@@ -115,7 +114,7 @@ export class WarehouseSlipController {
   @Get(':id')
   @Roles(UserRole.OPERATOR, UserRole.MANAGER)
   async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Req() req: { user?: AuthenticatedUser },
   ) {
     const requester = this.toRequester(req);
@@ -139,7 +138,7 @@ export class WarehouseSlipController {
     }),
   )
   async uploadAttachment(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @UploadedFile()
     file: {
       originalname: string;
@@ -171,7 +170,7 @@ export class WarehouseSlipController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   @Roles(UserRole.OPERATOR, UserRole.MANAGER)
   async print(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Req() req: { user?: AuthenticatedUser },
   ) {
     const requester = this.toRequester(req);

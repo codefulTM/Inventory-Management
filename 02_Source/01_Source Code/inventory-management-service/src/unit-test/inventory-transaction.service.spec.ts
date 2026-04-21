@@ -45,7 +45,7 @@ describe('InventoryTransactionService', () => {
       update: jest.fn().mockResolvedValue(null),
       remove: jest.fn().mockResolvedValue(null),
     };
-    svc = new InventoryTransactionService(repo as any);
+    svc = new InventoryTransactionService(repo as any, { nextId: jest.fn().mockResolvedValue('TXN-1') } as any);
   });
 
   afterEach(() => {

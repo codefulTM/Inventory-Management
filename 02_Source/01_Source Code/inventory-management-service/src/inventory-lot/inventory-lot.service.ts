@@ -19,6 +19,7 @@ import { InventoryTransactionService } from '../inventory-transaction/inventory-
 import { InventoryLot } from '../schemas/inventory-lot.schema';
 import { AuditLogService, LogContext } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 @Injectable()
 export class InventoryLotService {
@@ -26,11 +27,17 @@ export class InventoryLotService {
     private readonly inventoryLotRepository: InventoryLotRepository,
     private readonly inventoryTransactionService: InventoryTransactionService,
     private readonly auditLogService: AuditLogService,
+    private readonly redisIdService: RedisIdService,
   ) {}
 
   async create(
     createDto: CreateInventoryLotDto,
   ): Promise<InventoryLotResponseDto> {
+    // Auto-generate lot_id if not provided
+    if (!createDto.lot_id) {
+      createDto.lot_id = await this.redisIdService.nextId('LOT');
+    }
+
     // Validate dates
     if (
       new Date(createDto.received_date) > new Date(createDto.expiration_date)

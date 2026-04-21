@@ -17,6 +17,7 @@ import {
   SignatureService,
 } from './signature/signature.service';
 import { InventoryAuditReportStorageService } from './storage/inventory-audit-report-storage.service';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 export interface RequesterContext {
   actor: string;
@@ -30,6 +31,7 @@ export class InventoryAuditReportService {
     private readonly renderer: InventoryAuditReportRenderer,
     private readonly signatureService: SignatureService,
     private readonly storageService: InventoryAuditReportStorageService,
+    private readonly redisIdService: RedisIdService,
   ) {}
 
   async create(
@@ -50,7 +52,7 @@ export class InventoryAuditReportService {
       throw new BadRequestException('period_from must be before period_to');
     }
 
-    const reportId = randomUUID();
+    const reportId = await this.redisIdService.nextId('RPT');
     const reportTemplateCode = dto.report_template_code ?? 'STATUTORY_V1';
 
     const draft = await this.repo.createDraft({

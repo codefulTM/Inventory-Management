@@ -27,6 +27,7 @@ import { InventoryAuditReportModule } from './inventory-audit-report/inventory-a
 import { AiDataGrpcModule } from './ai-data-grpc/ai-data-grpc.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { RedisIdModule } from './redis-id/redis-id.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     DashboardModule,
     AuditLogModule,
     AiDataGrpcModule,
+    RedisIdModule,
   ],
   controllers: [AppController],
   providers: [

@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { BatchComponentService } from './batch-component.service';
 import { BatchComponentRepository } from './batch-component.repository';
 import { ProductionBatchRepository } from './production-batch.repository';
+import { RedisIdService } from '../redis-id/redis-id.service';
 import { InventoryLot } from '../schemas/inventory-lot.schema';
 import { CreateBatchComponentDto } from './dto/create-batch-component.dto';
 import { UpdateBatchComponentDto } from './dto/update-batch-component.dto';
@@ -152,6 +153,10 @@ describe('BatchComponentService', () => {
           provide: getModelToken(InventoryLot.name),
           useValue: lotModelMock,
         },
+        {
+          provide: RedisIdService,
+          useValue: { nextId: jest.fn().mockImplementation((prefix: string) => Promise.resolve(`${prefix}-1`)) },
+        },
       ],
     }).compile();
 
@@ -249,9 +254,7 @@ describe('BatchComponentService', () => {
       await service.create('batch-1', createDto);
 
       expect(capturedCreatePayload?.component_id).toBeDefined();
-      expect(capturedCreatePayload?.component_id).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-      );
+      expect(capturedCreatePayload?.component_id).toMatch(/^BC-\d+$/);
     });
 
     it('should throw NotFoundException when batch is missing', async () => {

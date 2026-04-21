@@ -9,6 +9,7 @@ import { Model } from 'mongoose';
 import { WarehouseService } from '../warehouse/warehouse.service';
 import { WarehouseRepository } from '../warehouse/warehouse.repository';
 import { Warehouse, WarehouseSchema } from '../schemas/warehouse.schema';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 jest.setTimeout(120_000);
 
@@ -27,7 +28,11 @@ beforeAll(async () => {
         { name: Warehouse.name, schema: WarehouseSchema },
       ]),
     ],
-    providers: [WarehouseService, WarehouseRepository],
+    providers: [
+      WarehouseService,
+      WarehouseRepository,
+      { provide: RedisIdService, useValue: { nextId: jest.fn().mockResolvedValue('WH-1') } },
+    ],
   }).compile();
 
   warehouseService = testModule.get<WarehouseService>(WarehouseService);

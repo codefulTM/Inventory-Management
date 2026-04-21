@@ -13,6 +13,7 @@ import {
   InventoryAdjustmentRepository,
 } from './inventory-adjustment.repository';
 import { InventoryAdjustmentReasonCode } from '../schemas/inventory-adjustment.schema';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 export interface RequesterContext {
   actor: string;
@@ -21,7 +22,10 @@ export interface RequesterContext {
 
 @Injectable()
 export class InventoryAdjustmentService {
-  constructor(private readonly repo: InventoryAdjustmentRepository) {}
+  constructor(
+    private readonly repo: InventoryAdjustmentRepository,
+    private readonly redisIdService: RedisIdService,
+  ) {}
 
   async create(dto: CreateInventoryAdjustmentDto, requester: RequesterContext) {
     if (dto.adjustment_quantity === 0) {
@@ -71,8 +75,8 @@ export class InventoryAdjustmentService {
         materialTotalQuantityAfter * dto.unit_cost_snapshot;
       const valuationDelta = dto.adjustment_quantity * dto.unit_cost_snapshot;
 
-      const adjustmentId = randomUUID();
-      const transactionId = randomUUID();
+      const adjustmentId = await this.redisIdService.nextId('ADJ');
+      const transactionId = await this.redisIdService.nextId('TXN');
 
       const updatedLot = await this.repo.updateLotQuantity(
         lot.lot_id,

@@ -3,6 +3,7 @@ import { InventoryLotService } from '../inventory-lot/inventory-lot.service';
 import { InventoryLotRepository } from '../inventory-lot/inventory-lot.repository';
 import { InventoryTransactionService } from '../inventory-transaction/inventory-transaction.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { RedisIdService } from '../redis-id/redis-id.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -84,6 +85,7 @@ beforeEach(async () => {
       { provide: InventoryLotRepository, useValue: repo },
       { provide: InventoryTransactionService, useValue: transactionService },
       { provide: AuditLogService, useValue: auditLogService },
+      { provide: RedisIdService, useValue: { nextId: jest.fn().mockResolvedValue('LOT-1') } },
     ],
   }).compile();
 

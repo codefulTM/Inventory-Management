@@ -76,7 +76,7 @@ describe('Material DTO Validation', () => {
       },
     );
 
-    it.each(['material_id', 'part_number', 'material_name', 'material_type'])(
+    it.each(['part_number', 'material_name', 'material_type'])(
       'should reject missing required field %s',
       async (field) => {
         const payload = {
@@ -92,7 +92,6 @@ describe('Material DTO Validation', () => {
     );
 
     it.each([
-      { field: 'material_id', value: '' },
       { field: 'part_number', value: '' },
       { field: 'material_name', value: '' },
     ])(

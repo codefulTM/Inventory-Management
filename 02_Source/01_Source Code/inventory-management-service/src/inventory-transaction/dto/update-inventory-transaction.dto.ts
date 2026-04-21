@@ -4,7 +4,6 @@ import {
   IsString,
   IsEnum,
   IsNumber,
-  IsUUID,
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -14,7 +13,7 @@ import { TransactionType } from './create-inventory-transaction.dto';
  * All fields from create DTO except IDs/timestamps, and every property is optional.
  */
 export class UpdateInventoryTransactionDto {
-  @IsUUID()
+  @IsString()
   @IsOptional()
   lot_id?: string;
 
@@ -39,7 +38,7 @@ export class UpdateInventoryTransactionDto {
   @IsString()
   reference_number?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   performed_by?: string;
 

@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -70,14 +69,14 @@ export class InventoryAuditReportController {
 
   @Get(':id')
   @Roles(UserRole.MANAGER)
-  async findOne(@Param('id', ParseUUIDPipe) reportId: string) {
+  async findOne(@Param('id') reportId: string) {
     return this.service.findOne(reportId);
   }
 
   @Get(':id/download')
   @Roles(UserRole.MANAGER)
   async download(
-    @Param('id', ParseUUIDPipe) reportId: string,
+    @Param('id') reportId: string,
     @Res() res: Response,
   ) {
     const { fileBuffer, fileName } = await this.service.download(reportId);

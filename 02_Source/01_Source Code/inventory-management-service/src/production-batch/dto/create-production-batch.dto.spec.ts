@@ -55,7 +55,6 @@ describe('CreateProductionBatchDto Validation', () => {
   );
 
   it.each([
-    'batch_id',
     'product_id',
     'batch_number',
     'unit_of_measure',

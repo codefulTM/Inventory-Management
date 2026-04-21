@@ -83,7 +83,7 @@ describe('ImportExportOrderService', () => {
       updatePendingByOrderId: jest.fn(),
     };
 
-    service = new ImportExportOrderService(repo as any);
+    service = new ImportExportOrderService(repo as any, { nextId: jest.fn().mockResolvedValue('ORD-1') } as any);
   });
 
   it('create sets status PendingConfirmation and created_by from requester', async () => {

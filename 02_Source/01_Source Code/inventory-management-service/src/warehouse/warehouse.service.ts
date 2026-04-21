@@ -10,14 +10,22 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { WarehouseResponseDto } from './dto/warehouse-response.dto';
 import { PaginatedWarehouseResponseDto } from './dto/paginated-warehouse-response.dto';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 @Injectable()
 export class WarehouseService {
   private readonly logger = new Logger(WarehouseService.name);
 
-  constructor(private readonly repository: WarehouseRepository) {}
+  constructor(
+    private readonly repository: WarehouseRepository,
+    private readonly redisIdService: RedisIdService,
+  ) {}
 
   async create(createDto: CreateWarehouseDto): Promise<WarehouseResponseDto> {
+    // Auto-generate warehouse_id if not provided
+    if (!createDto.warehouse_id) {
+      createDto.warehouse_id = await this.redisIdService.nextId('WH');
+    }
     this.logger.log(`Creating warehouse: ${createDto.warehouse_id}`);
 
     const existing = await this.repository.findByWarehouseId(

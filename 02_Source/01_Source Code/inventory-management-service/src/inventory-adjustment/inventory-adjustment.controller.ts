@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -69,7 +68,7 @@ export class InventoryAdjustmentController {
 
   @Get(':id')
   @Roles(UserRole.MANAGER)
-  async findOne(@Param('id', ParseUUIDPipe) adjustmentId: string) {
+  async findOne(@Param('id') adjustmentId: string) {
     return this.service.findOne(adjustmentId);
   }
 }

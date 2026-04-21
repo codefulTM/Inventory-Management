@@ -31,6 +31,7 @@ import {
 import { InventoryLotStatus } from '../inventory-lot/inventory-lot.dto';
 import { TransactionType } from '../inventory-transaction/dto/create-inventory-transaction.dto';
 import { UserRole } from '../schemas/user.schema';
+import { RedisIdService } from '../redis-id/redis-id.service';
 
 interface RequesterContext {
   actor: string;
@@ -72,7 +73,10 @@ export interface ResolveImportExportOrderScanResult {
 export class ImportExportOrderService {
   private readonly logger = new Logger(ImportExportOrderService.name);
 
-  constructor(private readonly repo: ImportExportOrderRepository) {}
+  constructor(
+    private readonly repo: ImportExportOrderRepository,
+    private readonly redisIdService: RedisIdService,
+  ) {}
 
   async create(dto: CreateImportExportOrderDto, requester: RequesterContext) {
     this.validateItemsQuantity(dto.items);
@@ -89,7 +93,7 @@ export class ImportExportOrderService {
     const payload = {
       ...dto,
       items: normalizedItems,
-      order_id: uuidv4(),
+      order_id: await this.redisIdService.nextId('ORD'),
       status: ImportExportOrderStatus.PENDING_CONFIRMATION,
       created_by: requester.actor,
       attachments: dto.attachments ?? [],
@@ -280,7 +284,7 @@ export class ImportExportOrderService {
         }
 
         txPayloads.push({
-          transaction_id: uuidv4(),
+          transaction_id: await this.redisIdService.nextId('TXN'),
           lot_id: item.lot_id,
           transaction_type:
             pendingOrder.order_type === ImportExportOrderType.INBOUND
