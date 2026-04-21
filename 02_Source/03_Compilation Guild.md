@@ -161,8 +161,8 @@ Nếu gặp lỗi thiếu biến môi trường cho service khi chạy trong con
 - Để truy cập vào mã nguồn của dự án, các thầy/cô vui lòng truy cập đường dẫn sau: [Link](https://github.com/nguyenthaitan/Inventory-Management). Chúng em đã gửi lời mời tham gia với vai trò Admin (Quản trị viên - quyền cao nhất cho phép quản lý mã nguồn và thiết lập dự án) tới email của các thầy/cô. Vui lòng kiểm tra hộp thư đến hoặc mục "Invitations" trên GitHub để chấp nhận.
 
 - Ảnh chụp:
-  ![Ảnh 1](./image1.jpg)
-  ![Ảnh 2](./image2.jpg)
+  ![Ảnh 1](./Images/image1.jpg)
+  ![Ảnh 2](./Images/image2.jpg)
 
 ## 10. Truy cập Hệ thống Build và Tích hợp (Jenkins)
 
@@ -173,4 +173,4 @@ Nếu gặp lỗi thiếu biến môi trường cho service khi chạy trong con
   - Password: admin
 
 - Ảnh chụp:
-  ![Ảnh 3](./image3.png)
+  ![Ảnh 3](./Images/image3.png)
