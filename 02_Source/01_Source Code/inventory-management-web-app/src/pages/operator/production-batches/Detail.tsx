@@ -22,7 +22,7 @@ import {
   deleteBatchComponent,
   updateBatchComponent,
 } from '../../../services/productionBatchService';
-import { v4 as uuidv4 } from 'uuid';
+
 
 const STATUS_COLORS: Record<string, string> = {
   'In Progress': 'bg-blue-100 text-blue-700',
@@ -57,7 +57,7 @@ function AddComponentModal({
     setErr('');
     try {
       await createBatchComponent(batchId, {
-        component_id: uuidv4(),
+        component_id: "",
         batch_id: batchId,
         lot_id: form.lot_id,
         planned_quantity: form.planned_quantity,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { v4 as uuidv4 } from "uuid";
+
 import {
   FlaskConical,
   Plus,
@@ -343,12 +343,17 @@ function BatchFormFields({
         <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">
           Batch ID
         </label>
-        <input
-          readOnly={isEdit}
-          value={form.batch_id}
-          onChange={field("batch_id")}
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 read-only:bg-gray-50 read-only:text-gray-400"
-        />
+        {isEdit ? (
+          <input
+            readOnly
+            value={form.batch_id}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none bg-gray-50 text-gray-400 cursor-not-allowed"
+          />
+        ) : (
+          <div className="w-full px-4 py-2.5 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 italic">
+            Tự động sinh bởi hệ thống (BAT-xxx)
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -470,14 +475,11 @@ function AddModal({
   onSubmit: (form: BatchFormState) => Promise<void>;
   submitError: string | null;
 }) {
-  const [form, setForm] = useState<BatchFormState>({
-    ...EMPTY_BATCH,
-    batch_id: uuidv4(),
-  });
+  const [form, setForm] = useState<BatchFormState>({ ...EMPTY_BATCH });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen) setForm({ ...EMPTY_BATCH, batch_id: uuidv4() });
+    if (isOpen) setForm({ ...EMPTY_BATCH });
   }, [isOpen]);
 
   const handleChange = (k: keyof BatchFormState, v: string) =>
@@ -663,7 +665,7 @@ function AddComponentInline({
     setErr("");
     try {
       await createBatchComponent(batchId, {
-        component_id: uuidv4(),
+        component_id: "",
         batch_id: batchId,
         lot_id: form.lot_id,
         planned_quantity: form.planned_quantity,

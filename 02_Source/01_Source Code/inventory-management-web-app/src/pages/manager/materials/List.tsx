@@ -132,7 +132,9 @@ const MaterialList: React.FC = () => {
         await materialService.update(editing._id, updateValues);
         message.success("Cập nhật thành công");
       } else {
-        await materialService.create(values);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { material_id: _mid, ...createValues } = values as any;
+        await materialService.create(createValues);
         message.success("Tạo mới thành công");
       }
       hide();
@@ -218,10 +220,14 @@ const MaterialList: React.FC = () => {
           <Form.Item
             name="material_id"
             label="Mã vật tư"
-            rules={[{ required: true, message: "Vui lòng nhập mã vật tư" }]}
-            validateTrigger="onChange"
           >
-            <Input />
+            {editing ? (
+              <Input disabled />
+            ) : (
+              <div className="px-3 py-2 bg-gray-50 border border-dashed border-gray-300 rounded-md text-sm text-gray-500 italic">
+                Tự động sinh bởi hệ thống (MAT-xxx)
+              </div>
+            )}
           </Form.Item>
           <Form.Item
             name="part_number"
