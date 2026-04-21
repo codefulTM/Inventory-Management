@@ -7,7 +7,7 @@ Tài liệu này cập nhật các bước thực tế để chạy và phát tr
 ## 1. Yêu cầu cơ bản
 
 - Hệ điều hành: Windows / macOS / Linux
-- Node.js >= 18 (LTS)
+- Node.js >= 20 (LTS)
 - npm >= 9 (hoặc `yarn` nếu project có `yarn.lock`)
 - Docker & Docker Compose (nếu muốn chạy toàn bộ bằng container)
 - Git
@@ -156,7 +156,22 @@ Nếu gặp lỗi thiếu biến môi trường cho service khi chạy trong con
 
 - Xem video hướng dẫn chi tiết quá trình: [Link](https://youtu.be/llheEeXu0iY).
 
-## 9. Truy cập Hệ thống Source Control (GitHub)
+## 9. Tài khoản test hệ thống
+
+Sau khi hệ thống khởi động, sử dụng các tài khoản sau để đăng nhập thử:
+
+| Vai trò | Username | Password |
+|---|---|---|
+| IT Administrator | `admin_it` | `Admin@123456` |
+| Manager | `admin_manager` | `Admin@123456` |
+| Operator | `admin_operator` | `Admin@123456` |
+| Quality Control | `admin_qc` | `Admin@123456` |
+
+> **URL đăng nhập:** `http://localhost:3000` (local) hoặc `https://inventory-system.cloud` (production)
+
+---
+
+## 10. Truy cập Hệ thống Source Control (GitHub)
 
 - Để truy cập vào mã nguồn của dự án, các thầy/cô vui lòng truy cập đường dẫn sau: [Link](https://github.com/nguyenthaitan/Inventory-Management). Chúng em đã gửi lời mời tham gia với vai trò Admin (Quản trị viên - quyền cao nhất cho phép quản lý mã nguồn và thiết lập dự án) tới email của các thầy/cô. Vui lòng kiểm tra hộp thư đến hoặc mục "Invitations" trên GitHub để chấp nhận.
 
@@ -164,7 +179,7 @@ Nếu gặp lỗi thiếu biến môi trường cho service khi chạy trong con
   ![Ảnh 1](./Images/image1.jpg)
   ![Ảnh 2](./Images/image2.jpg)
 
-## 10. Truy cập Hệ thống Build và Tích hợp (Jenkins)
+## 11. Truy cập Hệ thống Build và Tích hợp (Jenkins)
 
 - Để theo dõi và quản lý các quy trình Build và Deployment, thầy/cô truy cập vào hệ thống Jenkins tại: [Link](https://jenkins.inventory-system.cloud).
 
