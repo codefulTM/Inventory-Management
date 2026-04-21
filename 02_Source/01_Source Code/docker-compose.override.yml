@@ -1,0 +1,245 @@
+version: "3.9"
+
+services:
+  # ─── Infrastructure ────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: inventory_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./database/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - inventory_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: inventory_keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: dev-file
+      KC_SPI_IMPORT_STRATEGY: OVERWRITE_EXISTING
+      KC_HOSTNAME_URL: http://localhost:8080
+      KC_HOSTNAME_ADMIN_URL: http://localhost:8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./database/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - inventory_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: inventory_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - inventory_net
+
+  elasticsearch:
+    image: elasticsearch:8.17.0
+    container_name: inventory_elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - inventory_net
+
+  # ─── Application Services ──────────────────────────────────────────────────
+  keycloak-service:
+    build:
+      context: .
+      dockerfile: ./keycloak-service/Dockerfile
+    container_name: inventory_keycloak_service
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - keycloak
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      GRPC_PORT: 50051
+      MONGODB_URI: mongodb://mongo:27017/inventory
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_REALM: inventory
+      KEYCLOAK_CLIENT_ID: inventory-backend
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-PXmK3bmQDy2cXqmF2QmtTNd18gz0vTYu}
+      KEYCLOAK_ADMIN_CLIENT_ID: inventory-backend
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-PXmK3bmQDy2cXqmF2QmtTNd18gz0vTYu}
+      KEYCLOAK_ADMIN_USER: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      JWT_SECRET: super-secret-jwt-key-change-in-production
+      JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs # alias for JWKS_URI / KEYCLOAK_JWKS_URI
+      MAIL_USER: ${MAIL_USER:-} # added from .env: mail username
+      MAIL_PASS: ${MAIL_PASS:-} # added from .env: mail password
+    ports:
+      - "3002:3002"
+      - "50051:50051"
+    networks:
+      - inventory_net
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
+    container_name: inventory_api_gateway
+    restart: unless-stopped
+    depends_on:
+      - keycloak-service
+      - inventory-management-service
+      - ai-service
+      - metrics-service
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      KEYCLOAK_SERVICE_GRPC_URL: keycloak-service:50051
+      METRICS_SERVICE_GRPC_URL: metrics-service:6741
+      BACKEND_URL: "http://host.docker.internal:3001"
+      AI_SERVICE_URL: http://ai-service:3003
+      JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
+      JWT_ISSUER: http://localhost:8080/realms/inventory
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs # alias for JWKS_URI
+    ports:
+      - "3000:3000"
+    networks:
+      - inventory_net
+
+  inventory-management-service:
+    build:
+      context: .
+      dockerfile: ./inventory-management-service/Dockerfile
+    container_name: inventory_backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - keycloak-service
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      GRPC_PORT: 50052
+      MONGODB_URI: mongodb://mongo:27017/inventory
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_REALM: inventory
+      KEYCLOAK_CLIENT_ID: inventory-backend
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-PXmK3bmQDy2cXqmF2QmtTNd18gz0vTYu}
+      JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs
+      JWT_ISSUER: http://localhost:8080/realms/inventory
+      JWT_SECRET: super-secret-jwt-key-change-in-production
+      KEYCLOAK_SERVICE_GRPC_URL: keycloak-service:50051
+      MONGO_URI: mongodb://mongo:27017/inventory # alias for MONGODB_URI / used by some scripts/tests
+      MONGO_DB_NAME: inventory # alias for DB name (MONGODB_DB_NAME)
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/inventory/protocol/openid-connect/certs # alias for JWKS_URI
+    ports:
+      - "3001:3001"
+      - "50052:50052"
+    networks:
+      - inventory_net
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ./ai-service/Dockerfile
+    container_name: inventory_ai_service
+    restart: unless-stopped
+    depends_on:
+      - inventory-management-service
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      BACKEND_GRPC_URL: inventory-management-service:50052
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GEMINI_ROUTER_MODEL: ${GEMINI_ROUTER_MODEL:-gemini-2.5-flash}
+      GEMINI_AGENT_MODEL: ${GEMINI_AGENT_MODEL:-gemini-2.5-flash}
+      USE_GEMINI_ROUTER: ${USE_GEMINI_ROUTER:-false}
+    ports:
+      - "3003:3003"
+    networks:
+      - inventory_net
+
+  analytics-indexer-service:
+    build:
+      context: .
+      dockerfile: ./analytics-indexer-service/Dockerfile
+    container_name: inventory_analytics_indexer
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - redis
+      - elasticsearch
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://mongo:27017/inventory
+      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
+      ELASTICSEARCH_TLS_CA: ${ELASTICSEARCH_TLS_CA:-}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_TLS: "false"
+      SYNC_INTERVAL_CRON: ${SYNC_INTERVAL_CRON:-*/10 * * * *}
+      SYNC_BATCH_SIZE: ${SYNC_BATCH_SIZE:-500}
+      MONGO_URI: mongodb://mongo:27017/inventory # alias for MONGODB_URI
+    networks:
+      - inventory_net
+
+  metrics-service:
+    build:
+      context: .
+      dockerfile: ./metrics-service/Dockerfile
+    container_name: inventory_metrics_service
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    environment:
+      NODE_ENV: development
+      GRPC_PORT: 6741
+      ELASTICSEARCH_NODE: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:-}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-}
+      ELASTICSEARCH_TLS_CA: ${ELASTICSEARCH_TLS_CA:-}
+    ports:
+      - "6741:6741"
+    networks:
+      - inventory_net
+
+  inventory-management-web-app:
+    build:
+      context: .
+      dockerfile: ./inventory-management-web-app/Dockerfile.dev
+    container_name: inventory_frontend
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+    environment:
+      VITE_API_BASE_URL: http://localhost:3000
+      REACT_APP_API_BASE_URL: http://localhost:3000 # alias for VITE_API_BASE_URL / React apps
+    ports:
+      - "5173:5173"
+    networks:
+      - inventory_net
+
+networks:
+  inventory_net:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  redis_data:
+  es_data:
