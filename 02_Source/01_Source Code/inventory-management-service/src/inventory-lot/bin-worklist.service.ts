@@ -14,6 +14,8 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../audit-log/audit-log.schema';
 import { MailService } from '../mail/mail.service';
 import { ConfigService } from '@nestjs/config';
+import { UserService } from '../user/user.service';
+import { UserRole } from '../schemas/user.schema';
 import {
   StorageLocation,
   StorageLocationDocument,
@@ -29,6 +31,7 @@ export class BinWorklistService {
     private readonly auditLogService: AuditLogService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly userService: UserService,
     @InjectModel(StorageLocation.name)
     private readonly storageLocationModel: Model<StorageLocationDocument>,
   ) {}
@@ -317,18 +320,36 @@ export class BinWorklistService {
 
     // notify manager when flagged (include totals)
     if (flag_review) {
-      const managerEmail = this.configService.get<string>('MANAGER_EMAIL');
-      if (managerEmail) {
-        try {
-          await this.mailService.sendBinFlagEmail(
-            managerEmail,
-            bin_code,
-            Math.round(deltaPct * 100) / 100,
-            String(record._id),
-            countedTotal,
-            expectedTotal,
-          );
-        } catch (_) {}
+      // Prefer explicit config value, fallback to first active Manager user in DB
+      try {
+        // fetch all managers (no small limit)
+        const mgrPage = await this.userService.findByRole(
+          UserRole.MANAGER,
+          1,
+          1000,
+        );
+        if (mgrPage && mgrPage.data && mgrPage.data.length > 0) {
+          const emails = mgrPage.data
+            .map((u: any) => u.email)
+            .filter(Boolean) as string[];
+          // send to each manager email (best-effort)
+          for (const em of emails) {
+            try {
+              await this.mailService.sendBinFlagEmail(
+                em,
+                bin_code,
+                Math.round(deltaPct * 100) / 100,
+                String(record._id),
+                countedTotal,
+                expectedTotal,
+              );
+            } catch (_) {
+              // ignore per-recipient errors
+            }
+          }
+        }
+      } catch (_) {
+        // ignore lookup errors and fall through
       }
     }
 
