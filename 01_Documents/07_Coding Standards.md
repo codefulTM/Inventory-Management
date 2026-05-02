@@ -57,10 +57,10 @@ Mục tiêu là đảm bảo tính nhất quán, dễ bảo trì, và phù hợp
 
 #### 3.1 Bắt buộc cho code TypeScript
 
-- ESLint
-- Prettier
-- TypeScript compiler (`tsc`)
-- Jest cho backend tests
+- **ESLint:** Kiểm tra lỗi cú pháp và quy tắc viết code.
+- **Prettier:** Tự động format layout (khoảng cách, dấu ngoặc...) để code đồng nhất.
+- **TypeScript compiler (`tsc`):** Kiểm tra lỗi kiểu dữ liệu (type) trước khi chạy.
+- **Jest:** Chạy các bài test unit cho backend để đảm bảo logic đúng.
 
 #### 3.2 Trạng thái áp dụng theo repository hiện tại
 
@@ -70,10 +70,14 @@ Mục tiêu là đảm bảo tính nhất quán, dễ bảo trì, và phù hợp
 
 #### 3.3 Mức khuyến nghị (roadmap)
 
-- Thêm `.editorconfig` ở root repo.
-- Thêm `.husky` + `lint-staged` để chạy lint/test tối thiểu trước commit.
-- Chuẩn hóa ESLint config cho toàn bộ microservices.
-- Bổ sung test runner frontend (Vitest + React Testing Library).
+- **`.editorconfig` ở root repo:** File cấu hình chung để đồng bộ cài đặt editor (tab size, charset...) giữa các lập trình viên, giúp code không bị lệch định dạng.
+- **`.husky` + `lint-staged` + `ESLint`:** Tự động chạy kiểm tra trước khi commit:
+  - **ESLint:** Là "cảnh sát" thực sự, đứng ra kiểm tra mã nguồn theo các quy tắc (quy ước đặt tên, lỗi cú pháp...).
+  - **Husky:** Là "người gác cổng". Khi bạn gõ `git commit`, Husky sẽ chặn lại và ra lệnh: "Chạy kiểm tra nhé!".
+  - **lint-staged:** Là "bộ lọc thông minh". Nó chỉ bảo ESLint kiểm tra những file bạn đang sửa (staged files), chứ không quét toàn bộ dự án -> giúp chạy nhanh hơn.
+  - **Tóm lại:** `Husky` bảo chạy, `lint-staged` lọc file, và `ESLint` thực hiện kiểm tra.
+- **Chuẩn hóa ESLint config:** Đồng bộ quy tắc viết code cho toàn bộ các microservices để mọi service đều có chung một chuẩn.
+- **Bổ sung test runner frontend (Vitest + React Testing Library):** Thêm công cụ test chuyên dụng cho phần React frontend để đảm bảo UI hoạt động đúng.
 
 ---
 

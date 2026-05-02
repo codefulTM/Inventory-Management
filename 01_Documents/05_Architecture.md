@@ -1051,175 +1051,40 @@ Hệ thống ghi lại lịch sử hoạt động để phục vụ kiểm tra a
 - **Theo dõi:** Đăng nhập sai quá 5 lần, truy cập lô hàng Quarantine, thay đổi cấu hình hệ thống.
 - **Cảnh báo:** Gửi thông báo qua Slack/Email cho IT Admin khi có sự kiện nghiêm trọng.
 
-### 5.3 Luồng xác thực & Ủy quyền
+### 5.3 Quy trình đăng nhập & phân quyền
 
-#### 5.3.1 Authentication Flow (PKCE)
+- **Đăng nhập:** User vào trang web -> Chuyển đến trang login của Keycloak -> Đăng nhập -> Quay về với Token (JWT).
+- **Phân quyền:** Mỗi khi User gọi API, hệ thống kiểm tra Token để biết User là ai và có quyền gì.
+- **Làm mới token:** Khi Token cũ sắp hết hạn, hệ thống tự động lấy Token mới (không cần đăng nhập lại).
+- **Bảo mật 2 lớp (2FA):** Dành riêng cho IT Admin, dùng ứng dụng như Google Authenticator để xác thực.
 
-1. **Khởi tạo:** User truy cập Frontend -> Redirect sang Keycloak Login Page.
-2. **PKCE Challenge:** Frontend tạo `code_verifier` và `code_challenge` (SHA-256).
-3. **Authorization Code:** Keycloak xác thực thông tin -> trả về Authorization Code.
-4. **Token Exchange:** Frontend gọi Token Endpoint với Code + Code Verifier -> nhận Access Token (JWT) & Refresh Token.
-5. **Token Storage:** Lưu tokens vào SessionStorage (hoặc Memory cho bảo mật cao hơn).
+---
 
-#### 5.3.2 API Authorization Flow
+### 5.4 Phân quyền theo vai trò (RBAC)
 
-```text
-Frontend -> Backend API Request
-|- Header: Authorization: Bearer <Access_Token>
-|- Backend NestJS Guard:
-|  |- Extract JWT from Header
-|  |- Verify Signature using JWKS (cached in Redis)
-|  |- Validate Expiration, Issuer, Audience
-|  |- Check Blacklist (Redis)
-|  \- Extract User Claims (sub, roles, email)
-|- Role/Resource Guards: Check permissions
-\- Execute API Logic or Return 401/403
-```
+Hệ thống có 4 vai trò chính, mỗi vai trò chỉ được làm những việc nhất định:
 
-#### 5.3.3 Token Lifecycle Management
+- **Manager (Quản lý):** Quản trị vật tư, lô hàng, phê duyệt các luồng kho, xem báo cáo và quản lý user.
+- **Operator (Nhân viên kho):** Tạo phiếu nhập/xuất, kiểm kê kho thực tế tại hiện trường.
+- **Quality Control (Kiểm soát chất lượng):** Đánh giá chất lượng lô hàng, xử lý hàng loi, cách ly hàng hóa (Quarantine).
+- **IT Administrator (Quản trị viên):** Giám sát hệ thống, quản lý Log, thiết lập sao lưu và phục hồi dữ liệu.
 
-- **Access Token TTL:** 15 minutes (production), 1 hour (development)
-- **Refresh Token TTL:** 8 hours (production)
-- **Refresh Strategy:** Silent refresh 2 minutes before expiration (frontend timer)
-- **Revocation:**
-  - Logout: Frontend clears storage + Backend adds token to Redis Blacklist
-  - Session Termination: Manager triggers Keycloak Admin API -> revoke all user sessions
+---
 
-#### 5.3.4 Two-Factor Authentication (2FA)
+### 5.5 Các cơ chế bảo vệ đặc thù
 
-- **Required For:** IT Administrator role
-- **Trigger Scenarios:**
-  - System Backup/Restore operations (US05)
-  - Access to Audit Logs
-  - Critical system configuration changes
-- **Implementation:** Keycloak OTP Policy (TOTP)
-  - Apps: Google Authenticator, Authy, FreeOTP
-  - Recovery Codes: 10 single-use codes generated at setup
+- **Khóa tài khoản:** Manager có thể ép đăng xuất (logout) mọi phiên làm việc của nhân viên khi cần thiết.
+- **Truy vết (Audit):** Mọi thay đổi dữ liệu đều được ghi log lại (ai làm, lúc nào, làm gì) để phục vụ kiểm toán.
+- **Khóa hàng cách ly (Quarantine):** Lô hàng đang bị cách ly sẽ bị khóa, không cho xuất kho dù có lệnh.
+- **Sao lưu & Phục hồi:** Dữ liệu được sao lưu định kỳ, có kiểm tra an toàn trước khi phục hồi để tránh làm hỏng dữ liệu.
 
-### 5.4 Phân quyền dựa trên vai trò (RBAC)
+---
 
-Hệ thống định nghĩa 4 vai trò chính với các quyền hạn đặc thù dựa trên User Stories:
+### 5.6 Quản lý thông tin người dùng
 
-| Vai trò (Role)       | Phạm vi quyền hạn (Permissions)                                                                                | Ghi chú nghiệp vụ      | Keycloak Roles            |
-| :------------------- | :------------------------------------------------------------------------------------------------------------- | :--------------------- | :------------------------ |
-| **Manager**          | Tra cứu tập trung, phê duyệt phiếu nhập/xuất, điều chỉnh tồn kho, quản lý người dùng và xem Dashboard.         | US01 - US15 (Manager)  | `manager`, `user`         |
-| **Quality Control**  | Đánh giá lô hàng (QC), xử lý hàng Rejected, cách ly hàng hóa (Quarantine), truy xuất nguồn gốc (Traceability). | US01 - US06 (QC)       | `quality_control`, `user` |
-| **Operator**         | Tạo phiếu nhập/xuất điện tử, xác thực kiểm đếm thực tế (Blind count), thực hiện kiểm kê tại hiện trường.       | US01 - US05 (Operator) | `operator`, `user`        |
-| **IT Administrator** | Giám sát sức khỏe hệ thống, quản lý Log tập trung, thiết lập sao lưu và phục hồi dữ liệu (Restore).            | US01 - US06 (IT Admin) | `it_admin`, `user`        |
-
-#### 5.4.1 Role Mapping Strategy
-
-- **Realm Roles:** Định nghĩa trong Keycloak Realm `inventory-management`
-- **Composite Roles:** Base role `user` (read-only) được composite vào tất cả roles khác
-- **JWT Claims:** Roles được đưa vào JWT claim `realm_access.roles[]`
-- **Backend Mapping:**
-
-  ```typescript
-  @Roles('manager')
-  @Public(false)
-  async approveTransaction() { ... }
-
-  @Resource('inventory-lots')
-  @Roles('quality_control')
-  async quarantineLot() { ... }
-  ```
-
-#### 5.4.2 Fine-Grained Permissions
-
-- **Resource-Based Access Control:**
-  - Operator: Chỉ được chỉnh sửa transactions do chính mình tạo
-  - Manager: Có thể override mọi transactions
-  - QC: Chỉ được thao tác trên lots ở trạng thái Quarantine
-- **Implementation:** NestJS Custom Guards + MongoDB ownership queries
-
-### 5.5 Cơ chế bảo vệ đặc thù
-
-Dựa trên các yêu cầu an ninh từ User Stories, hệ thống triển khai các kỹ thuật sau:
-
-#### 5.5.1 Session Termination (Manager US14)
-
-- **Khi nào:** Manager thực hiện khóa tài khoản người dùng
-- **Cơ chế:**
-  1. Backend gọi Keycloak Admin REST API: `DELETE /admin/realms/{realm}/users/{userId}/sessions`
-  2. Thu hồi toàn bộ Active Sessions của user
-  3. NestJS cập nhật Token Blacklist trong Redis với TTL = remaining token lifetime
-  4. Mọi API request với token bị blacklist sẽ nhận `401 Unauthorized`
-- **Response Time:** < 100ms (cached check)
-- **Logging:** Event được ghi vào Audit Log với severity HIGH
-
-#### 5.5.2 Audit Trail (Manager US15)
-
-- **Dữ liệu ghi nhận:** Method, Path, UserID, Username, Payload (sanitized), Response Status, IP, User Agent, Timestamp
-- **Implementation:** NestJS Interceptor (`AuditLogInterceptor`)
-- **Storage Pipeline:**
-  - Winston Logger -> `logs/audit-{date}.log`
-  - Filebeat -> Logstash -> Elasticsearch Index `audit-logs-YYYY.MM`
-- **Read-only Protection:** Elasticsearch Index templates với `index.blocks.write: true` sau 24h
-- **Compliance:** 90 days retention (đáp ứng yêu cầu kiểm toán)
-- **Access Control:** Chỉ IT Administrator có quyền query Kibana Dashboard
-
-#### 5.5.3 Hard-locking cho Quarantine (QC US04)
-
-- **Khi nào:** QC thực hiện cách ly lô hàng (set status = Quarantine)
-- **Cơ chế:**
-  1. Update MongoDB: `lots.status = 'Quarantine'`
-  2. Sync to Redis: `SET quarantine:lot:{lotId} true EX 86400`
-  3. API Guards kiểm tra Redis trước khi cho phép Picking/Transfer/Usage
-  4. Nếu lot bị Quarantine -> trả về `423 Locked` với thông báo rõ ràng
-- **Performance:** < 50ms (Redis in-memory check)
-- **Consistency:** Redis TTL 24h, background job sync lại từ MongoDB mỗi 30 phút
-
-#### 5.5.4 Data Integrity cho Backup/Restore (IT Admin US04)
-
-- **Backup Protection:**
-  - Mỗi backup file được tạo checksum SHA-256
-  - Lưu trữ: `backups/{timestamp}/dump.tar.gz` + `dump.tar.gz.sha256`
-  - Encryption at rest: AES-256 (optional cho production)
-- **Restore Validation:**
-  1. Verify checksum trước khi extract
-  2. Yêu cầu 2FA confirmation từ IT Admin
-  3. Tạo snapshot hiện tại trước khi restore
-  4. Restore + Validation queries
-  5. Rollback capability nếu validation fails
-- **Logging:** Mọi backup/restore operation ghi vào Security Event Log với full metadata
-
-### 5.6 Quản lý thông tin định danh
-
-#### 5.6.1 Password Security
-
-- **Hashing Algorithm:**
-  - Keycloak default: PBKDF2-SHA256 (27,500 iterations)
-  - Alternative: Bcrypt (cost factor 10)
-- **Password Policy (Keycloak Realm Settings):**
-  - Minimum Length: 12 characters
-  - Must include: Uppercase, Lowercase, Digit, Special Character
-  - Not Recently Used: Last 5 passwords
-  - Expiration: 90 days (configurable)
-  - Max Failed Attempts: 5 -> Account temporarily locked (15 minutes)
-
-#### 5.6.2 Role Management by Manager
-
-- **Capability:** Manager có thể thay đổi Role của nhân sự qua UI quản trị (US13)
-- **Backend Flow:**
-  1. Manager gọi API `PUT /api/users/{userId}/role`
-  2. Backend xác thực Manager role
-  3. Gọi Keycloak Admin API: Update User Role Mappings
-  4. Keycloak cập nhật User's Realm Roles
-  5. Claims trong Token mới sẽ phản ánh role updated
-- **Effect Timing:** Immediate cho tokens mới, existing tokens hết hạn sau 15 phút
-- **Audit:** Role change events được log với before/after values
-
-#### 5.6.3 User Provisioning
-
-- **Self-Registration:** Disabled (chỉ Manager/IT Admin có quyền tạo user)
-- **Creation Flow:**
-  1. Manager/IT Admin tạo user qua UI hoặc Keycloak Admin Console
-  2. Gửi email verification với temporary password
-  3. User đăng nhập lần đầu -> bắt buộc đổi password
-  4. Setup 2FA (nếu role là IT Administrator)
-- **Deprovisioning:**
-  - Soft delete: Set `enabled: false` trong Keycloak
-  - Hard delete: Sau 90 days retention period (compliance requirement)
+- **Mật khẩu:** Phải dài ít nhất 12 ký tự, có đủ chữ hoa/thường/số/ký tự đặc biệt. Đổi mật khẩu mỗi 90 ngày.
+- **Tạo user:** Chỉ Manager hoặc IT Admin mới được tạo user mới. User mới nhận emailed tạm để đăng nhập lần đầu.
+- **2FA:** IT Admin bắt buộc phải bật xác thực 2 lớp khi đăng nhập để tăng cường bảo mật.
 
 ---
 
