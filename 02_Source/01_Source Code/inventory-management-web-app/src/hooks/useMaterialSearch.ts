@@ -1,6 +1,8 @@
 /**
  * useMaterialSearch Hook
- * Handles material search with debouncing
+ * Custom hook tìm kiếm nguyên liệu với debounce
+ * Hỗ trợ: tìm kiếm theo từ khóa, lọc theo loại, phân trang
+ * Debounce: chờ 500ms (mặc định) sau khi ngừng gõ mới gọi API
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -11,22 +13,29 @@ import type {
 } from "../types/material";
 import { materialService } from "../services/material.service";
 
+/**
+ * Interface trả về từ useMaterialSearch hook
+ */
 interface UseMaterialSearchReturn {
-  results: Material[];
-  total: number;
-  loading: boolean;
-  error: Error | null;
-  search: (query?: string) => void;
-  filterByType: (type: MaterialType) => void;
-  clear: () => void;
-  page: number;
-  limit: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  nextPage: () => void;
-  previousPage: () => void;
+  results: Material[];            // Kết quả tìm kiếm
+  total: number;                  // Tổng số kết quả
+  loading: boolean;               // Đang tải
+  error: Error | null;            // Lỗi (nếu có)
+  search: (query?: string) => void;   // Hàm tìm kiếm (debounced)
+  filterByType: (type: MaterialType) => void; // Lọc theo loại
+  clear: () => void;              // Xóa kết quả
+  page: number;                   // Trang hiện tại
+  limit: number;                  // Số items mỗi trang
+  hasNextPage: boolean;           // Còn trang sau
+  hasPreviousPage: boolean;       // Còn trang trước
+  nextPage: () => void;           // Trang sau
+  previousPage: () => void;       // Trang trước
 }
 
+/**
+ * Hook tìm kiếm nguyên liệu với debounce
+ * @param debounceMs - Thời gian debounce (ms), mặc định 500ms
+ */
 export const useMaterialSearch = (
   debounceMs: number = 500,
 ): UseMaterialSearchReturn => {

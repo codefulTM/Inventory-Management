@@ -1,20 +1,22 @@
-/**
- * LabelDetail component
- * Shows full detail of a label template with option to print/edit/delete
- */
+// File: components/label/LabelDetail.tsx
+// Component hiển thị chi tiết mẫu nhãn (Label Template)
+// Cho phép: In nhãn, Chỉnh sửa, Xóa mẫu nhãn
+// Hiển thị thông tin: Loại nhãn, Kích thước, Nội dung mẫu, Ngày tạo/chỉnh sửa
 
 import React from "react";
 import { X, Edit2, Trash2, Printer, Tag } from "lucide-react";
 import type { LabelTemplate, LabelType } from "../../types/label";
 
+// Props cho component LabelDetail
 interface LabelDetailProps {
-  template: LabelTemplate;
-  onEdit: (t: LabelTemplate) => void;
-  onDelete: (t: LabelTemplate) => void;
-  onPrint: (t: LabelTemplate) => void;
-  onClose: () => void;
+  template: LabelTemplate;    // Mẫu nhãn cần hiển thị
+  onEdit: (t: LabelTemplate) => void;   // Hàm xử lý khi nhấn chỉnh sửa
+  onDelete: (t: LabelTemplate) => void; // Hàm xử lý khi nhấn xóa
+  onPrint: (t: LabelTemplate) => void;  // Hàm xử lý khi nhấn in
+  onClose: () => void;                  // Hàm đóng chi tiết
 }
 
+// Bảng màu sắc tương ứng với từng loại nhãn
 const LABEL_TYPE_COLORS: Record<LabelType, string> = {
   "Raw Material": "bg-blue-100 text-blue-800 border-blue-200",
   Sample: "bg-purple-100 text-purple-800 border-purple-200",

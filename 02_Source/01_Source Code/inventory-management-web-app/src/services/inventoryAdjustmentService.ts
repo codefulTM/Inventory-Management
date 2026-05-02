@@ -27,6 +27,11 @@ function toApiError(
   );
 }
 
+/**
+ * Tạo mới điều chỉnh tồn kho
+ * @param payload - Dữ liệu điều chỉnh (material_id, lot_id, quantity, reason, v.v.)
+ * @returns Thông tin điều chỉnh đã tạo (có valuation_before, valuation_after, valuation_delta)
+ */
 export async function createInventoryAdjustment(
   payload: CreateInventoryAdjustmentRequest,
 ): Promise<CreateInventoryAdjustmentResponse> {
@@ -48,6 +53,11 @@ export async function createInventoryAdjustment(
   };
 }
 
+/**
+ * Lấy danh sách lịch sử điều chỉnh tồn kho (phân trang)
+ * @param query - Tham số truy vấn (page, limit, material_id, warehouse_id, v.v.)
+ * @returns Danh sách điều chỉnh và thông tin phân trang
+ */
 export async function fetchInventoryAdjustments(
   query: InventoryAdjustmentListQuery = {},
 ): Promise<InventoryAdjustmentListResponse> {

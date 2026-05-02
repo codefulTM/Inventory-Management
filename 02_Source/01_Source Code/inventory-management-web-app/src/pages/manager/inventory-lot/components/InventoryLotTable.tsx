@@ -1,13 +1,20 @@
+/**
+ * InventoryLotTable - Bảng hiển thị danh sách lô hàng
+ * Chức năng: Hiển thị thông tin các lô hàng dưới dạng bảng
+ * Cho phép xem chi tiết và chỉnh sửa (nếu có quyền)
+ */
 import { Eye, Edit } from "lucide-react";
 import { type InventoryLot } from "../../../../services/inventory-lot.service";
 import { getStatusColor, getStatusText } from "../utils";
 
+/** Props cho component InventoryLotTable */
 interface InventoryLotTableProps {
-  lots: InventoryLot[];
-  onViewDetail: (lot: InventoryLot) => void;
-  onEdit?: (lot: InventoryLot) => void;
+  lots: InventoryLot[];                    // Danh sách lô hàng cần hiển thị
+  onViewDetail: (lot: InventoryLot) => void; // Hàm xử lý khi nhấn xem chi tiết
+  onEdit?: (lot: InventoryLot) => void;      // Hàm xử lý khi nhấn chỉnh sửa (tùy chọn)
 }
 
+/** Component chính: Bảng danh sách lô hàng */
 export function InventoryLotTable({
   lots,
   onViewDetail,

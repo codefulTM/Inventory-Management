@@ -1,11 +1,23 @@
 /**
- * Integration tests — api-gateway AuthController HTTP layer
- *
- * Tests the full request-to-response path:
- *   HTTP request → AuthController → AuthGatewayService → (mocked gRPC response)
- *
- * Uses NestJS testing HTTP app + supertest. JWT guards bypassed.
- * Verifies that the controller correctly marshals inputs/outputs for each endpoint.
+ * File: auth-gateway.integration.spec.ts
+ * Mô tả: Integration tests cho AuthController — lớp HTTP của API Gateway
+ * Chức năng: Kiểm tra toàn bộ luồng request → response của các endpoint /auth/*
+ * 
+ * Luồng test:
+ *   HTTP request → AuthController → AuthGatewayService (mock) → response
+ * 
+ * Sử dụng NestJS testing HTTP app + supertest
+ * JWT guards bị bypass để tập trung test logic controller
+ * 
+ * Các endpoint được test:
+ * - POST /auth/login     — Đăng nhập, kiểm tra response format { success, data }
+ * - POST /auth/register  — Đăng ký, kiểm tra status 201
+ * - POST /auth/refresh   — Làm mới token
+ * - POST /auth/logout    — Đăng xuất
+ * - POST /auth/forgot-password — Gửi email reset mật khẩu
+ * - POST /auth/reset-password  — Đặt lại mật khẩu bằng token
+ * 
+ * Mock: AuthGatewayService, JwtAuthGuard
  */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';

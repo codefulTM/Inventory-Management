@@ -1,9 +1,19 @@
 /**
- * Contract tests — gRPC AuthService contract (api-gateway ↔ keycloak-service)
- *
- * Verifies that AuthGatewayService correctly maps HTTP-level inputs to the
- * expected gRPC call shapes defined in auth.proto.  No real gRPC server is
- * needed — the client is mocked to capture what the gateway sends.
+ * File: grpc-auth-contract.spec.ts
+ * Mô tả: Contract tests — gRPC AuthService (api-gateway ↔ keycloak-service)
+ * Chức năng: Xác minh AuthGatewayService map đúng HTTP inputs sang gRPC call shapes
+ *            theo định nghĩa trong auth.proto
+ * 
+ * Các RPC được test:
+ * - Login           — Gửi username + password, nhận access_token + refresh_token
+ * - Register        — Tạo user mới với username, email, password
+ * - Refresh         — Làm mới token bằng refresh_token
+ * - Logout          — Thu hồi refresh_token
+ * - ForgotPassword  — Gửi email reset mật khẩu
+ * - ResetPassword   — Đặt lại mật khẩu bằng token
+ * - GetMe           — Lấy thông tin user theo keycloak_id
+ * 
+ * Không cần gRPC server thật — mock client để capture request shape
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { of } from 'rxjs';

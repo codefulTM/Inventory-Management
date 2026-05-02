@@ -1,3 +1,24 @@
+/**
+ * SampleDataGenerator - Sinh dữ liệu mẫu deterministically cho hệ thống IMS
+ *
+ * Chức năng:
+ * - Tạo dữ liệu mẫu cho tất cả các collections chính của hệ thống
+ * - Sử dụng seeded RNG để đảm bảo dữ liệu sinh ra giống nhau với cùng seed
+ * - Hỗ trợ 3 profile: small, medium, large (khác nhau về số lượng record)
+ *
+ * Collections được sinh:
+ * - users: 6 user mẫu (Manager, Operator x2, QC x2, IT Admin)
+ * - materials: Vật tư (API, Excipient, Container...)
+ * - inventory_lots: Lô hàng tồn kho với hạn sử dụng
+ * - inventory_transactions: Giao dịch nhập/xuất kho
+ * - qc_tests: Kết quả kiểm tra chất lượng
+ * - inventory_audit_reports: Báo cáo kiểm kê
+ * - import_export_orders: Đơn nhập/xuất
+ * - production_batches: Lô sản xuất
+ * - batch_components: Thành phần của lô sản xuất
+ *
+ * Sử dụng: Cho testing, development, demo
+ */
 export type SampleDataProfile = 'small' | 'medium' | 'large';
 
 export type SampleCollectionName =
@@ -98,6 +119,10 @@ const ORDER_STATUSES = ['PendingConfirmation', 'Confirmed', 'Rejected'];
 const BATCH_STATUSES = ['In Progress', 'Complete', 'On Hold', 'Cancelled'];
 const AUDIT_STATUSES = ['PENDING', 'PROCESSING', 'READY', 'FAILED'];
 
+/**
+ * Hàm hash seed - Chuyển chuỗi seed thành số nguyên dương
+ * Sử dụng FNV-1a hash algorithm
+ */
 function hashSeed(input: string): number {
   let hash = 2166136261;
   for (let index = 0; index < input.length; index += 1) {
@@ -107,6 +132,11 @@ function hashSeed(input: string): number {
   return hash >>> 0;
 }
 
+/**
+ * Tạo hàm random number generator (RNG) từ seed
+ * Sử dụng mulberry32 algorithm - nhanh và deterministically
+ * @returns Hàm trả về số ngẫu nhiên trong khoảng [0, 1)
+ */
 function createRng(seed: number): () => number {
   let value = seed || 1;
   return () => {
@@ -140,6 +170,11 @@ function toIsoDate(input: Date): Date {
   return new Date(input.toISOString());
 }
 
+/**
+ * Sinh toàn bộ dataset mẫu cho tất cả collections
+ * @param options - Profile, seed, và thời điểm hiện tại (now)
+ * @returns Object chứa mảng documents cho mỗi collection
+ */
 export function generateSampleDataset(
   options: GenerateSampleDataOptions,
 ): SampleDataset {

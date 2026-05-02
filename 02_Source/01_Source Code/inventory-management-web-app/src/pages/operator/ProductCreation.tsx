@@ -1,4 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * ProductCreation Page (Operator)
+ * Trang quản lý và tạo Production Batch (Lô sản xuất) dành cho Operator
+ * 
+ * Chức năng chính:
+ * 1. Tab "Batch List": Xem danh sách các lô sản xuất, lọc theo trạng thái
+ * 2. Tab "Tạo Batch": Tạo lô sản xuất mới với các nguyên liệu đi kèm
+ * 
+ * Quy trình tạo lô sản xuất (Production Batch):
+ * 1. Nhập thông tin lô: mã lô, sản phẩm, số lượng, hạn sử dụng
+ * 2. Chọn các lô nguyên liệu (Inventory Lots) đã được QC Accepted
+ * 3. Hệ thống lưu với trạng thái "On Hold" (chờ xử lý)
+ * 4. Sau khi tạo, Operator có thể chỉnh sửa (thêm/sửa nguyên liệu) khi ở trạng thái "On Hold"
+ * 5. Khi sẵn sàng, chuyển trạng thái sang "In Progress" để bắt đầu sản xuất
+ * 
+ * Các trạng thái lô sản xuất:
+ * - On Hold: Chờ xử lý, cho phép chỉnh sửa
+ * - In Progress: Đang sản xuất
+ * - Complete: Hoàn thành
+ * - Cancelled: Đã hủy
+ */
 import React, { useState, useEffect } from "react";
 import { X, Search, Eye, FlaskConical, Package, Plus } from "lucide-react";
 import {
@@ -13,6 +34,7 @@ import type { Material } from "../../types/material";
 import type { ProductionBatch } from "../../types/production";
 import type { InventoryLot } from "../../types/inventory";
 
+// Hàm chuyển đổi trạng thái sang nhãn tiếng Việt và màu sắc
 function statusLabel(status: string) {
   switch (status) {
     case "On Hold":
@@ -26,34 +48,46 @@ function statusLabel(status: string) {
   }
 }
 
+// Props cho modal chi tiết Production Batch
 interface ProductionBatchDetailModalProps {
-  batch: ProductionBatch;
-  onClose: () => void;
-  onUpdated: () => void;
+  batch: ProductionBatch;  // Thông tin lô sản xuất
+  onClose: () => void;  // Hàm đóng modal
+  onUpdated: () => void;  // Hàm callback khi có cập nhật
 }
 
+// Modal xem và chỉnh sửa chi tiết Production Batch
 function ProductionBatchDetailModal({
   batch,
   onClose,
   onUpdated,
 }: ProductionBatchDetailModalProps) {
+  // State form thông tin lô
   const [form, setForm] = useState<any>({ ...batch });
+  // State danh sách nguyên liệu hiện tại của lô
   const [batchComponents, setBatchComponents] = useState<any[]>([]);
+  // State chế độ chỉnh sửa
   const [isEditing, setIsEditing] = useState(false);
+  // State loading khi lưu
   const [saving, setSaving] = useState(false);
+  // State thông báo lỗi
   const [error, setError] = useState("");
+  // State danh sách lô nguyên liệu trong kho
   const [inventoryLots, setInventoryLots] = useState<InventoryLot[]>([]);
+  // State danh sách vật tư
   const [materials, setMaterials] = useState<Material[]>([]);
+  // State danh sách nguyên liệu mới sẽ thêm vào lô
   const [newComponents, setNewComponents] = useState<any[]>([
     { lot_id: "", planned_quantity: "" },
   ]);
 
+  // Hàm cập nhật form
   const set =
     (key: string) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       setForm((prev: any) => ({ ...prev, [key]: e.target.value }));
     };
 
+  // Hàm cập nhật thông tin nguyên liệu
   const setComponent =
     (idx: number, key: string) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -62,21 +96,26 @@ function ProductionBatchDetailModal({
       setNewComponents(updated);
     };
 
+  // Thêm dòng nguyên liệu mới
   const addComponent = () => {
     setNewComponents((prev) => [...prev, { lot_id: "", planned_quantity: "" }]);
   };
 
+  // Xóa dòng nguyên liệu
   const removeComponent = (idx: number) => {
     setNewComponents((prev) => prev.filter((_: any, i: number) => i !== idx));
   };
 
-  // Load batch components, inventory lots and materials on mount
+  // Tải dữ liệu khi mở modal: nguyên liệu của lô, danh sách lô nguyên liệu, vật tư
   useEffect(() => {
     const load = async () => {
       try {
         const [components, lots, mats] = await Promise.all([
+          // Tải nguyên liệu đã gán cho lô này
           apiClient.get(`/production-batches/${batch.batch_id}/components`),
+          // Tải tất cả lô nguyên liệu trong kho
           fetchInventoryLots(),
+          // Tải danh sách vật tư
           fetchMaterials(),
         ]);
         setBatchComponents(
@@ -91,15 +130,16 @@ function ProductionBatchDetailModal({
     load();
   }, [batch.batch_id]);
 
+  // Lưu thông tin lô và thêm nguyên liệu mới
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     try {
-      // Update batch info
+      // Cập nhật thông tin cơ bản của lô
       await updateProductionBatch(form.batch_id, form);
 
-      // Add new components
+      // Thêm các nguyên liệu mới vào lô
       for (const comp of newComponents) {
         if (comp.lot_id && comp.planned_quantity) {
           await apiClient.post(
@@ -113,8 +153,8 @@ function ProductionBatchDetailModal({
       }
 
       setIsEditing(false);
-      onUpdated();
-      onClose();
+      onUpdated();  // Callback reload danh sách
+      onClose();  // Đóng modal
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -122,6 +162,7 @@ function ProductionBatchDetailModal({
     }
   };
 
+  // Chỉ cho phép chỉnh sửa khi lô ở trạng thái "On Hold"
   const canEdit = batch.status === "On Hold";
 
   return (
@@ -134,7 +175,7 @@ function ProductionBatchDetailModal({
           <X size={20} />
         </button>
         <h3 className="text-xl font-black text-gray-900 mb-4">
-          Chi tiết Production Batch
+          Chi Tiết Production Batch
         </h3>
         <form
           onSubmit={handleSave}
@@ -146,15 +187,15 @@ function ProductionBatchDetailModal({
             </div>
           )}
 
-          {/* Section 1: Basic Info */}
+          {/* Section 1: Thông tin cơ bản của lô sản xuất */}
           <div className="space-y-3 border-b pb-4">
             <h4 className="text-sm font-bold text-gray-700 uppercase">
-              Thông tin cơ bản
+              Thông Tin Cơ Bản
             </h4>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                  Batch Number
+                  Mã Lô (Batch Number)
                 </label>
                 <input
                   value={form.batch_number}
@@ -165,7 +206,7 @@ function ProductionBatchDetailModal({
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                  Product ID
+                  Mã Sản Phẩm (Product ID)
                 </label>
                 <input
                   value={form.product_id}
@@ -176,7 +217,7 @@ function ProductionBatchDetailModal({
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                  Batch Size
+                  Kích Thước Lô (Batch Size)
                 </label>
                 <input
                   value={form.batch_size}
@@ -188,7 +229,7 @@ function ProductionBatchDetailModal({
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                  Unit
+                  Đơn Vị (Unit)
                 </label>
                 <input
                   value={form.unit_of_measure}
@@ -199,7 +240,7 @@ function ProductionBatchDetailModal({
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                  Shelf Life Value
+                  Hạn Sử Dụng (Shelf Life)
                 </label>
                 <input
                   value={form.shelf_life_value}
@@ -211,7 +252,7 @@ function ProductionBatchDetailModal({
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                  Shelf Life Unit
+                  Đơn Vị Hạn (Shelf Life Unit)
                 </label>
                 <select
                   value={form.shelf_life_unit}
@@ -226,7 +267,7 @@ function ProductionBatchDetailModal({
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                  Status
+                  Trạng Thái (Status)
                 </label>
                 <input
                   value={form.status}
@@ -237,11 +278,11 @@ function ProductionBatchDetailModal({
             </div>
           </div>
 
-          {/* Section 2: Nguyên liệu sử dụng */}
+          {/* Section 2: Nguyên liệu sử dụng cho lô sản xuất */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-bold text-gray-700 uppercase">
-                Batch Components (Nguyên Liệu)
+                Nguyên Liệu Sử Dụng (Batch Components)
               </h4>
               {isEditing && (
                 <button
@@ -250,16 +291,16 @@ function ProductionBatchDetailModal({
                   className="flex items-center gap-1 px-3 py-1 text-blue-600 font-bold text-xs hover:bg-blue-50 rounded"
                 >
                   <Plus size={14} />
-                  THÊM
+                  THÊM NGUYÊN LIỆU
                 </button>
               )}
             </div>
 
-            {/* Display existing batch components */}
+            {/* Hiển thị nguyên liệu hiện tại đã gán cho lô */}
             {batchComponents.length > 0 && (
               <div className="mb-4">
                 <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase">
-                  Nguyên liệu hiện tại
+                  Nguyên Liệu Hiện Tại
                 </h5>
                 <div className="space-y-2">
                   {batchComponents.map((comp: any) => {
@@ -289,7 +330,7 @@ function ProductionBatchDetailModal({
                           </div>
                           <div>
                             <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                              Lô Hàng
+                              Lô Hàng (Lot)
                             </label>
                             <input
                               value={lot?.manufacturer_lot || comp.lot_id}
@@ -299,7 +340,7 @@ function ProductionBatchDetailModal({
                           </div>
                           <div>
                             <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                              Số lượng
+                              Số Lượng Kế Hoạch
                             </label>
                             <input
                               value={`${comp.planned_quantity} ${comp.unit_of_measure}`}
@@ -315,11 +356,11 @@ function ProductionBatchDetailModal({
               </div>
             )}
 
-            {/* New components to add */}
+            {/* Form thêm nguyên liệu mới - chỉ hiện khi đang chỉnh sửa */}
             {isEditing && (
               <div>
                 <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase">
-                  Thêm nguyên liệu mới
+                  Thêm Nguyên Liệu Mới
                 </h5>
                 <div className="space-y-2">
                   {newComponents.map((comp: any, idx: number) => {
@@ -331,14 +372,14 @@ function ProductionBatchDetailModal({
                         <div className="grid grid-cols-4 gap-2">
                           <div>
                             <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                              Lô Hàng
+                              Chọn Lô Nguyên Liệu
                             </label>
                             <select
                               value={comp.lot_id}
                               onChange={setComponent(idx, "lot_id")}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                             >
-                              <option value="">-- Chọn --</option>
+                              <option value="">-- Chọn Lô Hàng --</option>
                               {inventoryLots.map((il) => (
                                 <option key={il.lot_id} value={il.lot_id}>
                                   {
@@ -355,7 +396,7 @@ function ProductionBatchDetailModal({
 
                           <div>
                             <label className="block text-xs font-black text-gray-500 uppercase mb-1">
-                              Số lượng
+                              Số Lượng Kế Hoạch
                             </label>
                             <input
                               value={comp.planned_quantity}
@@ -385,7 +426,7 @@ function ProductionBatchDetailModal({
           </div>
         </form>
 
-        {/* Footer buttons */}
+        {/* Nút hành động ở footer */}
         <div className="flex justify-end gap-2 pt-4 border-t">
           {!isEditing ? (
             <>
@@ -395,7 +436,7 @@ function ProductionBatchDetailModal({
                   onClick={() => setIsEditing(true)}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
                 >
-                  ✏️ Chỉnh sửa
+                  ✏️ Chỉnh Sửa
                 </button>
               )}
               <button
@@ -425,7 +466,7 @@ function ProductionBatchDetailModal({
                 onClick={handleSave}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
               >
-                {saving ? "Lưu..." : "✓ Lưu"}
+                {saving ? "Đang Lưu..." : "✓ Lưu Thay Đổi"}
               </button>
             </>
           )}

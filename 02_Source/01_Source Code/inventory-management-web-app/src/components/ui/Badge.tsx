@@ -1,14 +1,22 @@
+// File: components/ui/Badge.tsx
+// Component Badge hiển thị nhãn trạng thái với nhiều màu sắc khác nhau
+// Bao gồm các helper components: StatusBadge, ResultBadge, OrderStatusBadge
+//	Dùng để hiển thị trạng thái (status) của các entity trong hệ thống
+
 import type { ReactNode } from 'react';
 
+// Các biến thể màu sắc cho badge
 type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'primary';
 
+// Props cho component Badge
 interface BadgeProps {
-  variant?: BadgeVariant;
-  children: ReactNode;
-  className?: string;
-  dot?: boolean;
+  variant?: BadgeVariant; // Biến thể màu sắc
+  children: ReactNode; // Nội dung bên trong
+  className?: string; // Class tùy chỉnh thêm
+  dot?: boolean; // Hiển thị chấm tròn nhỏ ở đầu
 }
 
+// Styles cho từng biến thể màu
 const variantStyles: Record<BadgeVariant, string> = {
   success: 'bg-success-100 text-success-700 border-success-200',
   warning: 'bg-warning-100 text-warning-700 border-warning-200',
@@ -18,6 +26,7 @@ const variantStyles: Record<BadgeVariant, string> = {
   primary: 'bg-primary-100 text-primary-700 border-primary-200',
 };
 
+// Styles cho chấm tròn (dot) theo từng biến thể
 const dotStyles: Record<BadgeVariant, string> = {
   success: 'bg-success-500',
   warning: 'bg-warning-500',
@@ -27,6 +36,7 @@ const dotStyles: Record<BadgeVariant, string> = {
   primary: 'bg-primary-500',
 };
 
+// Component Badge chính
 export function Badge({ variant = 'neutral', children, className = '', dot = false }: BadgeProps) {
   return (
     <span
@@ -39,6 +49,7 @@ export function Badge({ variant = 'neutral', children, className = '', dot = fal
         ${className}
       `.trim().replace(/\s+/g, ' ')}
     >
+      {/* Hiển thị chấm tròn nếu dot=true */}
       {dot && (
         <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[variant]}`} />
       )}
@@ -47,6 +58,8 @@ export function Badge({ variant = 'neutral', children, className = '', dot = fal
   );
 }
 
+// Component StatusBadge - Hiển thị trạng thái cho Inventory Lot, QC Test, etc.
+// Ánh xạ trạng thái tiếng Anh sang tiếng Việt với màu sắc tương ứng
 export function StatusBadge({ status, className = '' }: { status: string; className?: string }) {
   const statusMap: Record<string, { variant: BadgeVariant; label: string }> = {
     Quarantine: { variant: 'warning', label: 'Chờ kiểm định' },
@@ -72,6 +85,7 @@ export function StatusBadge({ status, className = '' }: { status: string; classN
   );
 }
 
+// Component ResultBadge - Hiển thị kết quả kiểm tra (Pass/Fail/Pending)
 export function ResultBadge({ result }: { result: string }) {
   const resultMap: Record<string, { variant: BadgeVariant; label: string }> = {
     Pass: { variant: 'success', label: 'Đạt' },
@@ -84,6 +98,7 @@ export function ResultBadge({ result }: { result: string }) {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 
+// Component OrderStatusBadge - Hiển thị trạng thái đơn hàng (Import/Export Order)
 export function OrderStatusBadge({ status }: { status: string }) {
   const statusMap: Record<string, { variant: BadgeVariant; label: string }> = {
     PendingConfirmation: { variant: 'warning', label: 'Chờ xác nhận' },

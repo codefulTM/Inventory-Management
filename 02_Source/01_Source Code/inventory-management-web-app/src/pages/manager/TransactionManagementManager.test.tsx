@@ -1,60 +1,53 @@
 /**
- * TransactionManagementManager Component Tests
+ * TransactionManagementManager - File test (Tài liệu hướng dẫn)
+ * Trang quản lý giao dịch dành cho Manager - Các kịch bản kiểm thử
  *
- * This test file documents the comprehensive test coverage for TransactionManagementManager integration component.
- * 
- * SETUP REQUIRED:
- * - npm install --save-dev @testing-library/react @testing-library/jest-dom @testing-library/user-event @types/jest jest
- * - Configure Jest in package.json or jest.config.js
- * - Mock transactionService for API call testing
- * 
- * Test Suites:
- * 
- * 1. Component Initialization (2 tests)
- *    - Component renders on mount
- *    - Fetches transactions on mount with default pagination
- * 
- * 2. Rendering Tests (3 tests)
- *    - Header and description render
- *    - Filter component renders
- *    - Table component renders
- * 
- * 3. Filter Functionality (4 tests)
- *    - Filter component receives onApply callback
- *    - Applying filters fetches transactions with filters
- *    - Filter reset clears filters and resets to page 1
- *    - Active filters display shown when filters applied
- * 
- * 4. Pagination Tests (3 tests)
- *    - Pagination controls pass correct state to table
- *    - Page change triggers API call with new page
- *    - Page reset to 1 when filters applied
- * 
- * 5. Data Fetching Tests (5 tests)
- *    - Loading state shown during fetch
- *    - Error message displayed on fetch failure
- *    - Transactions displayed on successful fetch
- *    - Pagination info updated from API response
- *    - Limit can be adjusted (max 100)
- * 
- * 6. Export Functionality (2 tests)
- *    - Export button calls exportTransactionsToCSV
- *    - Export button disabled when no transactions or loading
- * 
- * 7. Integration Tests (3 tests)
- *    - Filter → API call → Table display flow works end-to-end
- *    - Pagination → API call → Table update works
- *    - Error handling and recovery works
- * 
- * 8. State Management (2 tests)
- *    - Filter state isolated from other state
- *    - Pagination state managed correctly
+ * CÁC KỊCH BẢN KIỂM THỬ:
+ * 1. Khởi tạo component (2 tests)
+ *    - Render component khi mount
+ *    - Tải giao dịch khi mount với phân trang mặc định
  *
- * Expected Coverage: ≥80%
- * 
- * NOTE: This file serves as test documentation. Actual tests should be implemented
- * after test libraries are installed and configured.
+ * 2. Kiểm thử hiển thị (3 tests)
+ *    - Header và mô tả render đúng
+ *    - Component lọc render
+ *    - Bảng giao dịch render
+ *
+ * 3. Chức năng lọc (4 tests)
+ *    - Component lọc nhận callback onApply
+ *    - Áp dụng lọc sẽ tải giao dịch với bộ lọc
+ *    - Đặt lại lọc sẽ xóa bộ lọc và reset trang về 1
+ *    - Hiển thị bộ lọc đang hoạt động
+ *
+ * 4. Phân trang (3 tests)
+ *    - Các điều khiển phân trang truyền đúng state
+ *    - Thay đổi trang kích hoạt API call với trang mới
+ *    - Reset trang về 1 khi áp dụng bộ lọc
+ *
+ * 5. Tải dữ liệu (5 tests)
+ *    - Hiển thị trạng thái loading khi đang tải
+ *    - Hiển thị thông báo lỗi khi tải thất bại
+ *    - Hiển thị giao dịch khi tải thành công
+ *    - Cập nhật thông tin phân trang từ API response
+ *    - Giới hạn số bản ghi tối đa 100
+ *
+ * 6. Chức năng xuất (2 tests)
+ *    - Nút xuất gọi hàm exportTransactionsToCSV
+ *    - Vô hiệu hóa xuất khi không có giao dịch hoặc đang tải
+ *
+ * 7. Kiểm thử tích hợp (3 tests)
+ *    - Luồng Lọc → API call → Hiển thị bảng
+ *    - Luồng Phân trang → API call → Cập nhật bảng
+ *    - Xử lý lỗi và phục hồi
+ *
+ * 8. Quản lý state (2 tests)
+ *    - State bộ lọc độc lập với các state khác
+ *    - Quản lý state phân trang đúng cách
+ *
+ * Độ phủ kiểm thử kỳ vọng: ≥80%
+ * LƯU Ý: File này đóng vai trò tài liệu hướng dẫn. Các test thực tế
+ * cần được triển khai sau khi cài đặt và cấu hình thư viện test.
  */
+
 
 describe('TransactionManagementManager', () => {
   describe('Component Initialization', () => {

@@ -1,4 +1,30 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/**
+ * InventoryLotService - Service xử lý nghiệp vụ lô hàng tồn kho
+ * 
+ * Chức năng chính:
+ * - Tạo mới lô hàng (tự động sinh lot_id bằng Redis)
+ * - Quản lý vòng đời lô hàng: Quarantine → Accepted/Rejected → Depleted
+ * - Tự động tạo InventoryTransaction khi có thay đổi số lượng
+ * - Kiểm tra chuyển đổi trạng thái hợp lệ (state machine)
+ * - Tìm kiếm, lọc, phân trang lô hàng
+ * - Quản lý lô mẫu (sample lots) - lấy từ lô cha (parent_lot_id)
+ * - Thống kê lô hàng: tổng, theo trạng thái, sắp hết hạn, đã hết hạn
+ * - Cung cấp dữ liệu cho QC Test (bulk quarantine, getLotsByStatus...)
+ * - Ghi Audit Log khi cập nhật lô hàng
+ * 
+ * Quy tắc nghiệp vụ:
+ * - received_date phải trước expiration_date
+ * - manufacture_date phải trước expiration_date
+ * - Chỉ cho phép xóa lô có trạng thái Quarantine và chưa có giao dịch
+ * - Khi cập nhật số lượng = 0 → tự động chuyển sang Depleted
+ * - Khi đánh dấu Depleted nhưng quantity > 0 → tự động tạo Usage transaction
+ * 
+ * Tích hợp:
+ * - InventoryTransactionService: Tạo giao dịch khi thay đổi số lượng
+ * - AuditLogService: Ghi log kiểm toán
+ * - RedisIdService: Sinh lot_id tự động
+ */
 import {
   Injectable,
   NotFoundException,
@@ -30,15 +56,24 @@ export class InventoryLotService {
     private readonly redisIdService: RedisIdService,
   ) {}
 
+  /**
+   * Tạo mới một lô hàng
+   * Tự động sinh lot_id nếu không cung cấp (format: LOT-XXX)
+   * Tự động tạo Receipt transaction sau khi tạo lô
+   * 
+   * @param createDto - Dữ liệu tạo lô hàng
+   * @returns InventoryLotResponseDto - Thông tin lô hàng đã tạo
+   * @throws BadRequestException nếu ngày không hợp lệ hoặc số lượng <= 0
+   */
   async create(
     createDto: CreateInventoryLotDto,
   ): Promise<InventoryLotResponseDto> {
-    // Auto-generate lot_id if not provided
+    // Tự động sinh lot_id nếu không cung cấp
     if (!createDto.lot_id) {
       createDto.lot_id = await this.redisIdService.nextId('LOT');
     }
 
-    // Validate dates
+    // Validate ngày: received_date phải trước expiration_date
     if (
       new Date(createDto.received_date) > new Date(createDto.expiration_date)
     ) {
@@ -47,25 +82,25 @@ export class InventoryLotService {
       );
     }
 
-    // Validate quantity
+    // Validate số lượng
     const quantity = createDto.quantity;
     if (quantity <= 0) {
       throw new BadRequestException('Quantity must be greater than 0');
     }
 
-    // For sample lots, parent_lot_id is optional but recommended
+    // Cảnh báo nếu lô mẫu không có parent_lot_id
     if (createDto.is_sample && !createDto.parent_lot_id) {
       console.warn('Sample lot created without parent_lot_id');
     }
 
-    // Set received_by nếu có (giả sử lấy từ createDto hoặc context, ở đây demo hardcode)
+    // Set người nhận hàng
     const lotToCreate = {
       ...createDto,
       received_by: createDto['received_by'] || 'operator1',
     };
     const createdLot = await this.inventoryLotRepository.create(lotToCreate);
 
-    // Create a corresponding receipt transaction for the newly created lot
+    // Tự động tạo giao dịch Receipt cho lô mới
     await this.inventoryTransactionService.create({
       lot_id: createdLot.lot_id,
       transaction_type: TransactionType.Receipt,
@@ -80,6 +115,13 @@ export class InventoryLotService {
     return this.convertToResponse(createdLot);
   }
 
+  /**
+   * Lấy danh sách tất cả lô hàng có phân trang
+   * 
+   * @param page - Số trang (mặc định: 1)
+   * @param limit - Số bản ghi/trang (mặc định: 10)
+   * @returns PaginatedInventoryLotResponse - Dữ liệu phân trang
+   */
   async findAll(
     page: number = 1,
     limit: number = 10,
@@ -100,6 +142,13 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Tìm lô hàng theo lot_id
+   * 
+   * @param lot_id - ID của lô hàng (LOT-XXX)
+   * @returns InventoryLotResponseDto - Thông tin lô hàng
+   * @throws NotFoundException nếu không tìm thấy
+   */
   async findById(lot_id: string): Promise<InventoryLotResponseDto> {
     const lot = await this.inventoryLotRepository.findById(lot_id);
     if (!lot) {
@@ -108,6 +157,14 @@ export class InventoryLotService {
     return this.convertToResponse(lot);
   }
 
+  /**
+   * Tìm lô hàng theo material_id (tất cả lô của một vật tư)
+   * 
+   * @param material_id - ID của vật tư
+   * @param page - Số trang
+   * @param limit - Số bản ghi/trang
+   * @returns PaginatedInventoryLotResponse - Dữ liệu phân trang
+   */
   async findByMaterialId(
     material_id: string,
     page: number = 1,
@@ -130,6 +187,15 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Tìm lô hàng theo trạng thái
+   * 
+   * @param status - Trạng thái lô (Quarantine, Accepted, Rejected, Depleted)
+   * @param page - Số trang
+   * @param limit - Số bản ghi/trang
+   * @returns PaginatedInventoryLotResponse - Dữ liệu phân trang
+   * @throws BadRequestException nếu trạng thái không hợp lệ
+   */
   async findByStatus(
     status: string,
     page: number = 1,
@@ -154,6 +220,13 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Tìm các lô mẫu (is_sample = true)
+   * 
+   * @param page - Số trang
+   * @param limit - Số bản ghi/trang
+   * @returns PaginatedInventoryLotResponse - Dữ liệu phân trang
+   */
   async findSampleLots(
     page: number = 1,
     limit: number = 10,
@@ -168,6 +241,12 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Tìm các lô mẫu của một lô cha
+   * 
+   * @param parent_lot_id - ID lô cha
+   * @returns Danh sách lô mẫu
+   */
   async findSamplesByParentLot(
     parent_lot_id: string,
   ): Promise<InventoryLotResponseDto[]> {
@@ -176,6 +255,15 @@ export class InventoryLotService {
     return lots.map((lot) => this.convertToResponse(lot));
   }
 
+  /**
+   * Tìm kiếm lô hàng theo từ khóa
+   * Tìm trong: manufacturer_name, manufacturer_lot, supplier_name, lot_id
+   * 
+   * @param query - Từ khóa tìm kiếm
+   * @param page - Số trang
+   * @param limit - Số bản ghi/trang
+   * @returns PaginatedInventoryLotResponse - Dữ liệu phân trang
+   */
   async search(
     query: string,
     page: number = 1,
@@ -198,12 +286,20 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Lọc lô hàng theo nhiều tiêu chí
+   * 
+   * @param filter - Các tiêu chí lọc (material_id, status, is_sample, manufacturer_name)
+   * @param page - Số trang
+   * @param limit - Số bản ghi/trang
+   * @returns PaginatedInventoryLotResponse - Dữ liệu phân trang
+   */
   async filterLots(
     filter: InventoryLotSearchParams,
     page: number = 1,
     limit: number = 10,
   ): Promise<PaginatedInventoryLotResponse> {
-    // Validate status if provided
+    // Validate trạng thái nếu có
     if (
       filter.status &&
       !Object.values(InventoryLotStatus).includes(filter.status)
@@ -224,19 +320,33 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Cập nhật lô hàng
+   * Tự động tạo InventoryTransaction nếu số lượng thay đổi
+   * Ghi Audit Log cho các trường được thay đổi
+   * 
+   * @param lot_id - ID lô hàng
+   * @param updateDto - Dữ liệu cập nhật
+   * @param actor - Người thực hiện (tùy chọn)
+   * @param ctx - Context cho audit log (IP, user agent...)
+   * @returns InventoryLotResponseDto - Thông tin lô sau khi cập nhật
+   * @throws NotFoundException nếu không tìm thấy lô
+   * @throws BadRequestException nếu ngày không hợp lệ
+   * @throws ConflictException nếu chuyển đổi trạng thái không hợp lệ
+   */
   async update(
     lot_id: string,
     updateDto: Partial<UpdateInventoryLotDto>,
     actor?: { username: string; user_id?: string },
     ctx: LogContext = {},
   ): Promise<InventoryLotResponseDto> {
-    // Verify lot exists
+    // Kiểm tra lô tồn tại
     const existingLot = await this.inventoryLotRepository.findById(lot_id);
     if (!existingLot) {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
     }
 
-    // Validate: manufacture_date must not be after expiration_date (US09)
+    // Validate: manufacture_date không được sau expiration_date
     const manufactureDate = updateDto.manufacture_date
       ? new Date(updateDto.manufacture_date)
       : existingLot.manufacture_date
@@ -251,7 +361,7 @@ export class InventoryLotService {
       );
     }
 
-    // Validate dates if both provided
+    // Validate ngày nếu cung cấp cả hai
     if (updateDto.received_date && updateDto.expiration_date) {
       if (
         new Date(updateDto.received_date) > new Date(updateDto.expiration_date)
@@ -263,7 +373,7 @@ export class InventoryLotService {
     }
 
     if (updateDto.quantity && updateDto.quantity >= 0) {
-      // Determine quantity change and validate new quantity
+      // Tính toán thay đổi số lượng
       const quantityDelta = updateDto.quantity - existingLot.quantity;
       const quantityChanged = quantityDelta !== 0;
 
@@ -271,7 +381,7 @@ export class InventoryLotService {
         throw new BadRequestException('Quantity cannot be negative');
       }
 
-      // Check if lot would become Depleted
+      // Kiểm tra nếu lô sẽ thành Depleted
       if (
         updateDto.quantity === 0 &&
         existingLot.status !== InventoryLotStatus.DEPLETED
@@ -280,7 +390,7 @@ export class InventoryLotService {
       }
 
       if (quantityChanged) {
-        // Create inventory transaction for quantity change (Receipt if +, Usage if -)
+        // Tạo giao dịch tồn kho cho thay đổi số lượng
         await this.inventoryTransactionService.create({
           lot_id,
           transaction_type:
@@ -296,12 +406,12 @@ export class InventoryLotService {
       }
     }
 
-    // Validate status transitions
+    // Validate chuyển đổi trạng thái
     if (updateDto.status) {
       this.validateStatusTransition(existingLot.status, updateDto.status);
     }
 
-    // Nếu update qc_by thì push vào history và set qc_by
+    // Nếu cập nhật qc_by thì push vào history
     let updateWithTrace = { ...updateDto };
     if (updateDto.qc_by) {
       updateWithTrace = {
@@ -321,7 +431,7 @@ export class InventoryLotService {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
     }
 
-    // Audit log: ghi lại giá trị cũ và mới (US09)
+    // Ghi Audit Log: ghi lại giá trị cũ và mới
     if (actor?.username) {
       const oldValues: Record<string, any> = {};
       const newValues: Record<string, any> = {};
@@ -360,20 +470,29 @@ export class InventoryLotService {
     return this.convertToResponse(updatedLot);
   }
 
+  /**
+   * Cập nhật trạng thái lô hàng
+   * Kiểm tra chuyển đổi trạng thái hợp lệ
+   * Tự động điều chỉnh số lượng nếu đánh dấu Depleted
+   * 
+   * @param lot_id - ID lô hàng
+   * @param newStatus - Trạng thái mới
+   * @returns InventoryLotResponseDto - Thông tin lô sau khi cập nhật
+   */
   async updateStatus(
     lot_id: string,
     newStatus: string,
   ): Promise<InventoryLotResponseDto> {
-    // Verify lot exists
+    // Kiểm tra lô tồn tại
     const existingLot = await this.inventoryLotRepository.findById(lot_id);
     if (!existingLot) {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
     }
 
-    // Validate status transition
+    // Validate chuyển đổi trạng thái
     this.validateStatusTransition(existingLot.status, newStatus);
 
-    // If marking as Depleted but quantity still > 0, adjust quantity and record a Usage transaction.
+    // Nếu đánh dấu Depleted nhưng quantity > 0, tự động tạo Usage transaction
     if (newStatus === InventoryLotStatus.DEPLETED && existingLot.quantity > 0) {
       await this.inventoryLotRepository.update(lot_id, { quantity: 0 });
       await this.inventoryTransactionService.create({
@@ -398,16 +517,25 @@ export class InventoryLotService {
     return this.convertToResponse(updatedLot);
   }
 
+  /**
+   * Xóa lô hàng
+   * Chỉ cho phép xóa khi:
+   * - Lô có trạng thái Quarantine
+   * - Lô chỉ có tối đa 1 giao dịch (là giao dịch Receipt tự động khi tạo)
+   * 
+   * @param lot_id - ID lô hàng
+   * @returns Thông báo xóa thành công
+   * @throws NotFoundException nếu không tìm thấy
+   * @throws ConflictException nếu có giao dịch liên quan hoặc không phải trạng thái Quarantine
+   */
   async delete(lot_id: string): Promise<{ success: boolean; message: string }> {
-    // Verify lot exists
+    // Kiểm tra lô tồn tại
     const lot = await this.inventoryLotRepository.findById(lot_id);
     if (!lot) {
       throw new NotFoundException(`Inventory lot ${lot_id} not found`);
     }
 
-    // Only allow delete when:
-    //  1) there are no related transactions at all
-    //  2) OR the only transaction is the initial receipt created when the lot was created
+    // Chỉ cho phép xóa khi không có giao dịch liên quan (hoặc chỉ có giao dịch Receipt ban đầu)
     const { items: transactions, total } =
       await this.inventoryTransactionService.getAll(
         { lot_id },
@@ -437,7 +565,7 @@ export class InventoryLotService {
       );
     }
 
-    // Remove the auto-created receipt transaction when deleting the lot
+    // Xóa giao dịch Receipt tự động khi xóa lô
     if (isInitialReceipt) {
       await this.inventoryTransactionService.deleteByLotId(lot_id);
     }
@@ -449,6 +577,12 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Lấy danh sách lô sắp hết hạn (trong vòng X ngày tới)
+   * 
+   * @param days - Số ngày (mặc định: 30)
+   * @returns Danh sách lô sắp hết hạn
+   */
   async getExpiringSoon(days: number = 30): Promise<InventoryLotResponseDto[]> {
     if (days < 1 || days > 365) {
       throw new BadRequestException('Days must be between 1 and 365');
@@ -457,11 +591,22 @@ export class InventoryLotService {
     return lots.map((lot) => this.convertToResponse(lot));
   }
 
+  /**
+   * Lấy danh sách lô đã hết hạn
+   * 
+   * @returns Danh sách lô đã hết hạn
+   */
   async getExpiredLots(): Promise<InventoryLotResponseDto[]> {
     const lots = await this.inventoryLotRepository.findExpiredLots();
     return lots.map((lot) => this.convertToResponse(lot));
   }
 
+  /**
+   * Thống kê lô hàng
+   * Bao gồm: tổng số, theo trạng thái, sắp hết hạn, đã hết hạn
+   * 
+   * @returns Object chứa các chỉ số thống kê
+   */
   async getLotsStatistics(): Promise<{
     total: number;
     byStatus: Record<string, number>;
@@ -491,6 +636,14 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Lấy danh sách lô hàng dạng options (cho dropdown)
+   * 
+   * @param options - Các tùy chọn lọc
+   * @param page - Số trang
+   * @param limit - Số bản ghi/trang
+   * @returns Danh sách lô với thông tin cơ bản
+   */
   async getOptions(
     options: {
       q?: string;
@@ -530,18 +683,25 @@ export class InventoryLotService {
 
   // ==================== Private Helper Methods ====================
 
+  /**
+   * Kiểm tra chuyển đổi trạng thái lô hàng có hợp lệ không
+   * 
+   * Quy tắc chuyển đổi:
+   * - Quarantine → Accepted, Rejected, Depleted
+   * - Accepted → Depleted, Rejected (khi retest fail)
+   * - Rejected → Không thể thay đổi (terminal state)
+   * - Depleted → Không thể thay đổi (terminal state)
+   * 
+   * @param currentStatus - Trạng thái hiện tại
+   * @param newStatus - Trạng thái mới
+   * @throws ConflictException nếu chuyển đổi không hợp lệ
+   */
   private validateStatusTransition(
     currentStatus: string,
     newStatus: string,
   ): void {
-    // Valid transitions:
-    // Quarantine → Accepted, Rejected, Depleted
-    // Accepted → Depleted, Rejected (on retest failure)
-    // Rejected → permanent (cannot change)
-    // Depleted → permanent (cannot change)
-
     if (currentStatus === newStatus) {
-      return; // Same status is allowed
+      return; // Cho phép cập nhật cùng trạng thái
     }
 
     const allowedTransitions: Record<string, string[]> = {
@@ -554,8 +714,8 @@ export class InventoryLotService {
         InventoryLotStatus.DEPLETED,
         InventoryLotStatus.REJECTED,
       ],
-      [InventoryLotStatus.REJECTED]: [], // Terminal state
-      [InventoryLotStatus.DEPLETED]: [], // Terminal state
+      [InventoryLotStatus.REJECTED]: [], // Trạng thái cuối
+      [InventoryLotStatus.DEPLETED]: [], // Trạng thái cuối
     };
 
     if (
@@ -571,8 +731,8 @@ export class InventoryLotService {
   // ==================== QC-Test Integration Methods ====================
 
   /**
-   * Get multiple lots by their IDs
-   * Used by qc-test.service.ts → getSupplierPerformance()
+   * Lấy nhiều lô hàng theo danh sách ID
+   * Dùng cho qc-test.service.ts → getSupplierPerformance()
    */
   async getLotsByIds(lot_ids: string[]): Promise<InventoryLotResponseDto[]> {
     if (!lot_ids || lot_ids.length === 0) {
@@ -583,9 +743,8 @@ export class InventoryLotService {
   }
 
   /**
-   * Get lots by status (without pagination)
-   * Alias for findByStatus to support legacy qc-test code
-   * Returns FULL list without pagination
+   * Lấy lô hàng theo trạng thái (không phân trang)
+   * Alias cho findByStatus để hỗ trợ code QC cũ
    */
   async getLotsByStatus(status: string): Promise<InventoryLotResponseDto[]> {
     if (
@@ -593,7 +752,6 @@ export class InventoryLotService {
     ) {
       throw new BadRequestException(`Invalid status: ${status}`);
     }
-    // Get all records by fetching with high limit
     const { data } = await this.inventoryLotRepository.findByStatus(
       status,
       1,
@@ -603,8 +761,8 @@ export class InventoryLotService {
   }
 
   /**
-   * Bulk update multiple lots to Quarantine status
-   * Used by QC pages for bulk actions
+   * Cập nhật hàng loạt nhiều lô sang trạng thái Quarantine
+   * Dùng cho QC pages cho bulk actions
    */
   async bulkQuarantine(
     lot_ids: string[],
@@ -613,7 +771,7 @@ export class InventoryLotService {
       throw new BadRequestException('No lots provided');
     }
 
-    // Validate all lots exist
+    // Validate tất cả lô tồn tại
     const lots = await this.getLotsByIds(lot_ids);
     if (lots.length !== lot_ids.length) {
       throw new NotFoundException(
@@ -621,7 +779,7 @@ export class InventoryLotService {
       );
     }
 
-    // Update to Quarantine status
+    // Cập nhật sang trạng thái Quarantine
     const result = await this.inventoryLotRepository.updateStatusByIds(
       lot_ids,
       InventoryLotStatus.QUARANTINE,
@@ -633,6 +791,9 @@ export class InventoryLotService {
     };
   }
 
+  /**
+   * Chuyển đổi từ InventoryLot Document sang InventoryLotResponseDto
+   */
   private convertToResponse(lot: InventoryLot): InventoryLotResponseDto {
     return {
       lot_id: lot.lot_id,

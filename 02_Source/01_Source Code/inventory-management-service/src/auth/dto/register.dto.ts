@@ -1,3 +1,7 @@
+/**
+ * RegisterDto - DTO cho request tự đăng ký tài khoản
+ * User tự đăng ký sẽ được gán role Operator mặc định
+ */
 import {
   IsString,
   IsNotEmpty,
@@ -6,6 +10,7 @@ import {
   MaxLength,
 } from 'class-validator';
 
+/** DTO dùng khi user tự đăng ký tài khoản mới (chỉ role Operator) */
 export class RegisterDto {
   @IsString()
   @IsNotEmpty({ message: 'Username không được để trống' })

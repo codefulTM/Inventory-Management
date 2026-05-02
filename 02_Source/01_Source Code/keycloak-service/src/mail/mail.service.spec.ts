@@ -1,3 +1,15 @@
+/**
+ * File: mail.service.spec.ts
+ * Mô tả: Unit tests cho MailService trong keycloak-service.
+ *
+ * Kiểm tra:
+ * - Sinh mật khẩu tạm thời đúng định dạng (chữ hoa, số, ký tự đặc biệt)
+ * - Gửi email đặt lại mật khẩu đúng nội dung và link
+ * - Gửi email tạo tài khoản mới đúng thông tin
+ * - Xử lý lỗi khi SMTP thất bại (không throw, chỉ log error)
+ *
+ * Mock: nodemailer được mock để không gửi email thật khi test.
+ */
 const sendMailMock = jest.fn();
 
 jest.mock("nodemailer", () => ({
@@ -15,6 +27,7 @@ describe("MailService (keycloak-service)", () => {
     process.env.MAIL_PASS = "secret";
   });
 
+  /** Kiểm tra mật khẩu tạm sinh ra đủ phức tạp: có chữ hoa, số, ký tự đặc biệt */
   it("generateTempPassword -> contains uppercase, digit and special char", () => {
     const svc = new MailService();
     const pw = svc.generateTempPassword();
@@ -25,6 +38,7 @@ describe("MailService (keycloak-service)", () => {
     expect(/[@#$!]/.test(pw)).toBeTruthy();
   });
 
+  /** Kiểm tra email đặt lại mật khẩu chứa đúng link reset và subject */
   it("sendResetPasswordEmail -> calls transporter.sendMail with reset link", async () => {
     sendMailMock.mockResolvedValue({});
     const svc = new MailService();
@@ -38,6 +52,7 @@ describe("MailService (keycloak-service)", () => {
     expect(arg.html).toContain(link);
   });
 
+  /** Kiểm tra email tạo tài khoản mới chứa đúng username và mật khẩu tạm */
   it("sendNewAccountEmail -> includes temp password and username", async () => {
     sendMailMock.mockResolvedValue({});
     const svc = new MailService();
@@ -53,6 +68,7 @@ describe("MailService (keycloak-service)", () => {
     expect(arg.html).toContain(temp);
   });
 
+  /** Kiểm tra khi SMTP lỗi, service log error nhưng không throw exception */
   it("logs error when transporter.sendMail rejects", async () => {
     sendMailMock.mockRejectedValue(new Error("SMTP down"));
     const svc = new MailService();

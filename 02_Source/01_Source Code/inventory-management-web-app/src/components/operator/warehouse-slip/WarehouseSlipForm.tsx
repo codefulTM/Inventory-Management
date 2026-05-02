@@ -1,3 +1,9 @@
+// File: components/operator/warehouse-slip/WarehouseSlipForm.tsx
+// Form tạo phiếu nhập/xuất kho (Warehouse Slip)
+// Hỗ trợ thêm nhiều dòng hàng (material/lot/quantity)
+// Tích hợp tìm kiếm kho, lô hàng có phân trang
+// Validate nguyên liệu phải được duyệt trước khi tạo phiếu
+
 import React, { useState, useEffect } from "react";
 import {
   useForm,

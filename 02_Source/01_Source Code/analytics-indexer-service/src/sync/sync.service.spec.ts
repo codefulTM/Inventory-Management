@@ -1,3 +1,14 @@
+/**
+ * File: sync/sync.service.spec.ts
+ * Mục đích: Unit tests cho SyncService
+ * 
+ * Kiểm tra các chức năng chính của SyncService:
+ * - runFullSync: Chạy đồng bộ đầy đủ với dry-run, template setup
+ * - inspectWatermarks/resetWatermarks: Ủy thác cho watermark service
+ * - runCountChecks: So sánh số lượng bản ghi giữa MongoDB và Elasticsearch
+ * 
+ * Sử dụng mock objects cho tất cả dependencies (watermark, ES client, config)
+ */
 import { SyncService } from './sync.service';
 
 describe('SyncService', () => {

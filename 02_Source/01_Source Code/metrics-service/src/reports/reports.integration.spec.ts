@@ -1,19 +1,26 @@
-/**
- * Integration tests — metrics-service ReportsRepository + ReportsService
- *
- * Tests the full data transformation pipeline:
- *   ReportsRepository (ES aggregation parsing) → ReportsService (DTO assembly)
- *
- * Uses a mocked Elasticsearch client that returns realistic aggregation payloads.
- * No real ES cluster required.
- */
+// =============================================================================
+// File: reports/reports.integration.spec.ts
+// Mục đích: Integration tests cho ReportsRepository + ReportsService
+// 
+// Mục tiêu test:
+// - Kiểm tra pipeline xử lý dữ liệu: Repository (parse ES aggregations) 
+//   → Service (tổng hợp DTOs)
+// - Đảm bảo các Elasticsearch queries đúng indices và parameters
+// - Kiểm tra tính toán đúng (quality_rate, pagination, date handling)
+// 
+// Chiến lược: Mock Elasticsearch Client để trả về dữ liệu giả lập
+// → Không cần Elasticsearch cluster thật để chạy test
+// =============================================================================
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportsService } from './reports.service';
 import { ReportsRepository } from './repositories/reports.repository';
 import { ELASTICSEARCH_CLIENT } from '../elasticsearch/elasticsearch.constants';
 
-// ── Realistic ES aggregation response stubs ────────────────────────────────
+// ── Các ES response giả lập (stubs) ─────────────────────────────────────
 
+// Giả lập phản hồi từ inventory_lots_* index
+// Có 2 status buckets: Accepted (3 lots) và Quarantine (1 lot)
 const inventoryStatusEsResponse = {
   aggregations: {
     by_status: {
@@ -49,6 +56,8 @@ const inventoryStatusEsResponse = {
   },
 };
 
+// Giả lập phản hồi từ inventory_transactions_* index
+// 2 materials: MAT-001 (10 giao dịch, 1000 qty), MAT-002 (5 giao dịch, 500 qty)
 const materialUsageEsResponse = {
   aggregations: {
     by_material: {
@@ -60,6 +69,8 @@ const materialUsageEsResponse = {
   },
 };
 
+// Giả lập phản hồi từ qc_tests_* index
+// 2 suppliers: ABC Corp (9 Pass, 1 Fail), XYZ Ltd (3 Accepted, 1 Rejected)
 const qcPerformanceEsResponse = {
   aggregations: {
     by_supplier: {
@@ -89,6 +100,8 @@ const qcPerformanceEsResponse = {
   },
 };
 
+// Giả lập phản hồi từ inventory_audit_reports_* index
+// 2 audit entries: UPDATE InventoryLot và CREATE Material
 const auditReportEsResponse = {
   hits: {
     hits: [
@@ -114,11 +127,15 @@ const auditReportEsResponse = {
   },
 };
 
+// =============================================================================
+// Test Suite Chính
+// =============================================================================
 describe('ReportsRepository + ReportsService (integration)', () => {
   let service: ReportsService;
   let repository: ReportsRepository;
   let mockEsClient: { search: jest.Mock };
 
+  // Setup: khởi tạo NestJS testing module với mocked ES client
   beforeEach(async () => {
     mockEsClient = { search: jest.fn() };
 
@@ -134,11 +151,14 @@ describe('ReportsRepository + ReportsService (integration)', () => {
     repository = testModule.get<ReportsRepository>(ReportsRepository);
   });
 
+  // Cleanup: xóa tất cả mock calls sau mỗi test
   afterEach(() => jest.clearAllMocks());
 
-  // ── getInventoryStatus ──────────────────────────────────────────────────
-
+  // =========================================================================
+  // Test Cases cho getInventoryStatusReport
+  // =========================================================================
   describe('getInventoryStatusReport', () => {
+    // Mock ES response cho mỗi test trong block này
     beforeEach(() => {
       mockEsClient.search.mockResolvedValue(inventoryStatusEsResponse);
     });
@@ -185,8 +205,9 @@ describe('ReportsRepository + ReportsService (integration)', () => {
     });
   });
 
-  // ── getMaterialUsage ────────────────────────────────────────────────────
-
+  // =========================================================================
+  // Test Cases cho getMaterialUsageReport
+  // =========================================================================
   describe('getMaterialUsageReport', () => {
     beforeEach(() => {
       mockEsClient.search.mockResolvedValue(materialUsageEsResponse);
@@ -235,8 +256,9 @@ describe('ReportsRepository + ReportsService (integration)', () => {
     });
   });
 
-  // ── getQcPerformance ────────────────────────────────────────────────────
-
+  // =========================================================================
+  // Test Cases cho getQcPerformanceReport
+  // =========================================================================
   describe('getQcPerformanceReport', () => {
     beforeEach(() => {
       mockEsClient.search.mockResolvedValue(qcPerformanceEsResponse);
@@ -281,8 +303,9 @@ describe('ReportsRepository + ReportsService (integration)', () => {
     });
   });
 
-  // ── getAuditReport ──────────────────────────────────────────────────────
-
+  // =========================================================================
+  // Test Cases cho getAuditReport
+  // =========================================================================
   describe('getAuditReport', () => {
     beforeEach(() => {
       mockEsClient.search.mockResolvedValue(auditReportEsResponse);

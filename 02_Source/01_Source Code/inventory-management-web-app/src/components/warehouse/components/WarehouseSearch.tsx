@@ -1,13 +1,18 @@
+// File: components/warehouse/components/WarehouseSearch.tsx
+// Component tìm kiếm kho theo từ khóa
+// Cho phép nhập từ khóa và gọi callback onResult để filter dữ liệu
+
 import React, { useState } from "react";
 
 interface Props {
-  onResult?: (q: string) => void;
+  onResult?: (q: string) => void; // Callback trả về từ khóa tìm kiếm
 }
 
 export const WarehouseSearch: React.FC<Props> = ({ onResult }) => {
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(""); // Từ khóa tìm kiếm
   const [loading, setLoading] = useState(false);
 
+  // Xử lý tìm kiếm
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setLoading(true);
@@ -18,6 +23,7 @@ export const WarehouseSearch: React.FC<Props> = ({ onResult }) => {
     }
   };
 
+  // Xử lý xóa từ khóa tìm kiếm
   const handleClear = () => {
     setQ("");
     if (onResult) onResult("");
@@ -35,6 +41,7 @@ export const WarehouseSearch: React.FC<Props> = ({ onResult }) => {
             className="w-full px-4 py-3 pr-10 border-2 border-gray-200 rounded-lg text-base transition-all focus:outline-none focus:border-blue-600 focus:shadow-md focus:shadow-blue-100"
             autoComplete="off"
           />
+          {/* Nút xóa từ khóa */}
           {q && (
             <button
               className="absolute right-3 top-1/2 -translate-y-1/2 bg-none border-none text-lg text-gray-400 cursor-pointer px-2 py-1 transition-colors hover:text-gray-800"
@@ -47,6 +54,7 @@ export const WarehouseSearch: React.FC<Props> = ({ onResult }) => {
         </div>
 
         <div className="flex gap-2">
+          {/* Nút tìm kiếm */}
           <button
             className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium"
             onClick={(e) => handleSearch(e)}
@@ -54,6 +62,7 @@ export const WarehouseSearch: React.FC<Props> = ({ onResult }) => {
           >
             Tìm
           </button>
+          {/* Nút xóa filter */}
           <button
             className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded text-sm font-medium"
             onClick={handleClear}

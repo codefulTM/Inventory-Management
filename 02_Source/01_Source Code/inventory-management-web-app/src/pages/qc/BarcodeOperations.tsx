@@ -23,40 +23,74 @@ import DownloadIcon from '@mui/icons-material/Download';
 import SearchIcon from '@mui/icons-material/Search';
 import axios from 'axios';
 
+/**
+ * Kết quả truy vấn mã vạch - Chứa thông tin chi tiết của lô hàng
+ * Được sử dụng để hiển thị thông tin khi quét/tra cứu mã vạch
+ */
 interface QueryResult {
-  lot_id: string;
-  material_id: string;
-  quantity: number;
-  unit: string;
-  status: string;
-  location?: string;
-  received_date: string | Date;
-  expiration_date: string | Date;
+  lot_id: string;         // Mã lô hàng
+  material_id: string;    // Mã nguyên liệu/sản phẩm
+  quantity: number;        // Số lượng trong lô
+  unit: string;           // Đơn vị tính
+  status: string;         // Trạng thái lô: Accepted/Rejected/Quarantine/Hold
+  location?: string;       // Vị trí lưu kho
+  received_date: string | Date;    // Ngày nhập kho
+  expiration_date: string | Date;  // Ngày hết hạn
 }
 
+/**
+ * Props cho component TabPanel - Hiển thị nội dung theo tab được chọn
+ */
 interface TabPanelProps {
   children?: React.ReactNode;
-  index: number;
-  value: number;
+  index: number;    // Chỉ số tab
+  value: number;    // Giá trị tab hiện tại
 }
 
+/**
+ * Component TabPanel - Chỉ hiển thị nội dung khi tab tương ứng được chọn
+ * Sử dụng cho 2 tab: Quét mã vạch (US41) và Tải mã vạch (US40)
+ */
 function TabPanel(props: TabPanelProps) {
   const { children, value, index } = props;
   return value === index ? <Box sx={{ pt: 3 }}>{children}</Box> : null;
 }
 
+/**
+ * BarcodeOperations Component - Quản lý thao tác mã vạch cho QC
+ * 
+ * Chức năng chính:
+ * - US40: Tải mã vạch (Barcode) để in ấn - Dùng cho dán nhãn lô hàng
+ * - US41: Quét/Tra cứu mã vạch - Xem thông tin nhanh của lô hàng
+ * 
+ * Quy trình:
+ * 1. Tab Quét/Tra cứu: Nhập mã vạch → Gọi API → Hiển thị thông tin lô
+ * 2. Tab Tải mã vạch: Nhập mã lô → Tải file PNG mã vạch (CODE128)
+ */
 const BarcodeOperations: React.FC = () => {
+  // Quản lý tab hiện tại: 0 = Quét/Tra cứu, 1 = Tải mã vạch
   const [tabIndex, setTabIndex] = useState(0);
-  const [barcodeInput, setBarcodeInput] = useState('');
-  const [lotIdDownload, setLotIdDownload] = useState('');
-  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  
+  // State cho tab Quét/Tra cứu (US41)
+  const [barcodeInput, setBarcodeInput] = useState('');      // Giá trị mã vạch nhập vào
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);  // Kết quả truy vấn
+  
+  // State cho tab Tải mã vạch (US40)
+  const [lotIdDownload, setLotIdDownload] = useState('');    // Mã lô cần tải mã vạch
+  
+  // State chung
+  const [error, setError] = useState('');       // Thông báo lỗi
+  const [loading, setLoading] = useState(false); // Trạng thái đang tải
 
+  // Cấu hình API
   const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
   const token = localStorage.getItem('access_token');
 
-  // US41: Query by barcode/scan
+  /**
+   * US41: Xử lý tra cứu mã vạch
+   * Quy trình: Nhập mã vạch → Gọi API /api/barcode/query → Hiển thị thông tin lô
+   * Sử dụng: Kiểm tra nhanh thông tin lô hàng khi nhận hàng hoặc trong kho
+   */
   const handleQueryBarcode = async () => {
     if (!barcodeInput.trim()) {
       setError('Please enter a barcode');
@@ -88,8 +122,14 @@ const BarcodeOperations: React.FC = () => {
     }
   };
 
-  // US40: Download barcode
+  /**
+   * US40: Tải mã vạch để in ấn
+   * Quy trình: Nhập mã lô → Gọi API /api/barcode/download/:lotId → Tải file PNG
+   * Định dạng: CODE128 (mặc định), có thể dùng EAN13, QR Code
+   * Sử dụng: In nhãn dán lên lô hàng, quét khi xuất/nhập kho
+   */
   const handleDownloadBarcode = async () => {
+    // Kiểm tra đầu vào: mã lô không được để trống
     if (!lotIdDownload.trim()) {
       setError('Please enter a lot ID');
       return;
@@ -99,22 +139,25 @@ const BarcodeOperations: React.FC = () => {
     setError('');
 
     try {
+      // Gọi API tải mã vạch - responseType 'blob' để nhận file nhị phân
       const response = await axios.get(
         `${apiBaseUrl}/api/barcode/download/${lotIdDownload}?format=png&type=code128`,
         {
           headers: { Authorization: `Bearer ${token}` },
-          responseType: 'blob',
+          responseType: 'blob',  // Nhận dữ liệu dạng file
         },
       );
 
+      // Tạo URL từ blob và kích hoạt tải xuống
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `barcode_${lotIdDownload}.png`);
       document.body.appendChild(link);
       link.click();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(url);  // Giải phóng bộ nhớ
     } catch (err: unknown) {
+      // Xử lý lỗi từ API
       const axiosError = err as { response?: { data?: { message?: string } } };
       setError(axiosError.response?.data?.message || 'Failed to download barcode');
     } finally {
@@ -122,19 +165,28 @@ const BarcodeOperations: React.FC = () => {
     }
   };
 
+  /**
+   * Giao diện chính của trang Barcode Operations
+   * Gồm 2 tab:
+   * 1. Quét/Tra cứu mã vạch (US41) - Tìm kiếm thông tin lô hàng
+   * 2. Tải mã vạch (US40) - Tải về file PNG để in ấn
+   */
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Tiêu đề trang - Hiển thị chức năng US40 và US41 */}
       <h1>Barcode Operations (US40 & US41)</h1>
       <p>Download barcodes for printing or scan to query lot information</p>
 
+      {/* Hiển thị thông báo lỗi nếu có */}
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
+      {/* Thanh Tab chuyển đổi giữa 2 chức năng */}
       <Tabs value={tabIndex} onChange={(_e, val) => setTabIndex(val)} sx={{ mb: 3 }}>
         <Tab label="Scan/Query Barcode (US41)" />
         <Tab label="Download Barcode (US40)" />
       </Tabs>
 
-      {/* US41: Query/Scan */}
+      {/* US41: Tab Quét/Tra cứu mã vạch - Tìm kiếm thông tin lô hàng */}
       <TabPanel value={tabIndex} index={0}>
         <Card>
           <CardContent>

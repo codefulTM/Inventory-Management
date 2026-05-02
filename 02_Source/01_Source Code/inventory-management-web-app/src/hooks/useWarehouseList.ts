@@ -1,3 +1,11 @@
+/**
+ * Hook useWarehouseList - Quản lý danh sách kho hàng
+ * Chức năng: Tự động tải và quản lý danh sách kho với phân trang
+ * @param initialPage - Trang bắt đầu (mặc định: 1)
+ * @param initialLimit - Số bản ghi mỗi trang (mặc định: 20)
+ * @returns warehouses (danh sách), total (tổng), page, limit, loading, error
+ * và các hàm: nextPage, previousPage, setLimit, refetch, upsertWarehouse, removeWarehouse
+ */
 import { useState, useEffect, useCallback } from "react";
 import type { Warehouse, PaginatedWarehouseResponse } from "../types/warehouse";
 import warehouseService from "../services/warehouseService";
@@ -10,6 +18,7 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Hàm tải danh sách kho từ API
   const fetch = useCallback(async (p = page, l = limit) => {
     try {
       setLoading(true);
@@ -34,17 +43,21 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
     fetch(page, limit);
   }, [page, limit, fetch]);
 
+  // Kiểm tra có trang tiếp theo và trang trước đó không
   const hasNextPage = page * limit < total;
   const hasPreviousPage = page > 1;
 
+  // Chuyển đến trang tiếp theo
   const nextPage = useCallback(() => {
     if (hasNextPage) setPage((p) => p + 1);
   }, [hasNextPage]);
 
+  // Chuyển đến trang trước đó
   const previousPage = useCallback(() => {
     if (hasPreviousPage) setPage((p) => p - 1);
   }, [hasPreviousPage]);
 
+  // Đặt lại số bản ghi mỗi trang (tối đa 100)
   const setLimit = useCallback((l: number) => {
     if (l > 0 && l <= 100) {
       setLimitState(l);
@@ -52,8 +65,10 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
     }
   }, []);
 
+  // Tải lại dữ liệu
   const refetch = useCallback(() => fetch(page, limit), [fetch, page, limit]);
 
+  // Thêm mới hoặc cập nhật kho trong danh sách local
   const upsertWarehouse = useCallback((w: Warehouse) => {
     setWarehouses((prev) => {
       const idx = prev.findIndex((x) => x._id === w._id);
@@ -67,6 +82,7 @@ export const useWarehouseList = (initialPage = 1, initialLimit = 20) => {
     });
   }, []);
 
+  // Xóa kho khỏi danh sách local
   const removeWarehouse = useCallback((id: string) => {
     setWarehouses((prev) => {
       const next = prev.filter((x) => x._id !== id);

@@ -1,16 +1,25 @@
+/**
+ * LoadingAndError - Component hiển thị trạng thái tải hoặc lỗi
+ * Chức năng: Hiển thị spinner khi đang tải dữ liệu
+ * Hiển thị thông báo lỗi và nút thử lại khi có lỗi
+ * Không hiển thị gì nếu không tải và không lỗi
+ */
 import { AlertCircle, Loader } from "lucide-react";
 
+/** Props cho component LoadingAndError */
 interface LoadingAndErrorProps {
-  isLoading: boolean;
-  error: string | null;
-  onRetry: () => void;
+  isLoading: boolean;      // Đang tải dữ liệu hay không
+  error: string | null;    // Thông báo lỗi (null nếu không có)
+  onRetry: () => void;    // Hàm thử lại khi có lỗi
 }
 
+/** Component chính: Hiển thị trạng thái tải hoặc lỗi */
 export function LoadingAndError({
   isLoading,
   error,
   onRetry,
 }: LoadingAndErrorProps) {
+  // Hiển thị spinner khi đang tải
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8 bg-white rounded-xl border border-gray-100">
@@ -20,6 +29,7 @@ export function LoadingAndError({
     );
   }
 
+  // Hiển thị thông báo lỗi và nút thử lại
   if (error) {
     return (
       <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
@@ -36,6 +46,6 @@ export function LoadingAndError({
       </div>
     );
   }
-
+  // Không hiển thị gì nếu không tải và không lỗi
   return null;
 }

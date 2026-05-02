@@ -1,3 +1,24 @@
+/**
+ * File: keycloak.service.ts
+ * Mô tả: Service đóng vai trò cầu nối giữa ứng dụng và Keycloak Identity Provider.
+ *
+ * Chức năng chính:
+ * - Xác thực admin để gọi Keycloak Admin REST API (getAdminToken)
+ * - Đăng nhập user thông qua OAuth2 password grant (loginUser)
+ * - Quản lý user: tạo, cập nhật, xóa, đặt lại mật khẩu
+ * - Quản lý roles: gán realm roles cho user
+ * - Token management: refresh, logout, introspect
+ *
+ * Cấu hình thông qua environment variables:
+ * - KEYCLOAK_SERVER_URL: URL của Keycloak server (mặc định: http://localhost:8080)
+ * - KEYCLOAK_REALM: Tên realm (mặc định: inventory)
+ * - KEYCLOAK_ADMIN_CLIENT_ID/SECRET: Credentials cho admin operations
+ * - KEYCLOAK_LOGIN_CLIENT_ID/SECRET: Credentials cho user login (Direct Access Grants)
+ *
+ * Luồng xác thực admin:
+ * - Nếu có admin user/password → dùng password grant với master realm (admin-cli)
+ * - Nếu không → dùng client_credentials grant với current realm
+ */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
@@ -7,50 +28,60 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+/**
+ * Interface: Phản hồi từ Keycloak token endpoint
+ */
 export interface KeycloakTokenResponse {
-  access_token: string;
-  expires_in: number;
-  refresh_expires_in: number;
-  refresh_token: string;
-  token_type: string;
-  session_state: string;
-  scope: string;
+  access_token: string;        // JWT access token
+  expires_in: number;          // Thời gian hết hạn (giây)
+  refresh_expires_in: number;   // Thời gian hết hạn của refresh token
+  refresh_token: string;        // Refresh token để làm mới access token
+  token_type: string;           // Loại token (thường là "bearer")
+  session_state: string;        // Trạng thái phiên làm việc
+  scope: string;                // Phạm vi của token
 }
 
+/**
+ * Interface: Thông tin user từ Keycloak Admin API
+ */
 export interface KeycloakUserRepresentation {
-  id: string;
-  username: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  enabled: boolean;
-  emailVerified?: boolean;
-  attributes?: Record<string, string[]>;
-  realmRoles?: string[];
-  clientRoles?: Record<string, string[]>;
-  credentials?: Array<{
+  id: string;                           // Keycloak user ID (UUID)
+  username: string;                      // Tên đăng nhập
+  email: string;                         // Email
+  firstName?: string;                    // Tên
+  lastName?: string;                     // Họ
+  enabled: boolean;                      // Tài khoản có được kích hoạt không
+  emailVerified?: boolean;               // Email đã được xác thực chưa
+  attributes?: Record<string, string[]>; // Thuộc tính tùy chỉnh (vd: role)
+  realmRoles?: string[];                 // Realm roles
+  clientRoles?: Record<string, string[]>; // Client roles
+  credentials?: Array<{                  // Thông tin xác thực
     type: string;
     value: string;
     temporary: boolean;
   }>;
-  requiredActions?: string[];
+  requiredActions?: string[];            // Các hành động yêu cầu (vd: đổi mật khẩu)
 }
 
+/**
+ * Interface: JWT payload từ Keycloak (dùng để xác thực token)
+ */
 export interface KeycloakJwtPayload {
-  sub: string;
-  preferred_username?: string;
-  username?: string;
-  email?: string;
-  realm_access?: { roles: string[] };
-  resource_access?: Record<string, { roles: string[] }>;
-  exp: number;
-  iat: number;
+  sub: string;                           // User ID (subject)
+  preferred_username?: string;            // Tên đăng nhập ưa thích
+  username?: string;                      // Tên đăng nhập
+  email?: string;                         // Email
+  realm_access?: { roles: string[] };    // Realm roles
+  resource_access?: Record<string, { roles: string[] }>; // Client roles
+  exp: number;                           // Thời điểm hết hạn
+  iat: number;                           // Thời điểm phát hành
 }
 
 @Injectable()
 export class KeycloakService {
   private readonly logger = new Logger(KeycloakService.name);
 
+  // Cấu hình Keycloak từ environment variables
   private readonly serverUrl: string;
   private readonly realm: string;
   private readonly adminClientId: string;
@@ -61,6 +92,7 @@ export class KeycloakService {
   private readonly loginClientId: string;
   private readonly loginClientSecret: string;
 
+  // Cache admin token để tránh gọi lại nhiều lần
   private adminToken: string | null = null;
   private adminTokenExpiry = 0;
 
@@ -94,42 +126,53 @@ export class KeycloakService {
     );
   }
 
+  /** URL của realm hiện tại */
   get realmUrl(): string {
     return `${this.serverUrl}/realms/${this.realm}`;
   }
 
+  /** Base URL cho Keycloak Admin API */
   get adminBaseUrl(): string {
     return `${this.serverUrl}/admin/realms/${this.realm}`;
   }
 
+  /** Token endpoint cho việc xác thực user (password grant) */
   get tokenEndpoint(): string {
     return `${this.realmUrl}/protocol/openid-connect/token`;
   }
 
-  /** Token endpoint for Keycloak master realm (used for admin user login). */
+  /** Token endpoint cho master realm (dùng cho admin user login) */
   get masterTokenEndpoint(): string {
     return `${this.serverUrl}/realms/master/protocol/openid-connect/token`;
   }
 
+  /** JWKS URI để lấy public keys xác thực JWT */
   get jwksUri(): string {
     return `${this.realmUrl}/protocol/openid-connect/certs`;
   }
 
+  /**
+   * Lấy admin access token để gọi Keycloak Admin REST API
+   * Sử dụng cache: chỉ gọi lại khi token sắp hết hạn (còn < 60 giây)
+   *
+   * Luồng:
+   * - Nếu có adminUser/adminPassword → dùng password grant với master realm
+   * - Nếu không → dùng client_credentials grant với current realm
+   */
   async getAdminToken(): Promise<string> {
     const now = Date.now();
+    // Trả về token từ cache nếu còn hạn
     if (this.adminToken && this.adminTokenExpiry > now + 60_000) {
       return this.adminToken;
     }
 
     const body = new URLSearchParams();
-    // Use password grant with admin credentials if available (avoids Keycloak
-    // service-account scope limitations on Admin REST API calls).
-    // Admin user lives in the master realm → use admin-cli (public client).
-    // Fall back to client_credentials against the current realm if no admin
-    // user is configured.
+    // Use password grant with admin credentials if available (tránh hạn chế scope của service account)
+    // Admin user sống trong master realm → dùng admin-cli (public client).
+    // Fall back to client_credentials against the current realm if no admin user is configured.
     if (this.adminUser && this.adminPassword) {
       body.set('grant_type', 'password');
-      body.set('client_id', 'admin-cli'); // always master realm public client
+      body.set('client_id', 'admin-cli'); // luôn dùng public client của master realm
       body.set('username', this.adminUser);
       body.set('password', this.adminPassword);
     } else {
@@ -138,9 +181,7 @@ export class KeycloakService {
       body.set('client_secret', this.adminClientSecret);
     }
 
-    // Determine which endpoint to use:
-    // - Admin user (password grant) → master realm token endpoint
-    // - Service account (client_credentials) → current realm token endpoint
+    // Xác định endpoint cần gọi
     const usePasswordGrant = !!(this.adminUser && this.adminPassword);
     const endpoint = usePasswordGrant
       ? this.masterTokenEndpoint
@@ -175,6 +216,12 @@ export class KeycloakService {
     }
   }
 
+  /**
+   * Đăng nhập user qua Keycloak (password grant)
+   * @param username - Tên đăng nhập
+   * @param password - Mật khẩu
+   * @returns KeycloakTokenResponse chứa access_token, refresh_token, etc.
+   */
   async loginUser(
     username: string,
     password: string,
@@ -210,13 +257,13 @@ export class KeycloakService {
           parsed.error === 'invalid_client'
         ) {
           throw new InternalServerErrorException(
-            `Cau hinh Keycloak client khong hop le (client_id=${this.loginClientId}). Kiem tra KEYCLOAK_LOGIN_CLIENT_ID/KEYCLOAK_LOGIN_CLIENT_SECRET va bat Direct Access Grants trong Keycloak client.`,
+            `Cấu hình Keycloak client không hợp lệ (client_id=${this.loginClientId}). Kiểm tra KEYCLOAK_LOGIN_CLIENT_ID/KEYCLOAK_LOGIN_CLIENT_SECRET và bật Direct Access Grants trong Keycloak client.`,
           );
         }
 
         if (parsed.error === 'invalid_grant') {
           throw new UnauthorizedException(
-            'Ten dang nhap hoac mat khau khong dung',
+            'Tên đăng nhập hoặc mật khẩu không đúng',
           );
         }
       } catch (error) {
@@ -234,6 +281,11 @@ export class KeycloakService {
     return res.json() as Promise<KeycloakTokenResponse>;
   }
 
+  /**
+   * Làm mới access_token bằng refresh_token
+   * @param refreshToken - Refresh token từ client
+   * @returns KeycloakTokenResponse mới
+   */
   async refreshToken(refreshToken: string): Promise<KeycloakTokenResponse> {
     const body = new URLSearchParams();
     body.set('grant_type', 'refresh_token');
@@ -259,6 +311,10 @@ export class KeycloakService {
     return res.json() as Promise<KeycloakTokenResponse>;
   }
 
+  /**
+   * Đăng xuất - thu hồi refresh_token tại Keycloak
+   * @param refreshToken - Refresh token cần thu hồi
+   */
   async logoutUser(refreshToken: string): Promise<void> {
     const logoutUrl = `${this.realmUrl}/protocol/openid-connect/logout`;
     const body = new URLSearchParams();
@@ -276,6 +332,16 @@ export class KeycloakService {
     });
   }
 
+  /**
+   * Tạo user mới trong Keycloak
+   * @param data - Thông tin user (username, email, password, role)
+   * @returns Keycloak user ID (UUID)
+   *
+   * Quy trình:
+   * 1. Gọi Admin API để tạo user
+   * 2. Lấy user ID từ header Location trong response
+   * 3. Gán realm role cho user
+   */
   async createUser(data: {
     username: string;
     email: string;
@@ -338,6 +404,11 @@ export class KeycloakService {
     return keycloakId;
   }
 
+  /**
+   * Cập nhật thông tin user trong Keycloak
+   * @param keycloakId - ID của user trong Keycloak
+   * @param data - Thông tin cần cập nhật (email, role, firstName, lastName)
+   */
   async updateUser(
     keycloakId: string,
     data: {
@@ -349,6 +420,7 @@ export class KeycloakService {
   ): Promise<void> {
     const token = await this.getAdminToken();
 
+    // Lấy thông tin hiện tại của user trước khi cập nhật
     const existingResponse = await fetch(
       `${this.adminBaseUrl}/users/${keycloakId}`,
       {
@@ -421,6 +493,11 @@ export class KeycloakService {
     }
   }
 
+  /**
+   * Kích hoạt hoặc vô hiệu hóa user trong Keycloak
+   * @param keycloakId - ID của user
+   * @param enabled - true = kích hoạt, false = vô hiệu hóa
+   */
   async setUserEnabled(keycloakId: string, enabled: boolean): Promise<void> {
     const token = await this.getAdminToken();
 
@@ -442,6 +519,11 @@ export class KeycloakService {
     }
   }
 
+  /**
+   * Đặt lại mật khẩu cho user trong Keycloak
+   * @param keycloakId - ID của user
+   * @param newPassword - Mật khẩu mới
+   */
   async resetPassword(keycloakId: string, newPassword: string): Promise<void> {
     const token = await this.getAdminToken();
 
@@ -469,9 +551,14 @@ export class KeycloakService {
       );
     }
 
+    // Cập nhật user để trigger any necessary side effects
     await this.updateUser(keycloakId, {});
   }
 
+  /**
+   * Xóa user khỏi Keycloak
+   * @param keycloakId - ID của user cần xóa
+   */
   async deleteUser(keycloakId: string): Promise<void> {
     const token = await this.getAdminToken();
 
@@ -491,6 +578,11 @@ export class KeycloakService {
     }
   }
 
+  /**
+   * Tìm user trong Keycloak theo username
+   * @param username - Tên đăng nhập cần tìm
+   * @returns KeycloakUserRepresentation hoặc null nếu không tìm thấy
+   */
   async findKeycloakUserByUsername(
     username: string,
   ): Promise<KeycloakUserRepresentation | null> {
@@ -511,10 +603,16 @@ export class KeycloakService {
     return users.length > 0 ? users[0] : null;
   }
 
+  /**
+   * Gán realm role cho user trong Keycloak
+   * @param keycloakId - ID của user
+   * @param roleName - Tên role cần gán
+   */
   async assignRealmRole(keycloakId: string, roleName: string): Promise<void> {
     try {
       const token = await this.getAdminToken();
 
+      // Lấy thông tin role từ Keycloak
       const roleRes = await fetch(
         `${this.adminBaseUrl}/roles/${encodeURIComponent(roleName)}`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -529,6 +627,7 @@ export class KeycloakService {
 
       const role = await roleRes.json();
 
+      // Gán role cho user
       await fetch(
         `${this.adminBaseUrl}/users/${keycloakId}/role-mappings/realm`,
         {
@@ -548,6 +647,11 @@ export class KeycloakService {
     }
   }
 
+  /**
+   * Lấy danh sách realm roles của user từ Keycloak
+   * @param keycloakId - ID của user
+   * @returns Danh sách role names
+   */
   async getRealmRolesForUser(keycloakId: string): Promise<string[]> {
     const token = await this.getAdminToken();
     const res = await fetch(
@@ -567,6 +671,11 @@ export class KeycloakService {
       .filter((name): name is string => typeof name === 'string');
   }
 
+  /**
+   * Kiểm tra tính hợp lệ của access token (introspect)
+   * @param accessToken - Access token cần kiểm tra
+   * @returns Object chứa thông tin token (active, sub, preferred_username)
+   */
   async introspectToken(
     accessToken: string,
   ): Promise<{ active: boolean; sub?: string; preferred_username?: string }> {

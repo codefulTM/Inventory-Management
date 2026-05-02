@@ -1,3 +1,23 @@
+/**
+ * TransactionHistory Page (Operator)
+ * Trang lịch sử giao dịch nhập/xuất kho dành cho Operator
+ * 
+ * Chức năng chính:
+ * - Xem lịch sử các phiếu nhập/xuất kho (Import/Export Orders)
+ * - Xem danh sách phiếu chờ xác nhận (Worklist - PendingConfirmation)
+ * - Chuyển đổi giữa 2 chế độ: History (lịch sử) và Worklist (cần xử lý)
+ * - Lọc phiếu theo trạng thái, loại phiếu, khoảng thời gian
+ * - Xem chi tiết phiếu, chỉnh sửa, xác nhận hoặc từ chối phiếu
+ * 
+ * Luồng nghiệp vụ US24:
+ * 1. Operator tạo phiếu (tại StockIn/StockOut) → PendingConfirmation
+ * 2. Operator xem Worklist để biết phiếu cần xử lý
+ * 3. Kiểm tra thực tế tại kho, sau đó xác nhận hoặc từ chối phiếu
+ * 
+ * Hai chế độ xem:
+ * - History: Xem tất cả phiếu đã tạo, lọc theo trạng thái/ngày
+ * - Worklist: Chỉ xem phiếu đang chờ xử lý (PendingConfirmation)
+ */
 import { useCallback, useEffect, useState } from "react";
 import Toast from "../../components/Toast";
 import ConfirmOrderDrawer from "../../components/operator/import-export-order/ConfirmOrderDrawer";
@@ -27,22 +47,26 @@ import type {
   UpdateImportExportOrderPayload,
 } from "../../types/importExportOrder";
 
+// Cấu hình bộ lọc tìm kiếm phiếu
 interface HistoryFilters {
-  status: "" | ImportExportOrderStatus;
-  order_type: "" | ImportExportOrderType;
-  from: string;
-  to: string;
+  status: "" | ImportExportOrderStatus;  // Trạng thái phiếu
+  order_type: "" | ImportExportOrderType;  // Loại phiếu: Inbound/Outbound
+  from: string;  // Từ ngày
+  to: string;  // Đến ngày
 }
 
+// Kiểu dữ liệu cho thông báo toast
 type ToastState = {
   message: string;
   type: "success" | "error";
 };
 
+// Chế độ xem: lịch sử hoặc danh sách chờ xử lý
 type ViewMode = "history" | "worklist";
 
+// Các hằng số cấu hình phân trang
 const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 10;
+const DEFAULT_LIMIT = 10;  // Số phiếu mỗi trang
 const EMPTY_FILTERS: HistoryFilters = {
   status: "",
   order_type: "",
@@ -50,6 +74,7 @@ const EMPTY_FILTERS: HistoryFilters = {
   to: "",
 };
 
+// Chuyển đổi chuỗi ngày thành Date, đặt thời gian về 00:00:00.000
 function toStartDate(value: string): Date | undefined {
   if (!value) {
     return undefined;
@@ -64,6 +89,7 @@ function toStartDate(value: string): Date | undefined {
   return date;
 }
 
+// Chuyển đổi chuỗi ngày thành Date, đặt thời gian về 23:59:59.999
 function toEndDate(value: string): Date | undefined {
   if (!value) {
     return undefined;
@@ -78,6 +104,7 @@ function toEndDate(value: string): Date | undefined {
   return date;
 }
 
+// Kiểm tra khoảng ngày có hợp lệ không (from <= to)
 function hasInvalidDateRange(from: string, to: string): boolean {
   if (!from || !to) {
     return false;
@@ -93,6 +120,7 @@ function hasInvalidDateRange(from: string, to: string): boolean {
   return fromDate.getTime() > toDate.getTime();
 }
 
+// Ánh xạ mã lỗi từ backend sang thông báo tiếng Việt
 function mapBackendErrorMessage(error: unknown, fallback: string): string {
   const statusCode =
     error instanceof ImportExportOrderApiError ? error.statusCode : undefined;
@@ -125,40 +153,53 @@ function mapBackendErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function TransactionHistoryOperator() {
+  // Chế độ xem hiện tại: history hoặc worklist
   const [viewMode, setViewMode] = useState<ViewMode>("history");
+  // Bộ lọc nháp (chưa áp dụng)
   const [draftFilters, setDraftFilters] =
     useState<HistoryFilters>(EMPTY_FILTERS);
+  // Bộ lọc đã áp dụng để tải dữ liệu
   const [filters, setFilters] = useState<HistoryFilters>(EMPTY_FILTERS);
+  // Danh sách phiếu
   const [orders, setOrders] = useState<ImportExportOrder[]>([]);
+  // Phân trang
   const [page, setPage] = useState(DEFAULT_PAGE);
   const [total, setTotal] = useState(0);
+  // Trạng thái loading
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
+  // State cho drawer chi tiết phiếu
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);  // Chế độ chỉnh sửa
   const [isSaving, setIsSaving] = useState(false);
 
+  // State cho drawer xác nhận và modal từ chối
   const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [actionOrder, setActionOrder] = useState<any | null>(null);
+  const [actionOrder, setActionOrder] = useState<any | null>();  // Phiếu đang thao tác
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
   const [isRejectSubmitting, setIsRejectSubmitting] = useState(false);
 
+  // State cho thông báo toast
   const [toast, setToast] = useState<ToastState | null>(null);
+  // Trigger để reload worklist
   const [worklistReloadTrigger, setWorklistReloadTrigger] = useState<number>(0);
 
+  // Hàm hiển thị thông báo
   const notify = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
   }, []);
 
+  // Kiểm tra có đang ở chế độ worklist không
   const isWorklistMode = viewMode === "worklist";
 
+  // Tải danh sách phiếu theo chế độ và bộ lọc
   const loadOrders = useCallback(
     async (
       mode: ViewMode,
@@ -171,6 +212,7 @@ export default function TransactionHistoryOperator() {
       const params: ImportExportOrderQueryParams = {
         page: nextPage,
         limit: DEFAULT_LIMIT,
+        // Chỉ lọc theo trạng thái ở chế độ history
         status:
           mode === "history" ? nextFilters.status || undefined : undefined,
         order_type: nextFilters.order_type || undefined,
@@ -180,12 +222,13 @@ export default function TransactionHistoryOperator() {
 
       try {
         if (mode === "history") {
+          // Tải lịch sử phiếu từ API
           const response = await fetchImportExportOrders(params);
           setOrders(response.items);
           setTotal(response.total);
           setPage(response.page || nextPage);
         } else {
-          // Worklist is handled by child table which uses warehouseSlipService.
+          // Chế độ worklist: component con sẽ tự tải dữ liệu từ warehouseSlipService
           setOrders([]);
           setTotal(0);
           setPage(nextPage);
@@ -194,7 +237,7 @@ export default function TransactionHistoryOperator() {
         const message = mapBackendErrorMessage(
           error,
           mode === "worklist"
-            ? "Không thể tải worklist pending. Vui lòng thử lại."
+            ? "Không thể tải danh sách chờ xử lý. Vui lòng thử lại."
             : "Không thể tải lịch sử phiếu. Vui lòng thử lại.",
         );
         setListError(message);
@@ -208,10 +251,12 @@ export default function TransactionHistoryOperator() {
     [notify],
   );
 
+  // Tải dữ liệu lần đầu khi component mount
   useEffect(() => {
     void loadOrders("history", DEFAULT_PAGE, EMPTY_FILTERS);
   }, [loadOrders]);
 
+  // Chuyển đổi giữa chế độ history và worklist
   const handleSwitchMode = (nextMode: ViewMode) => {
     if (nextMode === viewMode) {
       return;
@@ -225,6 +270,7 @@ export default function TransactionHistoryOperator() {
     void loadOrders(nextMode, DEFAULT_PAGE, EMPTY_FILTERS);
   };
 
+  // Mở drawer xem chi tiết phiếu (có thể ở chế độ chỉnh sửa)
   const openDetail = async (orderId: string, editMode = false) => {
     setDrawerOpen(true);
     setSelectedOrder(null);
@@ -233,6 +279,7 @@ export default function TransactionHistoryOperator() {
     setIsEditing(false);
 
     try {
+      // Tải chi tiết phiếu: worklist dùng warehouseSlip, history dùng importExportOrder
       const detail =
         viewMode === "worklist"
           ? await fetchWarehouseSlip(orderId)
@@ -240,6 +287,7 @@ export default function TransactionHistoryOperator() {
 
       setSelectedOrder(detail as any);
 
+      // Nếu ở chế độ chỉnh sửa, kiểm tra trạng thái phiếu
       if (editMode) {
         const statusOk =
           viewMode === "worklist"
@@ -267,11 +315,13 @@ export default function TransactionHistoryOperator() {
     }
   };
 
+  // Áp dụng bộ lọc đã chọn
   const handleApplyFilters = () => {
     const nextFilters = {
       ...draftFilters,
     };
 
+    // Kiểm tra khoảng ngày hợp lệ
     if (hasInvalidDateRange(nextFilters.from, nextFilters.to)) {
       const message =
         "Khoảng ngày không hợp lệ: 'Từ ngày' phải nhỏ hơn hoặc bằng 'Đến ngày'.";
@@ -287,6 +337,7 @@ export default function TransactionHistoryOperator() {
     void loadOrders(viewMode, DEFAULT_PAGE, nextFilters);
   };
 
+  // Reset bộ lọc về mặc định
   const handleResetFilters = () => {
     setDraftFilters(EMPTY_FILTERS);
     setFilters(EMPTY_FILTERS);
@@ -295,6 +346,7 @@ export default function TransactionHistoryOperator() {
     void loadOrders(viewMode, DEFAULT_PAGE, EMPTY_FILTERS);
   };
 
+  // Chuyển trang
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || loading) {
       return;
@@ -303,6 +355,7 @@ export default function TransactionHistoryOperator() {
     void loadOrders(viewMode, nextPage, filters);
   };
 
+  // Đóng drawer chi tiết
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
     setSelectedOrder(null);
@@ -310,6 +363,7 @@ export default function TransactionHistoryOperator() {
     setIsEditing(false);
   };
 
+  // Đóng drawer xác nhận
   const closeConfirmDrawer = () => {
     if (isConfirmSubmitting) {
       return;
@@ -320,6 +374,7 @@ export default function TransactionHistoryOperator() {
     setActionOrder(null);
   };
 
+  // Đóng modal từ chối
   const closeRejectModal = () => {
     if (isRejectSubmitting) {
       return;
@@ -330,6 +385,7 @@ export default function TransactionHistoryOperator() {
     setActionOrder(null);
   };
 
+  // Mở drawer xác nhận phiếu (chỉ khi phiếu đang ở trạng thái chờ)
   const openConfirm = async (orderId: string) => {
     setConfirmError(null);
     setRejectError(null);
@@ -363,6 +419,7 @@ export default function TransactionHistoryOperator() {
     }
   };
 
+  // Mở modal từ chối phiếu (chỉ khi phiếu đang ở trạng thái chờ)
   const openReject = async (orderId: string) => {
     setConfirmError(null);
     setRejectError(null);
@@ -396,6 +453,7 @@ export default function TransactionHistoryOperator() {
     }
   };
 
+  // Lưu chỉnh sửa phiếu (chỉ khi đang ở chế độ chỉnh sửa)
   const handleSaveOrder = async (payload: UpdateImportExportOrderPayload) => {
     if (!selectedOrder) {
       return;
@@ -425,6 +483,7 @@ export default function TransactionHistoryOperator() {
     }
   };
 
+  // Xác nhận phiếu (nhập/xuất kho thực tế)
   const handleConfirmOrder = async (payload?: any) => {
     if (!actionOrder) return;
 
@@ -433,13 +492,16 @@ export default function TransactionHistoryOperator() {
 
     try {
       if (viewMode === "worklist") {
+        // Xác nhận Warehouse Slip
         const updated = await approveWarehouseSlip(
           actionOrder.slip_id,
           payload as any,
         );
         notify(`Đã xác nhận phiếu ${updated.slip_id} thành công.`, "success");
+        // Trigger reload worklist
         setWorklistReloadTrigger((s) => s + 1);
       } else {
+        // Xác nhận Import/Export Order - cập nhật tồn kho
         const updated = await confirmImportExportOrder(
           actionOrder.order_id,
           payload,
@@ -461,6 +523,7 @@ export default function TransactionHistoryOperator() {
     }
   };
 
+  // Từ chối phiếu (không thực hiện nhập/xuất kho)
   const handleRejectOrder = async (reason: string) => {
     if (!actionOrder) return;
 
@@ -469,10 +532,12 @@ export default function TransactionHistoryOperator() {
 
     try {
       if (viewMode === "worklist") {
+        // Từ chối Warehouse Slip
         const updated = await rejectWarehouseSlip(actionOrder.slip_id, reason);
         notify(`Đã từ chối phiếu ${updated.slip_id}.`, "success");
         setWorklistReloadTrigger((s) => s + 1);
       } else {
+        // Từ chối Import/Export Order
         const payload: RejectImportExportOrderPayload = { reason };
         const updated = await rejectImportExportOrder(
           actionOrder.order_id,

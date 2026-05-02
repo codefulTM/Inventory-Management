@@ -1,3 +1,9 @@
+/**
+ * Hook useBinWorklist - Tải danh sách vị trí kệ (bins) theo kho
+ * Chức năng: Tự động tải danh sách bin khi warehouseId thay đổi
+ * @param warehouseId - Mã kho (tùy chọn, để trống thì trả về mảng rỗng)
+ * @returns bins (danh sách vị trí), loading, error, reload (hàm tải lại)
+ */
 import { useEffect, useState } from "react";
 import { BinAPI, type BinWorklistItem } from "../../../../services/bin.service";
 

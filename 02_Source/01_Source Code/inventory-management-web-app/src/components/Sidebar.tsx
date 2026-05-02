@@ -1,16 +1,31 @@
+// File: components/Sidebar.tsx
+// Component Sidebar cũ (không còn dùng chính, thay bằng layouts/MainLayout.tsx)
+// Hiển thị menu điều hướng theo vai trò, có tính năng collapse
+// Chỉ cón dùng làm tham khảo hoặc cho giao diện đơn giản hơn
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Package, BarChart3, ClipboardCheck, ShieldCheck, FileText, FileSearch, 
-  User, LogOut, ChevronLeft, ChevronRight
+import {
+  Package, // Icon logo
+  BarChart3, // Icon dashboard
+  ClipboardCheck, // Icon kiểm soát
+  ShieldCheck, // Icon QC
+  FileText, // Icon báo cáo
+  FileSearch, // Icon truy vết
+  User, // Icon user
+  LogOut, // Icon đăng xuất
+  ChevronLeft, // Icon collapse
+  ChevronRight, // Icon expand
 } from 'lucide-react';
 
+// Định nghĩa kiểu cho một mục điều hướng
 interface NavItem {
   to: string;
   label: string;
-  icon: React.ElementType;
+  icon: React.ElementType; // Component icon
 }
 
+// Cấu hình menu theo vai trò (hiện tại chỉ có QC)
 const navItemsByRole: Record<string, NavItem[]> = {
   qc: [
     { to: '/qc/dashboard', label: 'Tổng quan chất lượng', icon: BarChart3 },
@@ -21,27 +36,30 @@ const navItemsByRole: Record<string, NavItem[]> = {
   ],
 };
 
+// Props cho Sidebar
 interface SidebarProps {
-  role?: string;
+  role?: string; // Vai trò người dùng
 }
 
+// Component Sidebar chính
 const Sidebar: React.FC<SidebarProps> = ({ role = 'qc' }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  
+
+  // Lấy danh sách menu theo vai trò
   const navItems = navItemsByRole[role] || navItemsByRole.qc;
 
   return (
-    <aside 
+    <aside
       className={`
-        fixed top-0 left-0 z-40 h-screen 
-        bg-white border-r border-gray-100 
+        fixed top-0 left-0 z-40 h-screen
+        bg-white border-r border-gray-100
         flex flex-col
         transition-all duration-300 ease-out
         ${collapsed ? 'w-20' : 'w-64'}
       `}
     >
-      {/* Logo */}
+      {/* PHẦN LOGO */}
       <div className="px-4 py-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-600/25 shrink-0">
@@ -61,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role = 'qc' }) => {
         )}
       </div>
 
-      {/* Navigation */}
+      {/* PHẦN NAVIGATION */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map(({ to, label, icon: Icon }) => {
           const isActive = location.pathname === to;
@@ -83,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role = 'qc' }) => {
             >
               <Icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`} />
               {!collapsed && <span>{label}</span>}
-              
+
               {/* Active indicator */}
               {isActive && !collapsed && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full" />
@@ -93,7 +111,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role = 'qc' }) => {
         })}
       </nav>
 
-      {/* User Profile */}
+      {/* PHẦN USER PROFILE */}
       <div className="px-3 py-4 border-t border-gray-100">
         <div className={`flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-50 transition-colors duration-200 ${collapsed ? 'justify-center' : ''}`}>
           <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
@@ -113,7 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role = 'qc' }) => {
         </div>
       </div>
 
-      {/* Collapse button */}
+      {/* NÚT COLLAPSE/EXPAND */}
       <button
         onClick={() => setCollapsed(!collapsed)}
         className={`

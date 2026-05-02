@@ -1,3 +1,13 @@
+/**
+ * TransactionManagementManager - Trang quản lý lịch sử giao dịch kho dành cho Manager
+ * Chức năng: Xem, lọc, tìm kiếm và xuất CSV các giao dịch nhập/xuất kho
+ * Manager có thể theo dõi toàn bộ lịch sử giao dịch tồn kho theo các tiêu chí:
+ * - Loại giao dịch (IN/OUT)
+ * - Kho hàng, nguyên liệu
+ * - Khoảng thời gian
+ * - Trạng thái giao dịch
+ * Hỗ trợ xuất báo cáo CSV để phân tích dữ liệu
+ */
 import React, { useState, useCallback, useEffect } from 'react';
 import type { InventoryTransaction, TransactionFilters } from '../../services/transactionService';
 import { transactionService } from '../../services/transactionService';
@@ -5,11 +15,12 @@ import { TransactionFiltersComponent } from '../../components/manager/Transactio
 import { TransactionTableComponent } from '../../components/manager/TransactionTable';
 import { exportTransactionsToCSV, generateCSVFilename } from '../../utils/exportUtils';
 
+// Định nghĩa kiểu dữ liệu cho phân trang
 interface PaginationState {
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
+  page: number;    // Trang hiện tại
+  limit: number;   // Số bản ghi mỗi trang
+  total: number;   // Tổng số bản ghi
+  pages: number;   // Tổng số trang
 }
 
 export const TransactionManagementManager: React.FC = () => {

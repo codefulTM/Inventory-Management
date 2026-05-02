@@ -40,6 +40,7 @@ function toApiError(
   );
 }
 
+/** Chuyển đổi giá trị ngày sang ISO string */
 function toIso(value?: string | Date): string | undefined {
   if (!value) {
     return undefined;
@@ -52,6 +53,7 @@ function toIso(value?: string | Date): string | undefined {
   return value;
 }
 
+/** Chuẩn hóa dữ liệu file đính kèm */
 function normalizeAttachment(
   raw: Partial<ImportExportOrderAttachment> | undefined,
 ): ImportExportOrderAttachment {
@@ -69,6 +71,7 @@ function normalizeAttachment(
   };
 }
 
+/** Chuẩn hóa dữ liệu vật tư đã xác nhận */
 function normalizeConfirmedItem(
   raw: Partial<ConfirmImportExportOrderItem> | undefined,
 ): ConfirmImportExportOrderItem {
@@ -85,6 +88,7 @@ function normalizeConfirmedItem(
   };
 }
 
+/** Chuẩn hóa dữ liệu đơn nhập/xuất kho (chuyển đổi ngày tháng, items, attachments) */
 function normalizeOrder(raw: Partial<ImportExportOrder>): ImportExportOrder {
   const normalizedItems: ImportExportOrderItem[] = Array.isArray(raw.items)
     ? raw.items
@@ -124,6 +128,7 @@ function normalizeOrder(raw: Partial<ImportExportOrder>): ImportExportOrder {
   };
 }
 
+/** Xây dựng tham số truy vấn (chuyển đổi from/to sang ISO) */
 function buildQueryParams(
   params: ImportExportOrderQueryParams = {},
 ): Record<string, unknown> {
@@ -134,6 +139,11 @@ function buildQueryParams(
   };
 }
 
+/**
+ * Tạo mới đơn nhập/xuất kho
+ * @param payload - Dữ liệu đơn (warehouse_id, order_type, items, v.v.)
+ * @returns Thông tin đơn đã tạo (đã chuẩn hóa)
+ */
 export async function createImportExportOrder(
   payload: CreateImportExportOrderPayload,
 ): Promise<ImportExportOrder> {
@@ -149,6 +159,11 @@ export async function createImportExportOrder(
   return normalizeOrder(data);
 }
 
+/**
+ * Lấy danh sách đơn nhập/xuất kho (phân trang, lọc)
+ * @param params - Tham số lọc (page, limit, status, order_type, from, to, v.v.)
+ * @returns Danh sách đơn và thông tin phân trang
+ */
 export async function fetchImportExportOrders(
   params: ImportExportOrderQueryParams = {},
 ): Promise<ImportExportOrderListResponse> {
@@ -184,6 +199,11 @@ export async function fetchImportExportOrders(
   };
 }
 
+/**
+ * Lấy danh sách công việc đơn nhập/xuất kho (worklist cho operator)
+ * @param params - Tham số lọc (page, limit, status, v.v.)
+ * @returns Danh sách đơn cần xử lý (phân trang)
+ */
 export async function fetchImportExportOrderWorklist(
   params: ImportExportOrderQueryParams = {},
 ): Promise<ImportExportOrderListResponse> {
@@ -219,6 +239,11 @@ export async function fetchImportExportOrderWorklist(
   };
 }
 
+/**
+ * Lấy chi tiết một đơn nhập/xuất kho
+ * @param orderId - ID của đơn
+ * @returns Thông tin chi tiết đơn (đã chuẩn hóa)
+ */
 export async function fetchImportExportOrderDetail(
   orderId: string,
 ): Promise<ImportExportOrder> {
@@ -233,6 +258,12 @@ export async function fetchImportExportOrderDetail(
   return normalizeOrder(data);
 }
 
+/**
+ * Cập nhật thông tin đơn nhập/xuất kho
+ * @param orderId - ID của đơn cần cập nhật
+ * @param payload - Dữ liệu cập nhật
+ * @returns Thông tin đơn sau khi cập nhật (đã chuẩn hóa)
+ */
 export async function updateImportExportOrder(
   orderId: string,
   payload: UpdateImportExportOrderPayload,
@@ -253,6 +284,12 @@ export async function updateImportExportOrder(
   return fetchImportExportOrderDetail(orderId);
 }
 
+/**
+ * Xác nhận hoàn thành đơn nhập/xuất kho
+ * @param orderId - ID của đơn cần xác nhận
+ * @param payload - Dữ liệu xác nhận (confirmed_items, confirm_note, v.v.)
+ * @returns Thông tin đơn sau khi xác nhận (đã chuẩn hóa)
+ */
 export async function confirmImportExportOrder(
   orderId: string,
   payload: ConfirmImportExportOrderPayload,
@@ -273,6 +310,12 @@ export async function confirmImportExportOrder(
   return fetchImportExportOrderDetail(orderId);
 }
 
+/**
+ * Từ chối đơn nhập/xuất kho
+ * @param orderId - ID của đơn bị từ chối
+ * @param payload - Lý do từ chối và dữ liệu liên quan
+ * @returns Thông tin đơn sau khi từ chối (đã chuẩn hóa)
+ */
 export async function rejectImportExportOrder(
   orderId: string,
   payload: RejectImportExportOrderPayload,
@@ -293,6 +336,12 @@ export async function rejectImportExportOrder(
   return fetchImportExportOrderDetail(orderId);
 }
 
+/**
+ * Upload file đính kèm cho đơn nhập/xuất kho
+ * @param orderId - ID của đơn
+ * @param payload - Dữ liệu file (file, source)
+ * @returns Thông tin đơn sau khi upload (đã chuẩn hóa)
+ */
 export async function uploadImportExportOrderAttachment(
   orderId: string,
   payload: UploadImportExportOrderAttachmentPayload,
@@ -325,6 +374,12 @@ export async function uploadImportExportOrderAttachment(
   return fetchImportExportOrderDetail(orderId);
 }
 
+/**
+ * Giải mã mã quét (barcode/QR) để xác định vật tư/lô hàng
+ * @param scanCode - Mã quét được từ barcode/QR
+ * @param orderType - Loại đơn (Inbound/Outbound) - tùy chọn
+ * @returns Thông tin vật tư/lô hàng tương ứng (kèm warnings nếu có)
+ */
 export async function resolveImportExportOrderScan(
   scanCode: string,
   orderType?: ImportExportOrderType,
@@ -354,6 +409,11 @@ export async function resolveImportExportOrderScan(
   };
 }
 
+/**
+ * Lấy danh sách vật tư dạng options (dùng cho dropdown)
+ * @param params - Tham số lọc (từ khóa q, trạng thái, phân trang)
+ * @returns Danh sách vật tư và thông tin phân trang
+ */
 export async function fetchMaterialOptions(params?: {
   q?: string;
   status?: string;
@@ -381,6 +441,11 @@ export async function fetchMaterialOptions(params?: {
   };
 }
 
+/**
+ * Lấy danh sách lô hàng dạng options (dùng cho dropdown)
+ * @param params - Tham số lọc (vật tư, kho, trạng thái, từ khóa, phân trang)
+ * @returns Danh sách lô hàng và thông tin phân trang
+ */
 export async function fetchInventoryLotOptions(params?: {
   q?: string;
   material_id?: string;
@@ -411,6 +476,11 @@ export async function fetchInventoryLotOptions(params?: {
   };
 }
 
+/**
+ * Lấy danh sách kho dạng options (dùng cho dropdown)
+ * @param params - Tham số lọc (từ khóa, trạng thái hoạt động, phân trang)
+ * @returns Danh sách kho và thông tin phân trang
+ */
 export async function fetchWarehouseOptions(params?: {
   q?: string;
   is_active?: boolean;
@@ -438,6 +508,11 @@ export async function fetchWarehouseOptions(params?: {
   };
 }
 
+/**
+ * Lấy danh sách vị trí lưu kho dạng options (dùng cho dropdown)
+ * @param params - Tham số lọc (kho, từ khóa, trạng thái, phân trang)
+ * @returns Danh sách vị trí lưu kho và thông tin phân trang
+ */
 export async function fetchStorageLocationOptions(params?: {
   warehouse_id?: string;
   q?: string;

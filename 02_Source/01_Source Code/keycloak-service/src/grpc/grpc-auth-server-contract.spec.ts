@@ -1,16 +1,27 @@
 /**
- * Contract tests — gRPC AuthService server side (keycloak-service)
+ * File: grpc-auth-server-contract.spec.ts
+ * Mô tả: Contract tests cho gRPC AuthService server-side (keycloak-service).
  *
- * Verifies that AuthGrpcController correctly maps every proto-defined RPC
- * to the matching AuthService method with the correct argument shapes.
- * No real gRPC server — just the NestJS testing module with a mocked AuthService.
+ * Mục đích: Xác minh rằng AuthGrpcController ánh xạ đúng mọi RPC từ proto file
+ * sang phương thức tương ứng của AuthService với đúng định dạng tham số.
+ *
+ * Kiểm tra:
+ * - Login: chuyển username/password → authService.login, trả về TokenResponse
+ * - Register: chuyển username/email/password → authService.register
+ * - Refresh: chuyển refresh_token → authService.refreshToken
+ * - Logout: chuyển refresh_token/username → authService.logout
+ * - ForgotPassword/ResetPassword: chuyển đúng tham số
+ * - GetMe: chuyển keycloak_id → authService.getMe
+ *
+ * Không khởi chạy gRPC server thật — chỉ dùng NestJS testing module với mocked AuthService.
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGrpcController } from '../auth/auth.grpc.controller';
 import { AuthService } from '../auth/auth.service';
 
-// ── proto-defined response stubs ────────────────────────────────────────────
+// ── Dữ liệu giả lập phản hồi theo proto contract ──────────────────────────────
 
+/** TokenResponse giả lập — cấu trúc trả về từ Login/Refresh */
 const tokenResponse = {
   access_token: 'eyJhbGc.payload.sig',
   refresh_token: 'refresh-xyz',
@@ -25,8 +36,10 @@ const tokenResponse = {
   },
 };
 
+/** MessageResponse giả lập — cấu trúc trả về từ Logout/ForgotPassword/ResetPassword */
 const messageResponse = { message: 'ok' };
 
+/** UserResponse giả lập — cấu trúc trả về từ GetMe */
 const userResponse = {
   user_id: 'user-001',
   username: 'operator1',
@@ -35,7 +48,7 @@ const userResponse = {
   is_active: true,
 };
 
-// ── mock AuthService ────────────────────────────────────────────────────────
+// ── Mock AuthService — giả lập tất cả phương thức ────────────────────────────────
 
 const mockAuthService = {
   login: jest.fn().mockResolvedValue(tokenResponse),
@@ -61,9 +74,10 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
     controller = testModule.get<AuthGrpcController>(AuthGrpcController);
   });
 
-  // ── Login ───────────────────────────────────────────────────────────────
+  // ── Login RPC — Kiểm tra ánh xạ gRPC Login → authService.login ──────────────
 
   describe('Login RPC', () => {
+    /** Kiểm tra chuyển đúng username/password từ gRPC data */
     it('maps gRPC {username, password} → authService.login({username, password})', async () => {
       await controller.login({ username: 'operator1', password: 'Pass@123' });
 
@@ -73,6 +87,7 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
       );
     });
 
+    /** Kiểm tra extract ip và user_agent thành LogContext */
     it('extracts ip and user_agent into LogContext', async () => {
       await controller.login({
         username: 'op',
@@ -87,6 +102,7 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
       );
     });
 
+    /** Kiểm tra trả về đúng cấu trúc TokenResponse */
     it('returns TokenResponse shape: access_token, refresh_token, user', async () => {
       const result = await controller.login({ username: 'op', password: 'pw' });
 
@@ -97,6 +113,7 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
       expect(result.user).toHaveProperty('role');
     });
 
+    /** Kiểm tra default ip và user_agent là chuỗi rỗng khi không cung cấp */
     it('defaults ip and user_agent to empty string when omitted', async () => {
       await controller.login({ username: 'op', password: 'pw' });
 
@@ -107,9 +124,10 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
     });
   });
 
-  // ── Register ────────────────────────────────────────────────────────────
+  // ── Register RPC — Kiểm tra ánh xạ gRPC Register → authService.register ────
 
   describe('Register RPC', () => {
+    /** Kiểm tra chuyển đúng username, email, password */
     it('passes username, email, password to authService.register', async () => {
       await controller.register({
         username: 'newuser',
@@ -124,6 +142,7 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
       });
     });
 
+    /** Kiểm tra trả về đúng cấu trúc RegisterResponse { message, user } */
     it('returns { message, user } RegisterResponse shape', async () => {
       const result = await controller.register({
         username: 'newuser',
@@ -136,15 +155,17 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
     });
   });
 
-  // ── Refresh ─────────────────────────────────────────────────────────────
+  // ── Refresh RPC — Kiểm tra ánh xạ gRPC Refresh → authService.refreshToken ──
 
   describe('Refresh RPC', () => {
+    /** Kiểm tra unwrap refresh_token và gọi đúng phương thức */
     it('unwraps { refresh_token } and calls authService.refreshToken(token)', async () => {
       await controller.refresh({ refresh_token: 'my-refresh-token' });
 
       expect(mockAuthService.refreshToken).toHaveBeenCalledWith('my-refresh-token');
     });
 
+    /** Kiểm tra trả về cùng cấu trúc TokenResponse như Login */
     it('returns same TokenResponse shape as Login', async () => {
       const result = await controller.refresh({ refresh_token: 'token' });
 
@@ -153,9 +174,10 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
     });
   });
 
-  // ── Logout ──────────────────────────────────────────────────────────────
+  // ── Logout RPC — Kiểm tra ánh xạ gRPC Logout → authService.logout ──────────
 
   describe('Logout RPC', () => {
+    /** Kiểm tra chuyển refresh_token và optional username */
     it('passes refresh_token and optional username to authService.logout', async () => {
       await controller.logout({
         refresh_token: 'rt',
@@ -171,6 +193,7 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
       );
     });
 
+    /** Kiểm tra trả về đúng cấu trúc MessageResponse { message } */
     it('returns MessageResponse shape { message }', async () => {
       const result = await controller.logout({ refresh_token: 'rt' });
 
@@ -178,9 +201,10 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
     });
   });
 
-  // ── ForgotPassword ──────────────────────────────────────────────────────
+  // ── ForgotPassword RPC — Kiểm tra ánh xạ gRPC ForgotPassword ───────────────
 
   describe('ForgotPassword RPC', () => {
+    /** Kiểm tra chuyển đúng email */
     it('passes email to authService.forgotPassword', async () => {
       await controller.forgotPassword({ email: 'user@x.com' });
 
@@ -190,6 +214,7 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
       );
     });
 
+    /** Kiểm tra trả về đúng cấu trúc MessageResponse */
     it('returns MessageResponse shape', async () => {
       const result = await controller.forgotPassword({ email: 'user@x.com' });
 
@@ -197,9 +222,10 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
     });
   });
 
-  // ── ResetPassword ───────────────────────────────────────────────────────
+  // ── ResetPassword RPC — Kiểm tra ánh xạ gRPC ResetPassword ─────────────────
 
   describe('ResetPassword RPC', () => {
+    /** Kiểm tra chuyển đúng token và new_password */
     it('passes token and new_password to authService.resetPassword', async () => {
       await controller.resetPassword({
         token: 'reset-token-abc',
@@ -213,6 +239,7 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
       );
     });
 
+    /** Kiểm tra trả về đúng cấu trúc MessageResponse */
     it('returns MessageResponse shape', async () => {
       const result = await controller.resetPassword({
         token: 'reset-token-abc',
@@ -223,15 +250,17 @@ describe('AuthGrpcController — gRPC server contract (keycloak-service ↔ auth
     });
   });
 
-  // ── GetMe ────────────────────────────────────────────────────────────────
+  // ── GetMe RPC — Kiểm tra ánh xạ gRPC GetMe → authService.getMe ─────────────
 
   describe('GetMe RPC', () => {
+    /** Kiểm tra chuyển đúng keycloak_id */
     it('passes keycloak_id to authService.getMe', async () => {
       await controller.getMe({ keycloak_id: 'kc-uuid-001' });
 
       expect(mockAuthService.getMe).toHaveBeenCalledWith('kc-uuid-001');
     });
 
+    /** Kiểm tra trả về đúng cấu trúc UserResponse */
     it('returns UserResponse shape: user_id, username, email, role, is_active', async () => {
       const result = await controller.getMe({ keycloak_id: 'kc-uuid-001' });
 

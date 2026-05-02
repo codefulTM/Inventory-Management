@@ -1,49 +1,70 @@
+/**
+ * Component InventoryAuditReportCreateForm
+ * Form tạo báo cáo kiểm kê kho mới cho quản lý (Manager role)
+ * Hỗ trợ chọn kỳ báo cáo nhanh (tháng này, tháng trước, 30 ngày, quý, năm)
+ * Tích hợp react-hook-form để quản lý form và validate dữ liệu
+ */
 import { useForm } from "react-hook-form";
 import type { CreateInventoryAuditReportRequest } from "../../../types/inventoryAuditReport";
 
+/** Props cho component InventoryAuditReportCreateForm */
 interface InventoryAuditReportCreateFormProps {
+  /** Trạng thái đang gửi dữ liệu (disabled form khi đang submit) */
   submitting?: boolean;
+  /** Hàm callback khi form hợp lệ và người dùng nhấn Tạo báo cáo */
   onSubmit: (payload: CreateInventoryAuditReportRequest) => Promise<void>;
 }
 
+/** Kiểu dữ liệu cho các trường trong form tạo báo cáo kiểm kê */
 type InventoryAuditReportCreateFormValues = {
+  /** Ngày bắt đầu kỳ báo cáo (định dạng YYYY-MM-DD) */
   period_from: string;
+  /** Ngày kết thúc kỳ báo cáo (định dạng YYYY-MM-DD) */
   period_to: string;
+  /** Tên người phê duyệt báo cáo (tùy chọn) */
   approved_by: string;
+  /** Ghi chú thêm cho báo cáo (tùy chọn) */
   note: string;
 };
 
+/** Chuyển đổi chuỗi ngày (YYYY-MM-DD) sang định dạng ISO UTC bắt đầu ngày */
 function toIsoDay(dayText: string): string {
   return new Date(`${dayText}T00:00:00.000Z`).toISOString();
 }
 
+/** Định dạng đối tượng Date sang chuỗi YYYY-MM-DD */
 function fmt(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Hàm lấy khoảng ngày nhanh theo preset (tháng này, tháng trước, 30 ngày, quý, năm) */
 function getPreset(preset: string): { from: string; to: string } {
   const now = new Date();
   const y = now.getFullYear();
-  const m = now.getMonth(); // 0-indexed
+  const m = now.getMonth(); // 0-indexed (0 = tháng 1)
 
+  // Preset: Tháng này (từ ngày 1 đến cuối tháng hiện tại)
   if (preset === "this_month") {
     return {
       from: fmt(new Date(y, m, 1)),
       to: fmt(new Date(y, m + 1, 0)),
     };
   }
+  // Preset: Tháng trước
   if (preset === "last_month") {
     return {
       from: fmt(new Date(y, m - 1, 1)),
       to: fmt(new Date(y, m, 0)),
     };
   }
+  // Preset: 30 ngày qua (tính cả ngày hôm nay)
   if (preset === "last_30") {
     const to = new Date(now);
     const from = new Date(now);
     from.setDate(from.getDate() - 29);
     return { from: fmt(from), to: fmt(to) };
   }
+  // Preset: Quý trước
   if (preset === "last_quarter") {
     const qStart = Math.floor(m / 3) * 3 - 3;
     return {
@@ -51,15 +72,18 @@ function getPreset(preset: string): { from: string; to: string } {
       to: fmt(new Date(y, qStart + 3, 0)),
     };
   }
+  // Preset: Năm nay
   if (preset === "this_year") {
     return {
       from: fmt(new Date(y, 0, 1)),
       to: fmt(new Date(y, 11, 31)),
     };
   }
+  // Mặc định: Lấy ngày hôm nay
   return { from: fmt(now), to: fmt(now) };
 }
 
+/** Danh sách các preset chọn nhanh kỳ báo cáo cho Manager */
 const PRESETS = [
   { value: "this_month", label: "Tháng này" },
   { value: "last_month", label: "Tháng trước" },
@@ -69,9 +93,11 @@ const PRESETS = [
   { value: "custom", label: "Tùy chọn" },
 ];
 
+/** Preset mặc định khi mở form là "Tháng này" */
 const DEFAULT_PRESET = "this_month";
 const defaultDates = getPreset(DEFAULT_PRESET);
 
+/** Giá trị mặc định cho form tạo báo cáo kiểm kê */
 const DEFAULT_VALUES: InventoryAuditReportCreateFormValues = {
   period_from: defaultDates.from,
   period_to: defaultDates.to,
@@ -79,10 +105,12 @@ const DEFAULT_VALUES: InventoryAuditReportCreateFormValues = {
   note: "",
 };
 
+/** Component chính: Form tạo báo cáo kiểm kê kho cho Manager */
 export default function InventoryAuditReportCreateForm({
   submitting = false,
   onSubmit,
 }: InventoryAuditReportCreateFormProps) {
+  // Khởi tạo react-hook-form với chế độ validate khi blur (onTouched)
   const {
     register,
     watch,
@@ -95,22 +123,30 @@ export default function InventoryAuditReportCreateForm({
     defaultValues: DEFAULT_VALUES,
   });
 
+  // Theo dõi giá trị ngày bắt đầu và kết thúc để validate
   const periodFrom = watch("period_from");
   const periodTo = watch("period_to");
+  // Trạng thái đang gửi (từ props hoặc từ react-hook-form)
   const effectiveSubmitting = submitting || isSubmitting;
 
+  /** Hàm áp dụng preset chọn nhanh kỳ báo cáo */
   const applyPreset = (preset: string) => {
+    // Nếu chọn tùy chọn thì không tự động set ngày
     if (preset === "custom") return;
     const { from, to } = getPreset(preset);
+    // Cập nhật giá trị ngày và trigger validate
     setValue("period_from", from, { shouldValidate: true });
     setValue("period_to", to, { shouldValidate: true });
   };
 
+  /** Hàm xử lý khi form hợp lệ và người dùng nhấn Tạo báo cáo */
   const onValidSubmit = async (
     values: InventoryAuditReportCreateFormValues,
   ) => {
+    // Tạo payload gửi lên API (chuyển đổi định dạng ngày sang ISO)
     const payload: CreateInventoryAuditReportRequest = {
       period_from: toIsoDay(values.period_from),
+      // Đặt thời gian kết thúc là 23:59:59.999 của ngày kết thúc
       period_to: new Date(`${values.period_to}T23:59:59.999Z`).toISOString(),
       include_zero_balance: false,
       report_template_code: "STATUTORY_V1",
@@ -118,8 +154,10 @@ export default function InventoryAuditReportCreateForm({
       note: values.note.trim() || undefined,
     };
 
+    // Gọi callback onSubmit từ parent component
     await onSubmit(payload);
 
+    // Reset form về giá trị mặc định (tháng hiện tại)
     const dates = getPreset(DEFAULT_PRESET);
     reset({ ...DEFAULT_VALUES, period_from: dates.from, period_to: dates.to });
   };

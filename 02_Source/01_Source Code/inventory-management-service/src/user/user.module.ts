@@ -1,3 +1,18 @@
+/**
+ * UserModule - Module quản lý người dùng
+ *
+ * Chức năng:
+ * - CRUD user (tạo, đọc, cập nhật, xóa)
+ * - Phân quyền theo role (Manager, Operator, QC Technician, IT Administrator)
+ * - Đồng bộ user giữa MongoDB và Keycloak (qua gRPC)
+ * - Gửi email thông báo khi tạo tài khoản mới
+ * - Ghi log kiểm toán cho mọi thay đổi user
+ *
+ * Dependencies:
+ * - MailModule: Gửi email thông báo tài khoản
+ * - AuditLogModule: Ghi log kiểm toán
+ * - KeycloakGrpcClientModule: Đồng bộ với Keycloak qua gRPC
+ */
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from '../schemas/user.schema';

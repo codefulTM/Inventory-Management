@@ -1,3 +1,10 @@
+/**
+ * Reports Service
+ * Service gọi API báo cáo: tồn kho, nguyên liệu, QC, audit và các báo cáo xu hướng
+ * Tất cả hàm đều hỗ trợ lọc theo khoảng thời gian (from/to) và kho hàng (warehouseId)
+ * Sử dụng unwrapOrThrow để chuẩn hóa error handling
+ */
+
 import { apiClient } from "./apiClient";
 import type {
   AuditReport,
@@ -11,6 +18,12 @@ import type {
   TrendInterval,
 } from "../types/reports";
 
+/**
+ * Helper: unwrap data hoặc throw error nếu có vấn đề
+ * @param data - Dữ liệu trả về từ API
+ * @param error - Lỗi từ apiClient (nếu có)
+ * @param fallback - Message mặc định nếu không có error message
+ */
 function unwrapOrThrow<T>(
   data: T | null,
   error: { message?: string } | null,
@@ -25,6 +38,12 @@ function unwrapOrThrow<T>(
   return data;
 }
 
+/**
+ * Lấy báo cáo trạng thái tồn kho
+ * @param from - Ngày bắt đầu (ISO)
+ * @param to - Ngày kết thúc (ISO)
+ * @param warehouseId - Lọc theo kho
+ */
 export async function getInventoryStatusReport(
   from?: string,
   to?: string,
@@ -42,6 +61,9 @@ export async function getInventoryStatusReport(
   return unwrapOrThrow(data, error, "Unable to load inventory status report");
 }
 
+/**
+ * Lấy báo cáo sử dụng nguyên liệu
+ */
 export async function getMaterialUsageReport(
   from?: string,
   to?: string,
@@ -60,6 +82,9 @@ export async function getMaterialUsageReport(
   return unwrapOrThrow(data, error, "Unable to load material usage report");
 }
 
+/**
+ * Lấy báo cáo hiệu suất QC (chất lượng)
+ */
 export async function getQcPerformanceReport(
   from?: string,
   to?: string,
@@ -77,6 +102,9 @@ export async function getQcPerformanceReport(
   return unwrapOrThrow(data, error, "Unable to load QC performance report");
 }
 
+/**
+ * Lấy báo cáo audit (nhật ký hoạt động hệ thống)
+ */
 export async function getAuditReport(
   from?: string,
   to?: string,
@@ -93,6 +121,10 @@ export async function getAuditReport(
   return unwrapOrThrow(data, error, "Unable to load audit report");
 }
 
+/**
+ * Lấy báo cáo xu hướng tồn kho theo thời gian
+ * @param interval - Chu kỳ: "day" | "week" | "month"
+ */
 export async function getInventoryTrendReport(
   from?: string,
   to?: string,
@@ -112,6 +144,10 @@ export async function getInventoryTrendReport(
   return unwrapOrThrow(data, error, "Unable to load inventory trend report");
 }
 
+/**
+ * Lấy báo cáo xu hướng sử dụng nguyên liệu
+ * @param limit - Số nguyên liệu top đầu (mặc định 10)
+ */
 export async function getMaterialUsageTrendReport(
   from?: string,
   to?: string,
@@ -139,6 +175,10 @@ export async function getMaterialUsageTrendReport(
   );
 }
 
+/**
+ * Lấy báo cáo xu hướng QC theo thời gian
+ * @param limit - Số nhà cung cấp top đầu (mặc định 10)
+ */
 export async function getQcTrendReport(
   from?: string,
   to?: string,
@@ -164,6 +204,9 @@ export async function getQcTrendReport(
   return unwrapOrThrow(data, error, "Unable to load QC trend report");
 }
 
+/**
+ * Lấy báo cáo xu hướng audit (hoạt động hệ thống) theo thời gian
+ */
 export async function getAuditTrendReport(
   from?: string,
   to?: string,

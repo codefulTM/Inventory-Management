@@ -1,7 +1,7 @@
-/**
- * LabelList component
- * Displays paginated label template list with search, filter, and action buttons.
- */
+// File: components/label/LabelList.tsx
+// Component hiển thị danh sách mẫu nhãn (Label Templates) có phân trang
+// Tính năng: Tìm kiếm theo ID/tên, Lọc theo loại nhãn, Phân trang
+// Các hành động: Xem chi tiết, In, Chỉnh sửa, Xóa
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Search, Eye, Edit2, Trash2, Tag, Filter } from "lucide-react";
@@ -9,12 +9,13 @@ import type { LabelTemplate, LabelType } from "../../types/label";
 import { LABEL_TYPES } from "../../types/label";
 import { labelService } from "../../services/label.service";
 
+// Props cho component LabelList
 interface LabelListProps {
-  onSelect: (template: LabelTemplate) => void;
-  onEdit: (template: LabelTemplate) => void;
-  onDelete: (template: LabelTemplate) => void;
-  onPrint: (template: LabelTemplate) => void;
-  refreshKey?: number;
+  onSelect: (template: LabelTemplate) => void;  // Hàm xử lý khi chọn xem chi tiết
+  onEdit: (template: LabelTemplate) => void;     // Hàm xử lý khi nhấn chỉnh sửa
+  onDelete: (template: LabelTemplate) => void;   // Hàm xử lý khi nhấn xóa
+  onPrint: (template: LabelTemplate) => void;     // Hàm xử lý khi nhấn in
+  refreshKey?: number;                            // Key để trigger làm mới danh sách
 }
 
 const LABEL_TYPE_COLORS: Record<LabelType, string> = {

@@ -1,3 +1,8 @@
+// File: components/operator/warehouse-slip/WarehouseSlipDetail.tsx
+// Component hiển thị chi tiết phiếu nhập/xuất kho (Warehouse Slip)
+// Cho phép: Xem trước in, Mở chế độ in, Upload tệp đính kèm
+// Nếu là manager: có thể Approve/Reject phiếu (chỉ khi status = PENDING)
+
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {

@@ -1,3 +1,9 @@
+/**
+ * UserManagementManager - Trang quản lý người dùng dành cho Manager
+ * Chức năng: Tạo mới, cập nhật, kích hoạt/vô hiệu hóa tài khoản người dùng
+ * Phân quyền: Manager, Operator, Quality Control Technician, IT Administrator
+ * Manager có thể tìm kiếm, chỉnh sửa thông tin và thay đổi trạng thái hoạt động của user
+ */
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -22,17 +28,19 @@ import {
   type UserRole,
 } from '../../services/userService';
 
+// Định nghĩa kiểu dữ liệu cho form tạo/cập nhật user
 type UserFormValues = {
   username?: string;
   email: string;
   role: UserRole;
 };
 
+// Các vai trò có thể gán cho người dùng trong hệ thống
 const roleOptions: UserRole[] = [
-  'Manager',
-  'Operator',
-  'Quality Control Technician',
-  'IT Administrator',
+  'Manager',         // Quản lý
+  'Operator',        // Nhân viên vận hành kho
+  'Quality Control Technician', // Kỹ thuật viên QC
+  'IT Administrator', // Quản trị viên IT
 ];
 
 export default function UserManagementManager() {

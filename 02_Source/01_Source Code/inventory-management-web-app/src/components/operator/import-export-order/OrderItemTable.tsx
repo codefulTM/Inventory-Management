@@ -1,3 +1,7 @@
+// File: components/operator/import-export-order/OrderItemTable.tsx
+// Bảng danh sách vật tư trong phiếu nhập/xuất kho
+// Hỗ trợ thêm/xóa dòng, chọn material/lot/vị trí, hiển thị lỗi validate
+
 import type {
   FieldArrayWithId,
   FieldErrors,
@@ -10,6 +14,15 @@ import type {
   MaterialOption,
   StorageLocationOption,
 } from "../../../types/importExportOrder";
+
+// Component hiển thị lỗi validate cho từng trường
+function InputError({ message }: { message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return <p className="mt-1 text-xs font-semibold text-red-600">{message}</p>;
+}
 
 interface OrderItemTableProps {
   orderType: ImportExportOrderType;

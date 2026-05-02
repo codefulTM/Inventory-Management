@@ -1,4 +1,30 @@
 {
+  // ============================================================================
+  // FILE: realm-export.json - Keycloak Realm Export
+  // ============================================================================
+  // Mục đích: File xuất (export) cấu hình Realm "inventory" từ Keycloak
+  // Đây là file cấu hình Identity Provider cho hệ thống Quản lý Kho (IMS)
+  // 
+  // Cấu trúc chính:
+  // 1. Thông tin Realm: id, realm name, displayName, các cấu hình bảo mật
+  // 2. Roles (Vai trò): Manager, Operator, Quality Control Technician, IT Administrator
+  // 3. Users (Người dùng): 5 users mặc định + service account cho backend
+  // 4. Clients (Ứng dụng): inventory-backend, inventory-frontend, realm-management...
+  // 5. Client Scopes: roles, offline_access
+  // 6. Authentication Flows: browser, direct grant, reset credentials...
+  // 7. Identity Providers: Cấu hình đăng nhập bên thứ 3 (nếu có)
+  // 8. Components: Key providers (RSA, AES, HMAC cho mã hóa/ký số)
+  // 
+  // Hướng dẫn import:
+  // - Sử dụng Keycloak Admin Console → Import
+  // - Hoặc dùng lệnh: kcadm.sh create realms -f realm-export.json
+  // 
+  // Lưu ý: Client Secret của inventory-backend là "PXmK3bmQDy2cXqmF2QmtTNd18gz0vTYu"
+  //         Frontend là public client (không có secret)
+  // ============================================================================
+  
+  "_comment": "Keycloak Realm Export - Inventory Management System. Chứa cấu hình xác thực SSO, phân quyền RBAC, và 4 nhóm quyền: Manager, Operator, Quality Control Technician, IT Administrator. Import vào Keycloak để sử dụng.",
+  
   "id": "a8b5fde4-4a46-4b0c-9816-b6f82e63c808",
   "realm": "inventory",
   "displayName": "Inventory Management System",
@@ -45,6 +71,7 @@
   "quickLoginCheckMilliSeconds": 1000,
   "maxDeltaTimeSeconds": 43200,
   "failureFactor": 30,
+  "_comment_roles": "PHẦN ROLES: Định nghĩa 4 vai trò chính trong hệ thống: Manager (quản lý kho), Operator (nhân viên kho), Quality Control Technician (kỹ thuật viên QC), IT Administrator (quản trị hệ thống). Mỗi role có description bằng tiếng Việt giải thích quyền hạn.",
   "roles": {
     "realm": [
       {
@@ -493,6 +520,7 @@
   "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister": false,
   "webAuthnPolicyPasswordlessAcceptableAaguids": [],
   "webAuthnPolicyPasswordlessExtraOrigins": [],
+  "_comment_users": "NGƯỜI DÙNG MẶC ĐỊNH: 5 users được tạo sẵn - admin_manager (Manager), admin_qc (QC), admin_operator (Operator), admin_it (IT Admin), và service-account-inventory-backend (tài khoản dịch vụ cho backend). Tat cả dùng mật khẩu: Admin@123456",
   "users": [
     {
       "username": "admin_manager",
@@ -609,6 +637,7 @@
       }
     ]
   },
+  "_comment_clients": "CÁC CLIENTS (ỨNG DỤNG): inventory-backend (confidential client, service account enabled, secret: PXmK3bmQDy2cXqmF2QmtTNd18gz0vTYu), inventory-frontend (public client, không secret), realm-management (quản lý realm, bearerOnly), security-admin-console, account, broker. Tat cả dùng protocol openid-connect.",
   "clients": [
     {
       "id": "a26b233b-d92d-43ed-9cf8-12e1e31e5db7",
@@ -1141,6 +1170,7 @@
   },
   "internationalizationEnabled": false,
   "supportedLocales": [],
+  "_comment_auth_flows": "CAC FLOW XAC THUC: browser (duyệt web - Cookie, form đăng nhập, OTP), direct grant (API - username/password), docker auth (Docker client), first broker login (OAuth2 ben thứ 3), registration (đăng ký), reset credentials (quên mật khẩu). Mỗi flow có các execution steps (authenticator, priority, requirement).",
   "authenticationFlows": [
     {
       "id": "03344f5b-baf2-49ab-8ee6-27103a0e7049",

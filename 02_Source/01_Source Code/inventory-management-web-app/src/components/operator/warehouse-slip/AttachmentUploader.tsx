@@ -1,3 +1,8 @@
+// File: components/operator/warehouse-slip/AttachmentUploader.tsx
+// Component upload tệp đính kèm (drag & drop hoặc chọn file)
+// Hỗ trợ xem trước ảnh (preview) cho JPG/PNG
+// Giới hạn: Chỉ nhận JPG, PNG, PDF, tối đa 5MB mỗi tệp
+
 import React, { useCallback, useState } from "react";
 
 const MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024;

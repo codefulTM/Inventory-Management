@@ -1,3 +1,21 @@
+/**
+ * QCTestController - Controller quản lý kiểm tra chất lượng
+ *
+ * Định tuyến: /qc-tests
+ * Bảo vệ: JwtAuthGuard + RolesGuard
+ *
+ * Endpoints chính:
+ * - GET /qc-tests/dashboard - Dashboard KPI cho QC
+ * - GET /qc-tests/supplier-performance - Thống kê hiệu suất nhà cung cấp
+ * - GET /qc-tests - Danh sách tất cả QC tests
+ * - POST /qc-tests - Tạo QC test mới
+ * - GET /qc-tests/:test_id - Chi tiết QC test
+ * - PATCH /qc-tests/:test_id - Cập nhật QC test
+ * - DELETE /qc-tests/:test_id - Xóa QC test
+ * - POST /qc-tests/:test_id/decision - Ra quyết định QC (Pass/Fail)
+ * - POST /qc-tests/:test_id/retest - Gửi yêu cầu test lại
+ * - POST /qc-tests/bulk-quarantine - Cách ly hàng loạt
+ */
 import { UseGuards, BadRequestException } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { RolesGuard } from '../common/auth/roles.guard';

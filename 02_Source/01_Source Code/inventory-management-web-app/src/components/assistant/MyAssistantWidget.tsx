@@ -1,23 +1,26 @@
+// File: components/assistant/MyAssistantWidget.tsx
+// Widget AI Assistant hỗ trợ người dùng truy vấn thông tin kho thông minh
+// Tự động nhận diện ý định (intent): hết hạn, tồn kho, giao dịch, QC
+// Hiển thị bảng kết quả (lots, transactions) và đề xuất theo vai trò người dùng
+// Tích hợp với AI Agent service để routing và xử lý truy vấn
+
 import { useState } from "react";
 import { Bot, MessageSquare, Send, Sparkles, X } from "lucide-react";
 import { routeAgent } from "../../services/aiAgent.service";
 import type { AgentRouteResult, AssistantLotRow } from "../../types/aiAgent";
 
-type ChatRole = "assistant" | "user";
-type UserRole =
-  | "manager"
-  | "operator"
-  | "quality-control"
-  | "it_admin"
-  | "unknown";
+// Định nghĩa kiểu dữ liệu
+type ChatRole = "assitant" | "user"; // Vai trò trong cuộc hội thoại
+type UserRole = "manager" | "operator" | "quality-control" | "it_admin" | "unknown"; // Vai trò người dùng
 
+// Tin nhắn chat
 type ChatMessage = {
   id: string;
   role: ChatRole;
   text: string;
-  lots?: AssistantLotRow[];
-  transactions?: AssistantTransactionRow[];
-  rag?: {
+  lots?: AssistantLotRow[]; // Danh sách lô (nếu có)
+  transactions?: AssistantTransactionRow[]; // Danh sách giao dịch (nếu có)
+  rag?: { // Thông tin RAG (Retrieval Augmented Generation)
     mode: string;
     usedEmbedding: boolean;
     total: number;
@@ -25,6 +28,7 @@ type ChatMessage = {
   };
 };
 
+// Dòng giao dịch hiển thị trong bảng
 type AssistantTransactionRow = {
   id: string;
   type: string;
@@ -33,6 +37,7 @@ type AssistantTransactionRow = {
   happenedAt: string;
 };
 
+// Các câu gợi ý nhanh cho người dùng
 const QUICK_SUGGESTIONS = [
   "Hàng sắp hết hạn",
   "Hàng còn hạn dưới 1 tháng",
@@ -41,6 +46,9 @@ const QUICK_SUGGESTIONS = [
   "Các lô đã hết hạn",
 ];
 
+// ===== HÀM TIỆN ÍCH XỬ LÝ VĂN BẢN =====
+
+// Chuẩn hóa văn bản: bỏ dấu tiếng Việt, chuyển về lowercase
 function normalizeText(value: string): string {
   return value
     .normalize("NFD")
@@ -51,6 +59,63 @@ function normalizeText(value: string): string {
     .replace(/[!?.,]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// Kiểm tra text có chứa bất kỳ hint nào không
+function containsAny(text: string, hints: string[]): boolean {
+  return hints.some((hint) => text.includes(hint));
+}
+
+// ===== HÀM NHẬN DIỆN Ý ĐỊNH (INTENT DETECTION) =====
+
+// Nhận diện ý định hỏi về hàng sắp hết hạn
+function isExpiringIntent(normalized: string): boolean {
+  const expiringHints = [
+    "sap het han",
+    "can han",
+    "can date",
+    "gan het han",
+    "duoi 1 thang",
+    "het han trong",
+    "con han",
+    "near expiry",
+    "near-expiry",
+    "expiring",
+    "han dung",
+  ];
+  return containsAny(normalized, expiringHints);
+}
+
+// Nhận diện ý định hỏi về hàng đã hết hạn
+function isExpiredIntent(normalized: string, asksExpiring: boolean): boolean {
+  const expiredHints = [
+    "da het han",
+    "qua han",
+    "expired",
+    "het date",
+    "qua date",
+    "het hsd",
+  ];
+  if (containsAny(normalized, expiredHints)) {
+    return true;
+  }
+  return normalized.includes("het han") && !asksExpiring;
+}
+
+// Nhận diện ý định hỏi về giao dịch gần đây
+function isRecentTransactionIntent(normalized: string): boolean {
+  const transactionHints = [
+    "transaction",
+    "transactions",
+    "giao dich",
+    "xuat nhap",
+    "lich su kho",
+    "recent",
+    "gan day",
+    "moi nhat",
+    "latest",
+  ];
+  return containsAny(normalized, transactionHints);
 }
 
 function containsAny(text: string, hints: string[]): boolean {
@@ -108,6 +173,8 @@ function isRecentTransactionIntent(normalized: string): boolean {
   return containsAny(normalized, transactionHints);
 }
 
+// ===== HÀM GHI LOG KHI ROUTING THẤT BẠI =====
+// Ghi log cảnh báo khi agent không nhận diện được ý định
 function logRouteFallback(params: {
   phase: "initial_fallback" | "retry_still_unresolved";
   query: string;
@@ -125,6 +192,166 @@ function logRouteFallback(params: {
     confidence: params.result.confidence,
     reason: params.result.reason,
   });
+}
+
+// ===== HÀM LẤY VAI TRÒ NGƯỜI DÙNG HIỆN TẠI =====
+function getCurrentUserRole(): UserRole {
+  try {
+    const userStr = localStorage.getItem("user");
+    if (!userStr) {
+      return "unknown";
+    }
+
+    const user = JSON.parse(userStr) as { role?: string };
+    const role = user.role ?? "";
+    
+    // Ánh xạ role từ backend sang frontend
+    const roleMap: Record<string, UserRole> = {
+      Manager: "manager",
+      Operator: "operator",
+      "Quality Control Technician": "quality-control",
+      "IT Administrator": "it_admin",
+      manager: "manager",
+      operator: "operator",
+      "quality-control": "quality-control",
+      it_admin: "it_admin",
+    };
+
+    return roleMap[role] ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+// ===== HÀM DỰ ĐOÁN HÀNH ĐỘNG AGENT =====
+// Dựa vào từ khóa để suy luận xem nên gọi agent nào
+function inferAgentAction(userText: string): string | undefined {
+  const normalized = normalizeText(userText);
+
+  // Từ khóa liên quan đến QC
+  const qcHints = [
+    "qc",
+    "quality",
+    "kiem tra chat luong",
+    "fail",
+    "khong dat",
+    "lot qc",
+    "compliance",
+  ];
+
+  // Từ khóa liên quan đến kho/inventory
+  const inventoryHints = [
+    "ton kho",
+    "sap het han",
+    "het han",
+    "con han",
+    "can han",
+    "can date",
+    "gan het han",
+    "duoi 1 thang",
+    "han dung",
+    "het date",
+    "qua date",
+    "stock",
+    "stock overview",
+    "inventory status",
+    "inventory",
+    "near expiry",
+    "near-expiry",
+    "expiry",
+    "expiring",
+    "expired",
+    "batch",
+    "lot",
+    "transaction",
+    "giao dich",
+    "xuat nhap",
+    "lich su kho",
+  ];
+
+  if (containsAny(normalized, qcHints)) {
+    return "qc_risk_scan";
+  }
+
+  if (containsAny(normalized, inventoryHints)) {
+    return "inventory_summary";
+  }
+
+  return undefined;
+}
+
+// Kiểm tra xem truy vấn có liên quan đến inventory không
+function isInventoryLikeQuery(userText: string): boolean {
+  const normalized = normalizeText(userText);
+  const hints = [
+    "ton kho",
+    "sap het han",
+    "het han",
+    "con han",
+    "can han",
+    "can date",
+    "gan het han",
+    "duoi 1 thang",
+    "han dung",
+    "stock",
+    "inventory",
+    "near expiry",
+    "near-expiry",
+    "expired",
+    "expiring",
+    "het date",
+    "qua date",
+    "batch",
+    "lo",
+    "lot",
+    "transaction",
+    "giao dich",
+    "xuat nhap",
+    "lich su kho",
+  ];
+
+  return containsAny(normalized, hints);
+}
+
+// ===== HÀM TRÍCH XUẤT THÔNG SỐ (DAYS/WEEKS/MONTHS) =====
+// Tự động nhận diện số ngày/tuần/tháng từ câu hỏi
+function extractDaysWindow(userText: string): number {
+  const normalized = normalizeText(userText);
+
+  // Trích xuất số ngày (vd: "30 ngày", "7 days")
+  const dayMatch = normalized.match(/(\d+)\s*(ngay|day|d)\b/);
+  if (dayMatch?.[1]) {
+    const parsed = Number(dayMatch[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30;
+  }
+
+  // Trích xuất số tuần
+  const weekMatch = normalized.match(/(\d+)\s*(tuan|week|w)\b/);
+  if (weekMatch?.[1]) {
+    const parsed = Number(weekMatch[1]) * 7;
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30;
+  }
+
+  // Trích xuất số tháng
+  const monthMatch = normalized.match(/(\d+)\s*(thang|month|months)\b/);
+  if (monthMatch?.[1]) {
+    const parsed = Number(monthMatch[1]) * 30;
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 365) : 30;
+  }
+
+  return 30; // Mặc định 30 ngày
+}
+
+// Trích xuất số lượng giao dịch từ câu hỏi
+function extractTransactionLimit(userText: string): number {
+  const normalized = normalizeText(userText);
+  const matched = normalized.match(/\b(\d{1,3})\b/);
+  if (!matched?.[1]) {
+    return 10; // Mặc định 10 giao dịch
+  }
+
+  const parsed = Number(matched[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 10;
 }
 
 function getCurrentUserRole(): UserRole {
@@ -273,6 +500,8 @@ function extractTransactionLimit(userText: string): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 10;
 }
 
+// ===== HÀM KIỂM TRA CÂU KỶ THUẬT =====
+// Kiểm tra xem câu trả lời có chứa thuật ngữ kỹ thuật không
 function isTechnicalSentence(value: string): boolean {
   const normalized = normalizeText(value);
   return (
@@ -287,6 +516,8 @@ function isTechnicalSentence(value: string): boolean {
   );
 }
 
+// ===== HÀM LÀM SẠCH TIN NHẮN PHẢN HỒI =====
+// Loại bỏ các câu kỹ thuật, chỉ giữ lại nội dung tự nhiên
 function sanitizeAssistantReply(reply?: string): string {
   if (!reply) {
     return "";
@@ -296,6 +527,8 @@ function sanitizeAssistantReply(reply?: string): string {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+  
+  // Lọc ra các dòng không phải kỹ thuật
   const naturalLines = lines.filter((line) => !isTechnicalSentence(line));
 
   if (naturalLines.length > 0) {
@@ -305,6 +538,8 @@ function sanitizeAssistantReply(reply?: string): string {
   return "";
 }
 
+// ===== HÀM KIỂM TRA PHẢN HỒI INVENTORY CÓ PHÙ HỢP =====
+// Kiểm tra xem câu trả lời có chứa các từ khóa inventory phù hợp không
 function isInventoryReplyAligned(params: {
   reply: string;
   asksExpiring: boolean;
@@ -312,6 +547,8 @@ function isInventoryReplyAligned(params: {
   asksTransactions: boolean;
 }): boolean {
   const normalized = normalizeText(params.reply);
+  
+  // Từ khóa liên quan đến hết hạn sắp tới
   const hasExpiringSignal =
     normalized.includes("sap het han") ||
     normalized.includes("can han") ||
@@ -319,11 +556,15 @@ function isInventoryReplyAligned(params: {
     normalized.includes("con han") ||
     normalized.includes("near expiry") ||
     normalized.includes("expiring");
+    
+  // Từ khóa liên quan đến đã hết hạn
   const hasExpiredSignal =
     normalized.includes("da het han") ||
     normalized.includes("qua han") ||
     normalized.includes("het date") ||
     normalized.includes("expired");
+    
+  // Từ khóa liên quan đến giao dịch
   const hasTransactionSignal =
     normalized.includes("giao dich") ||
     normalized.includes("transaction") ||
@@ -331,6 +572,7 @@ function isInventoryReplyAligned(params: {
     normalized.includes("nhap") ||
     normalized.includes("ma giao dich");
 
+  // Kiểm tra theo ngữ cảnh yêu cầu
   if (params.asksTransactions) {
     return hasTransactionSignal;
   }
@@ -343,6 +585,7 @@ function isInventoryReplyAligned(params: {
     return hasExpiredSignal && !hasExpiringSignal;
   }
 
+  // Mặc định kiểm tra tồn kho chung
   return (
     normalized.includes("ton kho") ||
     normalized.includes("tong quan") ||
@@ -351,6 +594,8 @@ function isInventoryReplyAligned(params: {
   );
 }
 
+// ===== HÀM CHUẨN HÓA DỮ LIỆU GIAO DỊCH =====
+// Chuyển đổi dữ liệu thô từ API thành định dạng hiển thị
 function normalizeTransactionRows(
   raw: unknown,
   limit: number,
@@ -365,6 +610,7 @@ function normalizeTransactionRows(
         ? (item as Record<string, unknown>)
         : {};
 
+    // Trích xuất các trường dữ liệu với fallback
     const id =
       (typeof tx.transaction_id === "string" && tx.transaction_id) ||
       (typeof tx.id === "string" && tx.id) ||
@@ -404,6 +650,7 @@ function normalizeTransactionRows(
   });
 }
 
+// Kiểm tra xem phản hồi có phải là bảng giao dịch chi tiết không
 function isVerboseTransactionReply(reply: string): boolean {
   const normalized = normalizeText(reply);
   const idMentions = (normalized.match(/ma giao dich/g) || []).length;
@@ -412,6 +659,7 @@ function isVerboseTransactionReply(reply: string): boolean {
   return reply.length > 280 || idMentions >= 3 || numberedMentions >= 5;
 }
 
+// Xây dựng phản hồi ngắn gọn cho giao dịch
 function buildCompactTransactionsReply(
   rows: AssistantTransactionRow[],
   requestedLimit: number,
@@ -423,6 +671,7 @@ function buildCompactTransactionsReply(
   return `Đã lấy ${Math.min(requestedLimit, rows.length)} giao dịch kho gần nhất. Bảng chi tiết hiển thị ngay bên dưới.`;
 }
 
+// Kiểm tra phản hồi QC có phải là loại generic không
 function isGenericQcReply(reply: string): boolean {
   const normalized = normalizeText(reply);
   return (
@@ -430,27 +679,29 @@ function isGenericQcReply(reply: string): boolean {
   );
 }
 
+// Xây dựng phản hồi tự nhiên cho QC
 function buildNaturalQcReply(
   result: AgentRouteResult,
   fallback: string,
 ): string {
   const data = result.result.data as
     | {
-        dashboard?: {
-          pending_count?: number;
-          approved_count?: number;
-          rejected_count?: number;
-          error_rate?: number;
-        };
-        supplier_performance?: Array<{
-          supplier_name?: string;
-          quality_rate?: number;
-          total_batches?: number;
-          rejected?: number;
-        }>;
-      }
+          dashboard?: {
+            pending_count?: number;
+            approved_count?: number;
+            rejected_count?: number;
+            error_rate?: number;
+          };
+          supplier_performance?: Array<{
+            supplier_name?: string;
+            quality_rate?: number;
+            total_batches?: number;
+            rejected?: number;
+          }>;
+        }
     | undefined;
 
+  // Trích xuất dữ liệu từ result
   const pending = Number(data?.dashboard?.pending_count ?? 0);
   const rejected = Number(data?.dashboard?.rejected_count ?? 0);
   const errorRate = Number(data?.dashboard?.error_rate ?? 0);
@@ -458,14 +709,17 @@ function buildNaturalQcReply(
     ? data?.supplier_performance
     : [];
 
+  // Nếu không có dữ liệu đáng kể, trả về fallback
   if (suppliers.length === 0 && pending === 0 && rejected === 0) {
     return fallback;
   }
 
+  // Tìm nhà cung cấp có tỷ lệ đạt thấp nhất
   const worstSupplier = suppliers
     .filter((item) => typeof item.quality_rate === "number")
     .sort((a, b) => (a.quality_rate ?? 100) - (b.quality_rate ?? 100))[0];
 
+  // Xây dựng các phần của phản hồi
   const summaryParts: string[] = [];
   summaryParts.push(
     `QC hiện có ${pending} lô đang chờ xử lý, ${rejected} lô bị từ chối.`,
@@ -489,6 +743,8 @@ function buildNaturalQcReply(
   return summaryParts.join(" ");
 }
 
+// ===== HÀM XÂY DỰNG PHẢN HỒI TỒN KHO =====
+// Tạo phản hồi tự nhiên về tình trạng tồn kho, hết hạn
 function buildNaturalInventoryReply(params: {
   asksExpiring: boolean;
   asksExpired: boolean;
@@ -510,6 +766,7 @@ function buildNaturalInventoryReply(params: {
     userRole,
   } = params;
 
+  // Lấy đề xuất theo vai trò
   const roleRecommendation = buildRoleRecommendation(
     userRole,
     expiringCount,
@@ -517,6 +774,7 @@ function buildNaturalInventoryReply(params: {
     daysWindow,
   );
 
+  // Trường hợp hỏi về sắp hết hạn
   if (asksExpiring && !asksExpired) {
     if (expiringCount > 0) {
       return `Trong ${daysWindow} ngày tới có ${expiringCount} lô sắp hết hạn. ${roleRecommendation} Tôi đã liệt kê chi tiết ngay bên dưới.`;
@@ -524,6 +782,7 @@ function buildNaturalInventoryReply(params: {
     return `Trong ${daysWindow} ngày tới hiện chưa ghi nhận lô sắp hết hạn theo dữ liệu hiện tại. ${roleRecommendation}`;
   }
 
+  // Trường hợp hỏi về đã hết hạn
   if (asksExpired && !asksExpiring) {
     if (expiredCount > 0) {
       return `Hiện có ${expiredCount} lô đã hết hạn. ${roleRecommendation}`;
@@ -531,6 +790,7 @@ function buildNaturalInventoryReply(params: {
     return `Hiện chưa ghi nhận lô đã hết hạn theo dữ liệu hiện tại. ${roleRecommendation}`;
   }
 
+  // Tổng hợp các thông tin
   const summaryParts: string[] = [];
   if (typeof totalLots === "number" && totalLots > 0) {
     summaryParts.push(
@@ -559,6 +819,8 @@ function buildNaturalInventoryReply(params: {
   return summaryParts.join(" ");
 }
 
+// ===== HÀM ĐỀ XUẤT THEO VAI TRÒ =====
+// Tạo đề xuất hành động dựa trên vai trò người dùng
 function buildRoleRecommendation(
   userRole: UserRole,
   expiringCount: number,
@@ -590,6 +852,8 @@ function buildRoleRecommendation(
     : "Hiện chưa có rủi ro hạn dùng nổi bật, bạn có thể tiếp tục theo dõi định kỳ.";
 }
 
+// ===== HÀM KIỂM TRA CÓ NÊN HIỂN BẢNG EXPIRY =====
+// Quyết định xem có hiển thị bảng lô hết hạn/sắp hết hạn không
 function shouldRenderExpiryTable(
   userText: string,
   result: AgentRouteResult,
@@ -604,6 +868,144 @@ function shouldRenderExpiryTable(
     (result.result.data?.expiredLots as unknown[] | undefined) ?? [];
 
   return asksExpiry || expiringLots.length > 0 || expiredLots.length > 0;
+}
+
+// ===== HÀM XÂY DỰNG TIN NHẮN PHẢN HỒI =====
+// Tổng hợp tất cả dữ liệu để tạo tin nhắn trả về cho người dùng
+function buildAssistantMessage(
+  userText: string,
+  result: AgentRouteResult,
+  userRole: UserRole,
+): ChatMessage {
+  const normalized = normalizeText(userText);
+  
+  // Lấy dữ liệu lô từ kết quả
+  const expiringLots =
+    (result.result.data?.expiringLots as AssistantLotRow[] | undefined) ?? [];
+  const expiredLots =
+    (result.result.data?.expiredLots as AssistantLotRow[] | undefined) ?? [];
+
+  // Xác định loại yêu cầu
+  const asksExpiring = isExpiringIntent(normalized);
+  const asksExpired = isExpiredIntent(normalized, asksExpiring);
+  const asksTransactions = isRecentTransactionIntent(normalized);
+  const daysWindow = extractDaysWindow(userText);
+  const requestedTransactionLimit = extractTransactionLimit(userText);
+
+  // Chuẩn bị dữ liệu giao dịch
+  const transactionRows = normalizeTransactionRows(
+    result.result.data?.transactions,
+    requestedTransactionLimit,
+  );
+
+  // Tổng hợp lô để hiển thị
+  const lots = asksExpiring
+    ? expiringLots
+    : asksExpired
+        ? expiredLots
+        : [...expiringLots, ...expiredLots];
+        
+  // Kiểm tra có hiển thị bảng không
+  const shouldShowTable =
+    shouldRenderExpiryTable(userText, result) && lots.length > 0;
+
+  // Thông tin RAG (Retrieval Augmented Generation)
+  const retrieval = result.result.data?.retrieval;
+  const citations =
+    retrieval?.citations ?? result.result.data?.retrieval_citations ?? [];
+  const sourceOrder = citations
+    .map((item) => item.source_collection)
+    .filter(
+      (source, index, arr) => Boolean(source) && arr.indexOf(source) === index,
+    )
+    .slice(0, 3);
+
+  const ragMeta = retrieval
+    ? {
+        mode: retrieval.mode ?? "semantic",
+        usedEmbedding: Boolean(retrieval.used_embedding),
+        total: retrieval.total ?? citations.length,
+        topSources: sourceOrder,
+      }
+    : undefined;
+
+  // Làm sạch phản hồi từ AI model
+  const naturalModelReply = sanitizeAssistantReply(
+    result.result.assistant_reply,
+  );
+  
+  // Thống kê lô
+  const lotSummary = result.result.data?.lots;
+  const expiringCount =
+    expiringLots.length > 0
+      ? expiringLots.length
+      : typeof lotSummary?.expiringSoon === "number"
+          ? lotSummary.expiringSoon
+          : 0;
+  const expiredCount =
+    expiredLots.length > 0
+      ? expiredLots.length
+      : typeof lotSummary?.expired === "number"
+          ? lotSummary.expired
+          : 0;
+
+  // Xây dựng nội dung phản hồi dựa trên intent
+  const summary =
+    result.intent === "inventory_analyst"
+      ? asksTransactions
+          ? naturalModelReply &&
+            isInventoryReplyAligned({
+              reply: naturalModelReply,
+              asksExpiring,
+              asksExpired,
+              asksTransactions,
+            }) &&
+            !isVerboseTransactionReply(naturalModelReply)
+            ? naturalModelReply
+            : buildCompactTransactionsReply(
+                transactionRows,
+                requestedTransactionLimit,
+              )
+          : naturalModelReply &&
+              isInventoryReplyAligned({
+                reply: naturalModelReply,
+                asksExpiring,
+                asksExpired,
+                asksTransactions,
+              })
+            ? naturalModelReply
+            : buildNaturalInventoryReply({
+                asksExpiring,
+                asksExpired,
+                expiringCount,
+                expiredCount,
+                totalLots:
+                  typeof lotSummary?.total === "number"
+                    ? lotSummary.total
+                    : undefined,
+                daysWindow,
+                shouldShowTable,
+                userRole,
+              })
+      : result.intent === "qc_compliance_checker"
+        ? naturalModelReply && !isGenericQcReply(naturalModelReply)
+          ? naturalModelReply
+          : buildNaturalQcReply(
+              result,
+              naturalModelReply ||
+                "Tôi đã tổng hợp tình trạng QC hiện tại và đề xuất thứ tự xử lý ưu tiên.",
+            )
+        : naturalModelReply ||
+          "Tôi đã tiếp nhận yêu cầu và trả về kết quả phù hợp với ngữ cảnh hiện tại.";
+
+  return {
+    id: `${Date.now()}-assistant`,
+    role: "assistant",
+    text: summary,
+    lots: shouldShowTable ? lots : undefined,
+    transactions: asksTransactions ? transactionRows : undefined,
+    rag: ragMeta,
+  };
 }
 
 function buildAssistantMessage(
@@ -730,26 +1132,34 @@ function buildAssistantMessage(
   };
 }
 
+// ===== COMPONENT CHÍNH MYASSISTANTWIDGET =====
+// Widget chat AI hỗ trợ người dùng truy vấn thông tin kho
+// Bao gồm: ô nhập liệu, gợi ý nhanh, hiển thị tin nhắn và bảng dữ liệu
+
 export default function MyAssistantWidget() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  // State quản lý trạng thái widget
+  const [isOpen, setIsOpen] = useState(false); // Mở/đóng widget
+  const [input, setInput] = useState(""); // Nội dung input
+  const [isLoading, setIsLoading] = useState(false); // Đang tải
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
-      role: "assistant",
+      role: "assitant",
       text: "Xin chào, tôi là My Assistant. Bạn cần tôi giúp gì?",
     },
   ]);
 
+  // Kiểm tra có thể gửi tin nhắn không
   const canSend = input.trim().length > 0 && !isLoading;
 
+  // ===== HÀM GỬI TIN NHẮN =====
   const sendMessage = async (content: string) => {
     const text = content.normalize("NFC").trim();
     if (!text) {
       return;
     }
 
+    // Tạo tin nhắn người dùng
     const userMessage: ChatMessage = {
       id: `${Date.now()}-user`,
       role: "user",
@@ -761,14 +1171,20 @@ export default function MyAssistantWidget() {
     setIsLoading(true);
 
     try {
+      // Lấy vai trò hiện tại
       const currentRole = getCurrentUserRole();
+      
+      // Dự đoán action dựa trên nội dung
       const inferredAction = inferAgentAction(text);
+      
+      // Gọi AI Agent service
       let result = await routeAgent({
         query: text,
         action: inferredAction,
         payload: { userRole: currentRole },
       });
 
+      // Nếu intent không rõ, thử lại với inventory_summary
       const shouldRetryRouting =
         (result.intent === "unknown" ||
           result.result.status === "needs_input") &&
@@ -803,9 +1219,11 @@ export default function MyAssistantWidget() {
         }
       }
 
+      // Xây dựng tin nhắn phản hồi từ kết quả
       const assistantMessage = buildAssistantMessage(text, result, currentRole);
       setMessages((current) => [...current, assistantMessage]);
     } catch (error) {
+      // Xử lý lỗi
       const message =
         error instanceof Error
           ? error.message
@@ -825,8 +1243,10 @@ export default function MyAssistantWidget() {
 
   return (
     <div className="fixed right-5 bottom-5 z-[70]">
+      {/* CỬA SỔ CHAT (hiển thị khi mở) */}
       {isOpen && (
         <div className="mb-3 w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border border-sky-100 bg-white shadow-2xl overflow-hidden">
+          {/* HEADER WIDGET */}
           <div className="bg-gradient-to-r from-sky-600 to-cyan-600 px-4 py-3 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Bot size={18} />
@@ -847,6 +1267,7 @@ export default function MyAssistantWidget() {
             </button>
           </div>
 
+          {/* KHU VỰC HIỂN THỊ TIN NHẮN */}
           <div className="h-[320px] overflow-y-auto px-3 py-3 space-y-2 bg-slate-50">
             {messages.map((message) => (
               <div
@@ -864,6 +1285,7 @@ export default function MyAssistantWidget() {
                     {message.text}
                   </div>
 
+                  {/* BẢNG LÔ HÀNG (nếu có) */}
                   {message.role === "assistant" &&
                     message.lots &&
                     message.lots.length > 0 && (
@@ -911,6 +1333,7 @@ export default function MyAssistantWidget() {
                       </div>
                     )}
 
+                  {/* BẢNG GIAO DỊCH (nếu có) */}
                   {message.role === "assistant" &&
                     message.transactions &&
                     message.transactions.length > 0 && (
@@ -963,6 +1386,7 @@ export default function MyAssistantWidget() {
               </div>
             ))}
 
+            {/* HIỂN THỊ ĐANG TẢI */}
             {isLoading && (
               <div className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-3 py-2 text-sm text-slate-600">
                 <Sparkles size={14} className="animate-pulse" />
@@ -971,6 +1395,7 @@ export default function MyAssistantWidget() {
             )}
           </div>
 
+          {/* GỢI Ý NHANH */}
           <div className="px-3 py-2 border-t border-slate-100 bg-white">
             <p className="text-[11px] text-slate-500 mb-2">Gợi ý nhanh</p>
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -986,6 +1411,7 @@ export default function MyAssistantWidget() {
               ))}
             </div>
 
+            {/* Ô NHẬP LIỆU VÀ NÚT GỬI */}
             <div className="flex items-center gap-2">
               <input
                 value={input}
@@ -1012,6 +1438,7 @@ export default function MyAssistantWidget() {
         </div>
       )}
 
+      {/* NÚT MỞ WIDGET */}
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}

@@ -1,3 +1,8 @@
+// File: components/operator/import-export-order/OrderDetailDrawer.tsx
+// Drawer hiển thị chi tiết phiếu nhập/xuất kho (Warehouse Slip)
+// Hỗ trợ chuyển sang chế độ chỉnh sửa (edit) và lưu thay đổi
+// Hiển thị: thông tin phiếu, danh sách vật tư, chứng từ đính kèm
+
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type {
@@ -6,6 +11,7 @@ import type {
 } from "../../../types/warehouseSlip";
 import OrderStatusBadge from "./OrderStatusBadge";
 
+// Item có thể chỉnh sửa trong drawer
 interface EditableItem {
   material_id: string;
   lot_id: string;

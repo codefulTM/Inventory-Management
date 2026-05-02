@@ -1,3 +1,13 @@
+/**
+ * File: elasticsearch/index-naming.service.spec.ts
+ * Mục đích: Unit tests cho IndexNamingService
+ * 
+ * Kiểm tra việc tạo tên index theo định dạng {collection}_{YYYY}_{MM}:
+ * - Tháng có 1 chữ số được thêm số 0 đứng trước (04, 01, etc.)
+ * - Xử lý đúng tháng 12 và tháng 1
+ * - Sử dụng dấu gạch dưới (_), không phải gạch ngang (-)
+ * - Sử dụng UTC, không phải local time
+ */
 import { IndexNamingService } from './index-naming.service';
 
 describe('IndexNamingService', () => {

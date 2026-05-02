@@ -1,7 +1,12 @@
+// File: components/operator/import-export-order/VarianceBadge.tsx
+// Component hiển thị độ lệch (variance) giữa số lượng thực tế và dự kiến
+// Màu sắc: xanh (âm = dư), vàng (dương = thiếu), xám (bằng 0)
+
 interface VarianceBadgeProps {
   variance: number;
 }
 
+// Format số độ lệch: thêm dấu + cho số dương
 function formatVariance(value: number): string {
   if (!Number.isFinite(value)) {
     return "0";

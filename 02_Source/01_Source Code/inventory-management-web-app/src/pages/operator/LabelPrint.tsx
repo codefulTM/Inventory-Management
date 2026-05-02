@@ -1,8 +1,25 @@
 /**
- * Label Print page — Operator role
- * Operators can browse templates and print labels for inventory lots / production batches
+ * LabelPrint Page (Operator)
+ * Trang in nhãn dán (label) dành cho Operator
+ * 
+ * Chức năng chính:
+ * - Xem danh sách các mẫu nhãn dán (Label Templates)
+ * - Chọn mẫu nhãn và tiến hành in
+ * - Phân loại nhãn theo: Raw Material, Sample, Intermediate, Finished Product, API
+ * 
+ * Quy trình in nhãn:
+ * 1. Operator duyệt danh sách các mẫu nhãn có sẵn
+ * 2. Chọn mẫu nhãn phù hợp với loại vật tư/sản phẩm
+ * 3. Hệ thống hiển thị form điền thông tin để in nhãn
+ * 4. In nhãn dán dán lên lô hàng hoặc sản phẩm
+ * 
+ * Các loại nhãn:
+ * - Raw Material: Nhãn cho nguyên liệu thô
+ * - Sample: Nhãn cho mẫu thử nghiệm
+ * - Intermediate: Nhãn cho sản phẩm trung gian
+ * - Finished Product: Nhãn cho thành phẩm
+ * - API: Nhãn cho sản phẩm API
  */
-
 import { useEffect, useState } from "react";
 import { Tag } from "lucide-react";
 import type { LabelTemplate, LabelType } from "../../types/label";
@@ -10,21 +27,26 @@ import { LABEL_TYPES } from "../../types/label";
 import { labelService } from "../../services/label.service";
 import { LabelPrint } from "../../components/label";
 
+// Màu sắc cho từng loại nhãn
 const LABEL_TYPE_COLORS: Record<LabelType, string> = {
-  "Raw Material": "bg-blue-100 text-blue-800",
-  Sample: "bg-purple-100 text-purple-800",
-  Intermediate: "bg-yellow-100 text-yellow-800",
-  "Finished Product": "bg-green-100 text-green-800",
-  API: "bg-red-100 text-red-800",
-  Status: "bg-gray-100 text-gray-700",
+  "Raw Material": "bg-blue-100 text-blue-800",  // Nguyên liệu
+  Sample: "bg-purple-100 text-purple-800",  // Mẫu
+  Intermediate: "bg-yellow-100 text-yellow-800",  // Trung gian
+  "Finished Product": "bg-green-100 text-green-800",  // Thành phẩm
+  API: "bg-red-100 text-red-800",  // API
+  Status: "bg-gray-100 text-gray-700",  // Trạng thái
 };
 
 export default function LabelPrintPage() {
+  // State danh sách mẫu nhãn
   const [templates, setTemplates] = useState<LabelTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  // Mẫu nhãn đang chọn
   const [selected, setSelected] = useState<LabelTemplate | undefined>();
+  // Hiển thị trang in
   const [showPrint, setShowPrint] = useState(false);
 
+  // Tải danh sách mẫu nhãn khi mount
   useEffect(() => {
     labelService
       .findAll(1, 100)
@@ -36,11 +58,13 @@ export default function LabelPrintPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Xử lý chọnmẫu và hiển thị form in
   const handleSelectAndPrint = (t: LabelTemplate) => {
     setSelected(t);
     setShowPrint(true);
   };
 
+  // Giao diện form in nhãn
   if (showPrint) {
     return (
       <div className="min-h-screen bg-[#F8FAFC]">
@@ -48,9 +72,10 @@ export default function LabelPrintPage() {
           <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
             <Tag size={20} className="text-white" />
           </div>
-          <h1 className="text-xl font-black">Print Label</h1>
+          <h1 className="text-xl font-black">In Nhãn Dán</h1>
         </header>
         <div className="px-6 py-6 max-w-3xl mx-auto">
+          {/* Nút quay lại danh sách mẫu */}
           <button
             onClick={() => {
               setShowPrint(false);
@@ -58,7 +83,7 @@ export default function LabelPrintPage() {
             }}
             className="mb-4 text-sm text-blue-600 hover:underline font-medium"
           >
-            ← Back to templates
+            ← Quay lại danh sách
           </button>
           <LabelPrint
             initialTemplate={selected}
@@ -75,16 +100,16 @@ export default function LabelPrintPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      {/* Header */}
+      {/* Header trang */}
       <header className="bg-gradient-to-br from-green-600 to-green-700 text-white px-6 py-7 shadow-md">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
             <Tag size={22} className="text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight">Print Labels</h1>
+            <h1 className="text-2xl font-black tracking-tight">In Nhãn Dán</h1>
             <p className="text-white/70 text-sm mt-1">
-              Select a label template to generate and print
+              Chọn mẫu nhãn để tạo và in
             </p>
           </div>
         </div>
@@ -92,20 +117,22 @@ export default function LabelPrintPage() {
 
       <div className="px-6 py-6 max-w-5xl mx-auto">
         {loading ? (
+          // Hiển thị loading
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : templates.length === 0 ? (
+          // Thông báo chưa có mẫu
           <div className="text-center py-20 text-gray-400">
             <Tag size={48} className="mx-auto mb-3 opacity-20" />
-            <p className="font-semibold text-lg">No label templates available</p>
+            <p className="font-semibold text-lg">Chưa có mẫu nhãn nào</p>
             <p className="text-sm mt-1">
-              Ask your manager to create label templates first.
+              Yêu cầu Manager tạo mẫu nhãn trước.
             </p>
           </div>
         ) : (
           <>
-            {/* Group templates by type */}
+            {/* Nhóm mẫu theo loại nhãn */}
             {LABEL_TYPES.map((type) => {
               const group = templates.filter((t) => t.label_type === type);
               if (group.length === 0) return null;
@@ -116,6 +143,7 @@ export default function LabelPrintPage() {
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {group.map((t) => (
+                      // Card mẫu nhãn - click để in
                       <button
                         key={t._id}
                         onClick={() => handleSelectAndPrint(t)}
@@ -128,6 +156,7 @@ export default function LabelPrintPage() {
                               className="text-gray-400 group-hover:text-green-600 transition-colors"
                             />
                           </div>
+                          {/* Badge loại nhãn */}
                           <span
                             className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                               LABEL_TYPE_COLORS[t.label_type]
@@ -142,11 +171,12 @@ export default function LabelPrintPage() {
                         <p className="text-xs text-gray-400 font-mono">
                           {t.template_id}
                         </p>
+                        {/* Kích thước nhãn */}
                         <p className="text-xs text-gray-400 mt-2">
                           {t.width}" × {t.height}"
                         </p>
                         <div className="mt-4 pt-3 border-t border-gray-100 text-xs font-bold text-green-600 group-hover:text-green-700 transition-colors">
-                          Tap to print →
+                          Nhấn để in →
                         </div>
                       </button>
                     ))}

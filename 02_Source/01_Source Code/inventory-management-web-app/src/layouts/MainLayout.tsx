@@ -1,40 +1,49 @@
+// File: layouts/MainLayout.tsx
+// Layout chính của ứng dụng - Bao gồm Sidebar điều hướng, Header, và khu vực hiển thị nội dung
+// Phân loại navigation items theo vai trò người dùng (Admin, Manager, Operator, QC)
+// Hỗ trợ cả giao diện Desktop (sidebar cố định) và Mobile (menu overlay)
+// Tích hợp widget AI Assistant cho Manager, Operator, và QC
+
 import { useState, useEffect, type ReactNode } from "react";
 import { Link, useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Package,
-  BarChart3,
-  ClipboardCheck,
-  FileText,
-  LogOut,
-  Menu,
-  X,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  ListChecks,
-  History,
-  Activity,
-  Terminal,
-  Database,
-  ShieldCheck,
-  FileBarChart,
-  User as UserIcon,
-  FileSearch,
-  Bot,
-  ChevronRight,
-  Tag,
-  FlaskConical,
-  Barcode,
+  LayoutDashboard, // Icon Dashboard
+  Package, // Icon Quản lý lô hàng/Nguyên liệu
+  BarChart3, // Icon Báo cáo/Thống kê
+  ClipboardCheck, // Icon Kiểm soát
+  FileText, // Icon Phiếu kho/Tài liệu
+  LogOut, // Icon Đăng xuất
+  Menu, // Icon Menu mobile
+  X, // Icon Đóng menu
+  ArrowUpCircle, // Icon Xuất kho
+  ArrowDownCircle, // Icon Nhập kho
+  ListChecks, // Icon Kiểm kê
+  History, // Icon Lịch sử
+  Activity, // Icon Hoạt động
+  Terminal, // Icon Log lỗi
+  Database, // Icon Quản lý kho/DB
+  ShieldCheck, // Icon Audit/QC
+  FileBarChart, // Icon Báo cáo
+  User as UserIcon, // Icon User
+  FileSearch, // Icon Truy vết
+  Bot, // Icon AI Agent
+  ChevronRight, // Icon Mũi tên
+  Tag, // Icon Nhãn
+  FlaskConical, // Icon Sản phẩm/Tạo sản phẩm
+  Barcode, // Icon Barcode
 } from "lucide-react";
 import MyAssistantWidget from "../components/assistant/MyAssistantWidget";
 import { AuthService } from "../services/auth.service";
 
+// Định nghĩa kiểu dữ liệu cho một mục điều hướng trong sidebar
 interface NavItem {
-  to: string;
-  icon: ReactNode;
-  label: string;
+  to: string; // Đường dẫn route
+  icon: ReactNode; // Icon hiển thị
+  label: string; // Tên hiển thị
 }
 
+// ===== COMPONENT USER PROFILE SECTION =====
+// Hiển thị thông tin người dùng và nút đăng xuất ở cuối sidebar
 const UserProfileSection = ({
   user,
   onLogout,
@@ -45,6 +54,7 @@ const UserProfileSection = ({
   getDisplayNameFromUsername: (username?: string) => string;
 }) => (
   <div className="p-4 border-t border-gray-100">
+    {/* Thẻ thông tin người dùng */}
     <div className="bg-primary-50/50 rounded-2xl p-4 mb-3 border border-primary-100/50 flex items-center space-x-3">
       <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary-600 shadow-sm border border-primary-100">
         <UserIcon size={20} />
@@ -58,6 +68,7 @@ const UserProfileSection = ({
         </div>
       </div>
     </div>
+    {/* Nút đăng xuất */}
     <button
       onClick={onLogout}
       className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-white border border-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-xl transition-all duration-200 shadow-sm active:scale-95 font-bold text-sm"
@@ -68,33 +79,46 @@ const UserProfileSection = ({
   </div>
 );
 
-export default function Layout() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+// ===== COMPONENT MAIN LAYOUT =====
+// Layout chính chứa sidebar điều hướng và khu vực nội dung
+// Tự động đồng bộ vai trò người dùng từ backend mỗi khi load
+// Hỗ trợ responsive: Desktop (sidebar trái), Mobile (menu overlay)
 
-  // Lấy user từ localStorage
+export default function Layout() {
+  const location = useLocation(); // Lấy đường dẫn hiện tại để highlight nav item
+  const navigate = useNavigate(); // Điều hướng trang
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Trạng thái menu mobile
+
+  // Lấy thông tin user từ localStorage
   const userStr = localStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
   const apiBaseUrl =
     import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
-  // Đồng bộ role từ backend mỗi lần load — để cập nhật ngay khi bị đổi role
+  // ===== ĐỒNG BỘ HÓA VAI TRÒ TỪ BACKEND =====
+  // Mỗi lần load layout, gọi API để lấy thông tin user mới nhất
+  // Kiểm tra tài khoản bị khóa và cập nhật role nếu có thay đổi
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (!token) return;
+
+    // Bảng ánh xạ role từ backend sang frontend
     const roleMap: Record<string, string> = {
       Manager: "manager",
       Operator: "operator",
       "Quality Control Technician": "quality-control",
       "IT Administrator": "it_admin",
     };
+
+    // Bảng ánh xạ role sang dashboard tương ứng
     const dashboardMap: Record<string, string> = {
       manager: "/manager/dashboard",
       operator: "/operator/dashboard",
       "quality-control": "/qc/dashboard",
       it_admin: "/admin/dashboard",
     };
+
+    // Gọi API lấy thông tin user hiện tại
     fetch(`${apiBaseUrl}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -102,7 +126,7 @@ export default function Layout() {
       .then((data) => {
         if (!data?.role) return;
 
-        // Kiểm tra tài khoản bị khóa
+        // Kiểm tra tài khoản bị khóa (is_active = false)
         if (data.is_active === false) {
           localStorage.removeItem("auth_token");
           localStorage.removeItem("refresh_token");
@@ -118,6 +142,7 @@ export default function Layout() {
           return;
         }
 
+        // Cập nhật role mới nếu có thay đổi
         const freshRole = roleMap[data.role] ?? data.role;
         const stored = localStorage.getItem("user");
         const storedUser = stored ? JSON.parse(stored) : null;
@@ -132,11 +157,13 @@ export default function Layout() {
       .catch(() => {});
   }, [apiBaseUrl, navigate]);
 
-  // Hàm hiển thị tên vai trò trên giao diện
+  // ===== HIỂN THỊ TÊN VAI TRÒ =====
+  // Lấy tên hiển thị từ user (dùng label từ backend hoặc chuyển đổi từ role)
   const getDisplayNameFromUsername = () => {
     return user?.label ?? getRoleLabel();
   };
 
+  // Chuyển đổi role key sang tên hiển thị tiếng Việt
   const getRoleLabel = () => {
     switch (user?.role) {
       case "manager":
@@ -152,9 +179,11 @@ export default function Layout() {
     }
   };
 
-  // Logic cấu trúc Navbar theo vai trò (IT Admin có đủ 5 phần)
+  // ===== CẤU HÌNH MENU ĐIỀU HƯỚNG THEO VAI TRÒ =====
+  // Trả về danh sách các mục navigation tương ứng với role của user
   const getNavItems = (): NavItem[] => {
     switch (user?.role) {
+      // ===== MENU CHO MANAGER =====
       case "manager":
         return [
           {
@@ -238,6 +267,8 @@ export default function Layout() {
             label: "AI Agent",
           },
         ];
+
+      // ===== MENU CHO QUALITY CONTROL =====
       case "quality-control":
         return [
           {
@@ -271,6 +302,8 @@ export default function Layout() {
             label: "AI Agent",
           },
         ];
+
+      // ===== MENU CHO OPERATOR =====
       case "operator":
         return [
           {
@@ -334,6 +367,8 @@ export default function Layout() {
             label: "AI Agent",
           },
         ];
+
+      // ===== MENU CHO IT ADMIN =====
       case "it_admin":
         return [
           {
@@ -372,25 +407,29 @@ export default function Layout() {
             label: "Báo cáo hệ thống",
           },
         ];
+
       default:
         return [];
     }
   };
 
   const navItems = getNavItems();
+
+  // Kiểm tra user có quyền sử dụng AI Assistant không
   const canUseAssistant =
     user?.role === "manager" ||
     user?.role === "operator" ||
     user?.role === "quality-control";
 
-  // Thêm handleLogout
+  // ===== XỬ LÝ ĐĂNG XUẤT =====
+  // Gọi API logout để thu hồi refresh token, sau đó xóa localStorage và redirect về login
   const handleLogout = async () => {
     const refresh_token = localStorage.getItem("refresh_token");
     if (refresh_token) {
       try {
         await AuthService.logout(refresh_token);
       } catch {
-        // ignore lỗi, vẫn logout local
+        // Bỏ qua lỗi API, vẫn thực hiện logout local
       }
     }
     localStorage.removeItem("auth_token");
@@ -401,10 +440,11 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-gray-900 font-sans">
-      {/* SIDEBAR DÀNH CHO DESKTOP */}
+      {/* ===== SIDEBAR DÀNH CHO DESKTOP ===== */}
+      {/* Sidebar cố định bên trái, chứa logo, navigation và user profile */}
       <aside className="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full md:translate-x-0 bg-white border-r border-gray-100 shadow-xl shadow-primary-900/5">
         <div className="h-full flex flex-col">
-          {/* LOGO SECTION */}
+          {/* PHẦN LOGO */}
           <div className="p-8">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-600/25">
@@ -422,9 +462,10 @@ export default function Layout() {
             </div>
           </div>
 
-          {/* NAVIGATION SECTION */}
+          {/* PHẦN ĐIỀU HƯỚNG (NAVIGATION) */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
             {navItems.map((item, index) => {
+              // Kiểm tra route hiện tại có active không
               const isActive =
                 location.pathname === item.to ||
                 location.pathname.startsWith(item.to + "/");
@@ -444,7 +485,7 @@ export default function Layout() {
                   `}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  {/* Background decoration */}
+                  {/* Hiệu ứng hover */}
                   {!isActive && (
                     <div className="absolute inset-0 rounded-xl bg-primary-5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
                   )}
@@ -474,7 +515,7 @@ export default function Layout() {
                     {item.label}
                   </span>
 
-                  {/* Active indicator */}
+                  {/* Active indicator (thanh trắng bên trái) */}
                   {isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full" />
                   )}
@@ -490,6 +531,8 @@ export default function Layout() {
               );
             })}
           </nav>
+
+          {/* PHẦN USER PROFILE */}
           <UserProfileSection
             user={user}
             onLogout={handleLogout}
@@ -498,7 +541,7 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* NÚT MOBILE MENU */}
+      {/* ===== NÚT MENU MOBILE ===== */}
       <button
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         className="fixed top-4 right-4 z-50 md:hidden p-3 bg-white rounded-2xl shadow-xl border border-gray-100 active:scale-90 transition-all"
@@ -506,13 +549,15 @@ export default function Layout() {
         {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* MOBILE MENU OVERLAY */}
+      {/* ===== MOBILE MENU OVERLAY ===== */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
+          {/* Backdrop mờ */}
           <div
             className="fixed inset-0 bg-gray-900/20 backdrop-blur-md transition-opacity"
             onClick={() => setMobileMenuOpen(false)}
           ></div>
+          {/* Slide-in menu từ trái */}
           <aside className="fixed top-0 left-0 z-50 w-72 h-screen bg-white shadow-2xl animate-in slide-in-from-left duration-300">
             <div className="h-full flex flex-col">
               <div className="p-8 border-b border-gray-50">
@@ -547,9 +592,9 @@ export default function Layout() {
         </div>
       )}
 
-      {/* MAIN CONTENT AREA */}
+      {/* ===== KHU VỰC NỘI DUNG CHÍNH ===== */}
       <div className="md:ml-64 min-h-screen flex flex-col relative transition-all duration-300">
-        {/* TOPBAR HEADER */}
+        {/* HEADER (TOPBAR) */}
         <header className="bg-white/70 backdrop-blur-xl sticky top-0 z-30 border-b border-gray-100">
           <div className="px-8 py-6 flex justify-between items-center">
             <div>
@@ -570,12 +615,12 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* PAGE CONTENT */}
+        {/* PAGE CONTENT - Nơi các route components được render thông qua Outlet */}
         <main className="p-8 flex-1 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
           <Outlet />
         </main>
 
-        {/* FOOTER GIẢ LẬP */}
+        {/* FOOTER */}
         <footer className="px-8 py-6 border-t border-gray-50 text-[10px] text-gray-400 font-bold uppercase tracking-[2px] flex justify-between">
           <span>PharmaWMS v2.0.1</span>
           <span className="hidden sm:inline">
@@ -584,6 +629,7 @@ export default function Layout() {
         </footer>
       </div>
 
+      {/* AI ASSISTANT WIDGET - Chỉ hiển thị cho Manager, Operator, QC */}
       {canUseAssistant && <MyAssistantWidget />}
     </div>
   );

@@ -1,41 +1,50 @@
-/**
- * Material Management Page
- * Main page integrating all Material components (List, Search, Form, Detail)
- */
+// File: components/material/MaterialManagement.tsx
+// Trang quản lý vật tư chính - tích hợp các component: List, Search, Form, Detail
+// Cho phép tạo mới, chỉnh sửa, xem chi tiết và xóa vật tư
 
 import React, { useState, useCallback } from "react";
 import type { Material } from "../../types/material";
 import { MaterialList, MaterialSearch, MaterialForm, MaterialDetail } from ".";
 import { materialService } from "../../services/material.service";
 
+// Định nghĩa các chế độ xem: danh sách, chi tiết, form
 type ViewMode = "list" | "detail" | "form";
+// Chế độ form: tạo mới hoặc chỉnh sửa
 type FormMode = "create" | "edit";
 
+// State cho form
 interface FormState {
   visible: boolean;
   mode: FormMode;
   material?: Material;
 }
 
+// State cho chi tiết
 interface DetailState {
   visible: boolean;
   material?: Material;
 }
 
 export const MaterialManagement: React.FC = () => {
+  // State chế độ hiển thị: list, detail, hoặc form
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // State form: hiển thị/ẩn, chế độ tạo/sửa, vật tư đang sửa
   const [formState, setFormState] = useState<FormState>({
     visible: false,
     mode: "create",
   });
+  // State chi tiết: hiển thị/ẩn, vật tư đang xem
   const [detailState, setDetailState] = useState<DetailState>({
     visible: false,
   });
+  // Key để trigger tải lại danh sách
   const [listRefreshKey, setListRefreshKey] = useState(0);
+  // State đang xóa vật tư
   const [deleteLoading, setDeleteLoading] = useState(false);
+  // State lỗi khi xóa
   const [deleteError, setDeleteError] = useState<Error | null>(null);
 
-  // Open create form
+  // Mở form tạo mới vật tư
   const handleOpenCreateForm = useCallback(() => {
     setFormState({
       visible: true,
@@ -44,7 +53,7 @@ export const MaterialManagement: React.FC = () => {
     setViewMode("form");
   }, []);
 
-  // Open edit form
+  // Mở form chỉnh sửa vật tư
   const handleOpenEditForm = useCallback((material: Material) => {
     setFormState({
       visible: true,
@@ -54,7 +63,7 @@ export const MaterialManagement: React.FC = () => {
     setViewMode("form");
   }, []);
 
-  // Close form
+  // Đóng form và reset state
   const handleCloseForm = useCallback(() => {
     setFormState({
       visible: false,
@@ -64,13 +73,13 @@ export const MaterialManagement: React.FC = () => {
     setViewMode("list");
   }, []);
 
-  // Handle form success - refresh list and close form
+  // Xử lý khi form submit thành công - tải lại danh sách
   const handleFormSuccess = useCallback(() => {
     setListRefreshKey((prev) => prev + 1);
     handleCloseForm();
   }, [handleCloseForm]);
 
-  // Open detail view
+  // Mở xem chi tiết vật tư
   const handleOpenDetail = useCallback((material: Material) => {
     setDetailState({
       visible: true,
@@ -79,7 +88,7 @@ export const MaterialManagement: React.FC = () => {
     setViewMode("detail");
   }, []);
 
-  // Close detail view
+  // Đóng xem chi tiết
   const handleCloseDetail = useCallback(() => {
     setDetailState({
       visible: false,
@@ -88,14 +97,14 @@ export const MaterialManagement: React.FC = () => {
     setViewMode("list");
   }, []);
 
-  // Handle delete material
+  // Xử lý xóa vật tư
   const handleDeleteMaterial = useCallback(
     async (materialId: string) => {
       try {
         setDeleteLoading(true);
         setDeleteError(null);
         await materialService.delete(materialId);
-        // Refresh list after delete
+        // Tải lại danh sách sau khi xóa
         setListRefreshKey((prev) => prev + 1);
         handleCloseDetail();
       } catch (error) {
@@ -109,29 +118,23 @@ export const MaterialManagement: React.FC = () => {
     [handleCloseDetail],
   );
 
-  // Handle material selection from search - open detail
+  // Xử lý khi chọn vật tư từ kết quả tìm kiếm
   const handleSearchSelectMaterial = useCallback((materialId: string) => {
-    // In a real app, you might fetch from a map or pass the whole material
-    // For now, just close search and show message
+    // Trong thực tế, cần lấy thông tin vật tư từ map hoặc fetch
     console.log("Material selected from search:", materialId);
     setViewMode("list");
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-linear-to-br from-blue-600 to-blue-700 text-white px-5 py-7 flex justify-between items-center flex-wrap gap-5 shadow-md">
-        <div className="flex-1 min-w-0">
-          <h1 className="m-0 mb-2 text-4xl font-bold">Material Management</h1>
-          <p className="m-0 text-sm opacity-90">
-            Manage materials, create new entries, search and filter by type
-          </p>
-        </div>
-        <button
-          className="px-6 py-3 bg-white text-blue-600 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
-          onClick={handleOpenCreateForm}
-        >
-          + New Material
-        </button>
+    // Container chính với nền xám
+    <div className="min-h-screen bg-gray-100 p-4 md:p-6">
+      {/* HEADER: Tiêu đề và mô tả trang quản lý vật tư */}
+      <header className="rounded-lg bg-linear-to-br from-blue-600 to-blue-700 px-5 py-6 text-white shadow-md">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-100">
+          Quản lý vật tư
+        </p>
+        <h1 className="mt-2 text-3xl font-black">Quản lý vật tư</h1>
+        <p className="mt-2 text-sm text-blue-100">Quản lý vật tư, tạo mới, tìm kiếm và lọc theo loại</p>
       </header>
 
       <div className="px-5 py-0 max-w-6xl mx-auto">

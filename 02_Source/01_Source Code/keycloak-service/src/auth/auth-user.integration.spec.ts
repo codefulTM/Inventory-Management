@@ -1,9 +1,20 @@
 /**
- * Integration tests — keycloak-service UserService + UserRepository
+ * File: auth-user.integration.spec.ts
+ * Mô tả: Integration tests cho UserService + UserRepository trong keycloak-service.
  *
- * Tests the full user management layer against a real in-memory MongoDB.
- * AuthService is mocked (Keycloak calls are skipped) so we focus on
- * schema constraints, repository queries, and service-level business rules.
+ * Kiểm tra lớp quản lý user với MongoDB thật (in-memory MongoMemoryServer):
+ * - Ràng buộc schema (unique username, unique email)
+ * - Repository queries (findAll, findById, search, phân trang)
+ * - Business rules của service (tạo user, cập nhật, khóa/mở khóa, xóa, thống kê)
+ *
+ * AuthService được mock (bỏ qua Keycloak) để tập trung vào lớp user management.
+ * KeycloakService cũng được mock — trả về keycloak_id giả lập.
+ *
+ * Setup:
+ * - MongoMemoryServer: MongoDB in-memory cho test isolation
+ * - Mock KeycloakService: createUser trả về 'kc-uuid-N' tăng dần
+ * - Mock MailService: generateTempPassword trả về 'Temp@12345' cố định
+ * - Mock AuditLogService: log không làm gì cả
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';
@@ -27,6 +38,7 @@ let testModule: TestingModule;
 let userService: UserService;
 let userModel: Model<User>;
 
+// Bộ đếm giả lập Keycloak user ID
 let kcCounter = 0;
 const mockKeycloakService = {
   createUser: jest.fn().mockImplementation(() => Promise.resolve(`kc-uuid-${++kcCounter}`)),
@@ -45,6 +57,7 @@ const mockAuditLogService = {
   log: jest.fn().mockResolvedValue(undefined),
 };
 
+// Khởi tạo MongoMemoryServer và NestJS testing module trước khi chạy tests
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
 
@@ -69,17 +82,19 @@ beforeAll(async () => {
   userModel = testModule.get<Model<User>>(getModelToken(User.name));
 });
 
+// Dọn dẹp sau khi tất cả tests hoàn tất
 afterAll(async () => {
   await testModule.close();
   await mongod.stop();
 });
 
+// Xóa dữ liệu và reset mocks sau mỗi test
 afterEach(async () => {
   await userModel.deleteMany({});
   jest.clearAllMocks();
 });
 
-// ── createUser ─────────────────────────────────────────────────────────────
+// ── createUser — Test nhóm tạo user ─────────────────────────────────────────
 
 describe('createUser (integration)', () => {
   const dto = {
@@ -88,6 +103,7 @@ describe('createUser (integration)', () => {
     role: UserRole.OPERATOR,
   };
 
+  /** Kiểm tra user được lưu vào MongoDB với keycloak_id từ Keycloak */
   it('persists user to MongoDB with keycloak_id', async () => {
     const result = await userService.createUser(dto, 'admin');
 
@@ -99,6 +115,7 @@ describe('createUser (integration)', () => {
     expect(saved?.keycloak_id).toMatch(/^kc-uuid-\d+$/);
   });
 
+  /** Kiểm tra ràng buộc unique username — không cho tạo 2 user cùng username */
   it('enforces unique username constraint', async () => {
     await userService.createUser(dto, 'admin');
 
@@ -107,6 +124,7 @@ describe('createUser (integration)', () => {
     ).rejects.toThrow(ConflictException);
   });
 
+  /** Kiểm tra ràng buộc unique email — không cho tạo 2 user cùng email */
   it('enforces unique email constraint', async () => {
     await userService.createUser(dto, 'admin');
 
@@ -115,6 +133,7 @@ describe('createUser (integration)', () => {
     ).rejects.toThrow(ConflictException);
   });
 
+  /** Kiểm tra gửi email chào mừng với mật khẩu tạm thời */
   it('sends welcome email with temp password', async () => {
     await userService.createUser(dto, 'admin');
 
@@ -126,6 +145,7 @@ describe('createUser (integration)', () => {
     );
   });
 
+  /** Kiểm tra vẫn tạo user trong MongoDB khi Keycloak không khả dụng */
   it('still creates user in MongoDB when Keycloak throws', async () => {
     mockKeycloakService.createUser.mockRejectedValueOnce(new Error('KC down'));
 
@@ -135,14 +155,15 @@ describe('createUser (integration)', () => {
     );
 
     expect(result.username).toBe('kc-fail-user');
-    // keycloak_id is undefined when KC fails
+    // keycloak_id là undefined khi Keycloak thất bại
     expect(result.keycloak_id).toBeUndefined();
   });
 });
 
-// ── findAll / findById ─────────────────────────────────────────────────────
+// ── findAll / findById — Test nhóm đọc danh sách và tìm user ────────────────
 
 describe('findAll + findById (integration)', () => {
+  /** Kiểm tra trả về danh sách user phân trang từ MongoDB thật */
   it('returns paginated users from real DB', async () => {
     await userService.createUser({ username: 'u1', email: 'u1@x.com', role: UserRole.OPERATOR }, 'admin');
     await userService.createUser({ username: 'u2', email: 'u2@x.com', role: UserRole.MANAGER }, 'admin');
@@ -153,10 +174,12 @@ describe('findAll + findById (integration)', () => {
     expect(result.pagination.total).toBe(2);
   });
 
+  /** Kiểm tra từ chối page < 1 */
   it('throws BadRequestException when page < 1', async () => {
     await expect(userService.findAll(0, 20)).rejects.toThrow(BadRequestException);
   });
 
+  /** Kiểm tra findById trả về user khi tìm thấy */
   it('findById returns user when found', async () => {
     const created = await userService.createUser(
       { username: 'findme', email: 'findme@x.com', role: UserRole.OPERATOR },
@@ -168,12 +191,13 @@ describe('findAll + findById (integration)', () => {
     expect(found.username).toBe('findme');
   });
 
+  /** Kiểm tra findById ném NotFoundException khi user không tồn tại */
   it('findById throws NotFoundException when user does not exist', async () => {
     await expect(userService.findById('non-existent-uuid')).rejects.toThrow(NotFoundException);
   });
 });
 
-// ── search ─────────────────────────────────────────────────────────────────
+// ── search — Test nhóm tìm kiếm user ────────────────────────────────────────
 
 describe('search (integration)', () => {
   beforeEach(async () => {
@@ -181,6 +205,7 @@ describe('search (integration)', () => {
     await userService.createUser({ username: 'manager_xyz', email: 'xyz@x.com', role: UserRole.MANAGER }, 'admin');
   });
 
+  /** Kiểm tra tìm kiếm user theo username (partial match, case-insensitive) */
   it('finds users by partial username match', async () => {
     const result = await userService.search('operator');
 
@@ -188,14 +213,16 @@ describe('search (integration)', () => {
     expect(result.data[0].username).toBe('operator_abc');
   });
 
+  /** Kiểm tra từ chối từ khóa tìm kiếm quá ngắn (< 2 ký tự) */
   it('throws BadRequestException for query shorter than 2 chars', async () => {
     await expect(userService.search('x')).rejects.toThrow(BadRequestException);
   });
 });
 
-// ── update ─────────────────────────────────────────────────────────────────
+// ── update — Test nhóm cập nhật user ────────────────────────────────────────
 
 describe('update (integration)', () => {
+  /** Kiểm tra cập nhật email và lưu vào MongoDB */
   it('updates user email and persists to real DB', async () => {
     const created = await userService.createUser(
       { username: 'updateme', email: 'old@x.com', role: UserRole.OPERATOR },
@@ -213,6 +240,7 @@ describe('update (integration)', () => {
     expect(inDb?.email).toBe('new@x.com');
   });
 
+  /** Kiểm tra từ chối cập nhật email đã được user khác sử dụng */
   it('throws ConflictException when new email is already taken', async () => {
     const u1 = await userService.createUser({ username: 'u1', email: 'u1@x.com', role: UserRole.OPERATOR }, 'admin');
     await userService.createUser({ username: 'u2', email: 'u2@x.com', role: UserRole.OPERATOR }, 'admin');
@@ -223,9 +251,10 @@ describe('update (integration)', () => {
   });
 });
 
-// ── setActiveStatus ────────────────────────────────────────────────────────
+// ── setActiveStatus — Test nhóm khóa/mở khóa tài khoản ──────────────────────
 
 describe('setActiveStatus (integration)', () => {
+  /** Kiểm tra khóa user: is_active=false và lưu lock fields */
   it('locks user: sets is_active=false and lock fields in DB', async () => {
     const user = await userService.createUser(
       { username: 'lockme', email: 'lockme@x.com', role: UserRole.OPERATOR },
@@ -244,6 +273,7 @@ describe('setActiveStatus (integration)', () => {
     expect((inDb as any).lock_reason).toBe('Violation');
   });
 
+  /** Kiểm tra mở khóa user: is_active=true và xóa lock fields */
   it('unlocks user: sets is_active=true and clears lock fields in DB', async () => {
     const user = await userService.createUser(
       { username: 'unlockme', email: 'unlockme@x.com', role: UserRole.OPERATOR },
@@ -258,9 +288,10 @@ describe('setActiveStatus (integration)', () => {
   });
 });
 
-// ── delete ─────────────────────────────────────────────────────────────────
+// ── delete — Test nhóm xóa user ─────────────────────────────────────────────
 
 describe('delete (integration)', () => {
+  /** Kiểm tra xóa user khỏi MongoDB và gọi Keycloak delete */
   it('removes user from MongoDB and calls Keycloak delete', async () => {
     const user = await userService.createUser(
       { username: 'deleteme', email: 'deleteme@x.com', role: UserRole.OPERATOR },
@@ -276,14 +307,16 @@ describe('delete (integration)', () => {
     expect(inDb).toBeNull();
   });
 
+  /** Kiểm tra ném NotFoundException khi user không tồn tại */
   it('throws NotFoundException when user does not exist', async () => {
     await expect(userService.delete('non-existent')).rejects.toThrow(NotFoundException);
   });
 });
 
-// ── getStatistics ──────────────────────────────────────────────────────────
+// ── getStatistics — Test nhóm thống kê user ─────────────────────────────────
 
 describe('getStatistics (integration)', () => {
+  /** Kiểm tra thống kê đúng: tổng số, active, inactive, theo role */
   it('returns correct total, active, inactive, byRole from real DB', async () => {
     await userService.createUser({ username: 'op1', email: 'op1@x.com', role: UserRole.OPERATOR }, 'admin');
     await userService.createUser({ username: 'op2', email: 'op2@x.com', role: UserRole.OPERATOR }, 'admin');

@@ -1,3 +1,10 @@
+/**
+ * InventoryAdjustmentForm - Form tạo phiếu điều chỉnh tồn kho cho Manager
+ * Chức năng: Cho phép Manager tạo phiếu điều chỉnh số lượng tồn kho
+ * Chọn lô hàng, nhập số lượng điều chỉnh (dương hoặc âm)
+ * Chọn mã lý do điều chỉnh và nhập ghi chú
+ * Hệ thống sẽ kiểm tra và cập nhật số lượng tồn kho tương ứng
+ */
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type {
@@ -13,19 +20,22 @@ import {
   INVENTORY_ADJUSTMENT_REASON_LABELS,
 } from "../../../types/inventoryAdjustment";
 
+/** Props cho component InventoryAdjustmentForm */
 interface InventoryAdjustmentFormProps {
-  submitting?: boolean;
-  onSubmit: (payload: CreateInventoryAdjustmentRequest) => Promise<void>;
+  submitting?: boolean; // Trạng thái đang gửi dữ liệu
+  onSubmit: (payload: CreateInventoryAdjustmentRequest) => Promise<void>; // Callback khi submit
 }
 
+/** Kiểu dữ liệu cho các trường trong form điều chỉnh */
 type InventoryAdjustmentFormValues = {
-  lot_id: string;
-  adjustment_quantity: number;
-  reason_code: InventoryAdjustmentReasonCode;
-  reason_note: string;
-  unit_cost_snapshot: number;
+  lot_id: string;                    // Mã lô hàng cần điều chỉnh
+  adjustment_quantity: number;        // Số lượng điều chỉnh (dương: tăng, âm: giảm)
+  reason_code: InventoryAdjustmentReasonCode; // Mã lý do điều chỉnh
+  reason_note: string;                // Ghi chú lý do (bắt buộc nếu reason_code = OTHER)
+  unit_cost_snapshot: number;         // Giá vốn tại thời điểm điều chỉnh
 };
 
+/** Giá trị mặc định cho form điều chỉnh */
 const DEFAULT_VALUES: InventoryAdjustmentFormValues = {
   lot_id: "",
   adjustment_quantity: 0,
@@ -34,14 +44,17 @@ const DEFAULT_VALUES: InventoryAdjustmentFormValues = {
   unit_cost_snapshot: 0,
 };
 
+/** Component chính: Form tạo phiếu điều chỉnh tồn kho */
 export default function InventoryAdjustmentForm({
   submitting = false,
   onSubmit,
 }: InventoryAdjustmentFormProps) {
+  // State danh sách lô hàng để chọn trong form
   const [lotOptions, setLotOptions] = useState<InventoryLotOptionItem[]>([]);
   const [isLoadingLots, setIsLoadingLots] = useState(false);
   const [lotOptionsError, setLotOptionsError] = useState<string | null>(null);
 
+  // Khởi tạo react-hook-form với chế độ validate khi blur
   const {
     register,
     handleSubmit,
@@ -53,21 +66,25 @@ export default function InventoryAdjustmentForm({
     defaultValues: DEFAULT_VALUES,
   });
 
+  // Theo dõi các giá trị form để hiển thị thông tin động
   const reasonCode = watch("reason_code");
   const selectedLotId = watch("lot_id");
   const isOtherReason = reasonCode === "OTHER";
   const effectiveSubmitting = submitting || isSubmitting;
 
+  // Label của lý do đang chọn (dùng để hiển thị)
   const reasonLabel = useMemo(
     () => INVENTORY_ADJUSTMENT_REASON_LABELS[reasonCode] ?? reasonCode,
     [reasonCode],
   );
 
+  // Lô hàng đang được chọn từ danh sách
   const selectedLot = useMemo(
     () => lotOptions.find((lot) => lot.lot_id === selectedLotId),
     [lotOptions, selectedLotId],
   );
 
+  /** Tải danh sách lô hàng từ API (loại trừ lô đã hết hàng) */
   const loadLotOptions = async () => {
     setIsLoadingLots(true);
     setLotOptionsError(null);
@@ -89,10 +106,12 @@ export default function InventoryAdjustmentForm({
     setIsLoadingLots(false);
   };
 
+  // Tải danh sách lô hàng khi component mount
   useEffect(() => {
     void loadLotOptions();
   }, []);
 
+  /** Xử lý submit form - tạo payload và gọi API */
   const onValidSubmit = async (values: InventoryAdjustmentFormValues) => {
     const payload: CreateInventoryAdjustmentRequest = {
       lot_id: values.lot_id.trim(),
@@ -103,7 +122,9 @@ export default function InventoryAdjustmentForm({
     };
 
     try {
+      // Gọi callback onSubmit từ parent component
       await onSubmit(payload);
+      // Reset form về giá trị mặc định (giữ lại reason_code và unit_cost_snapshot)
       reset({
         ...DEFAULT_VALUES,
         reason_code: values.reason_code,
@@ -128,6 +149,7 @@ export default function InventoryAdjustmentForm({
         </p>
       </div>
 
+      {/* Form tạo phiếu điều chỉnh - 2 cột trên desktop */}
       <form
         className="grid grid-cols-1 gap-4 md:grid-cols-2"
         onSubmit={(event) => {

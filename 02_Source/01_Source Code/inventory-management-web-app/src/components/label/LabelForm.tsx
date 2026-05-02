@@ -1,7 +1,7 @@
-/**
- * LabelForm component
- * Create / Edit a label template
- */
+// File: components/label/LabelForm.tsx
+// Component form tạo mới hoặc chỉnh sửa mẫu nhãn (Label Template)
+// Hỗ trợ 2 chế độ: "create" (tạo mới) và "edit" (chỉnh sửa)
+// Các trường: Template ID, Tên, Loại nhãn, Kích thước, Nội dung mẫu
 
 import React, { useState, useEffect } from "react";
 import { LABEL_TYPES } from "../../types/label";
@@ -13,13 +13,15 @@ import type {
 import { labelService } from "../../services/label.service";
 import { X, Save } from "lucide-react";
 
+// Props cho component LabelForm
 interface LabelFormProps {
-  mode: "create" | "edit";
-  existing?: LabelTemplate;
-  onSuccess: () => void;
-  onCancel: () => void;
+  mode: "create" | "edit";   // Chế độ tạo mới hoặc chỉnh sửa
+  existing?: LabelTemplate;      // Mẫu nhãn hiện tại (khi edit)
+  onSuccess: () => void;        // Hàm gọi khi lưu thành công
+  onCancel: () => void;         // Hàm gọi khi hủy bỏ
 }
 
+// Nội dung mẫu mặc định cho nhãn (chứa các placeholder động)
 const DEFAULT_TEMPLATE_CONTENT = `PHARMA WMS
 ================================
 Material: {{material_name}}

@@ -1,9 +1,33 @@
+/**
+ * InventoryLotSchema - Schema định nghĩa lô hàng tồn kho trong MongoDB
+ *
+ * Collection: inventory_lots
+ *
+ * Mô tả: Quản lý các lô hàng (lots) trong kho theo nguyên tắc FIFO/FEFO.
+ * Mỗi lô đại diện cho một lần nhận vật tư cụ thể từ nhà cung cấp.
+ *
+ * Vòng đời lô hàng:
+ * Quarantine → Accepted → Depleted (hoặc Rejected)
+ *
+ * Các trường chính:
+ * - lot_id: ID lô duy nhất (LOT-XXXXX)
+ * - material_id: Vật tư thuộc lô này
+ * - manufacturer_name, manufacturer_lot: Thông tin nhà sản xuất
+ * - supplier_name: Nhà cung cấp
+ * - received_date, expiration_date: Ngày nhận và hạn sử dụng
+ * - status: Trạng thái lô (Quarantine, Accepted, Rejected, Depleted)
+ * - quantity, unit_of_measure: Số lượng và đơn vị
+ * - warehouse_id, storage_location: Vị trí lưu kho
+ * - parent_lot_id: ID lô cha (nếu là mẫu thử)
+ * - is_sample: Có phải lô mẫu không
+ */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaOptions } from 'mongoose';
 import { InventoryLotStatus } from '../inventory-lot/inventory-lot.dto';
 
 export type InventoryLotDocument = InventoryLot & Document;
 
+// Collection name và timestamps configuration
 const options: SchemaOptions = {
   collection: 'inventory_lots',
   timestamps: { createdAt: 'created_date', updatedAt: 'modified_date' },

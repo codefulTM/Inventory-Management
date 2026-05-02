@@ -1,3 +1,8 @@
+// File: components/warehouse/components/WarehouseForm.tsx
+// Form tạo mới hoặc chỉnh sửa thông tin kho
+// Nếu có warehouseId: chế độ chỉnh sửa, ngược lại là tạo mới
+// Gọi warehouseService để create/update và hiển thị toast kết quả
+
 import React, { useState, useEffect } from "react";
 import type {
   Warehouse,
@@ -7,22 +12,25 @@ import type {
 import warehouseService from "../../../services/warehouseService";
 import Toast from "../../Toast";
 
+// Props cho WarehouseForm
 interface Props {
-  warehouseId?: string;
-  onSaved?: (w: Warehouse) => void;
+  warehouseId?: string; // ID kho (nếu có thì update, không thì create)
+  onSaved?: (w: Warehouse) => void; // Callback khi lưu thành công
 }
 
 export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
-  const [warehouseIdInput, setWarehouseIdInput] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [isActive, setIsActive] = useState(true);
-  const [loading, setLoading] = useState(false);
+  // State form
+  const [warehouseIdInput, setWarehouseIdInput] = useState(""); // Mã kho (chỉ nhập khi tạo mới)
+  const [name, setName] = useState(""); // Tên kho
+  const [description, setDescription] = useState(""); // Mô tả
+  const [isActive, setIsActive] = useState(true); // Trạng thái hoạt động
+  const [loading, setLoading] = useState(false); // Đang xử lý
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
+  // Nếu có warehouseId, load thông tin kho để edit
   useEffect(() => {
     let mounted = true;
     if (warehouseId) {
@@ -44,16 +52,20 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
     };
   }, [warehouseId]);
 
+  // Xử lý submit form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Payload cho create hoặc update
       const payload: CreateWarehouseRequest | UpdateWarehouseRequest = {
         ...(warehouseId ? { warehouse_id: warehouseIdInput } : {}),
         warehouse_name: name,
         description,
         is_active: isActive,
       };
+
+      // Gọi API tương ứng
       const result = warehouseId
         ? await warehouseService.updateWarehouse(
             warehouseId,
@@ -62,7 +74,10 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
         : await warehouseService.createWarehouse(
             payload as CreateWarehouseRequest,
           );
+
       if (onSaved) onSaved(result);
+
+      // Hiển thị toast thành công
       setToast({
         message: warehouseId ? "Cập nhật kho thành công" : "Tạo kho thành công",
         type: "success",
@@ -84,6 +99,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
         </h2>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Mã kho - chỉ cho phép sửa khi tạo mới */}
           <div className="flex flex-col gap-1.5">
             <label className="font-bold text-gray-800 text-sm">Mã kho</label>
             {warehouseId ? (
@@ -100,6 +116,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
             )}
           </div>
 
+          {/* Tên kho */}
           <div className="flex flex-col gap-1.5">
             <label className="font-bold text-gray-800 text-sm">Tên kho</label>
             <input
@@ -109,6 +126,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
             />
           </div>
 
+          {/* Mô tả */}
           <div className="flex flex-col gap-1.5">
             <label className="font-bold text-gray-800 text-sm">Mô tả</label>
             <textarea
@@ -119,6 +137,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
             />
           </div>
 
+          {/* Trạng thái hoạt động */}
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium">Đang hoạt động</label>
             <input
@@ -128,6 +147,7 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
             />
           </div>
 
+          {/* Nút hành động */}
           <div className="flex gap-3 mt-2.5">
             <button
               type="submit"
@@ -156,6 +176,8 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseId, onSaved }) => {
           </div>
         </form>
       </div>
+
+      {/* Toast thông báo */}
       {toast && (
         <Toast
           message={toast.message}

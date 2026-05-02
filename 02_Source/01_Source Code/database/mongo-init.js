@@ -1,35 +1,71 @@
 /**
- * MongoDB Initialization Script: Pharmacy Inventory Management System
- * Purpose: Initialize collections with comprehensive seed data (20+ records each)
- * Date: 2026-03-15
- *
- * Collections:
- * - users (20 users)
- * - warehouses (3 warehouses)
- * - storage_locations (30+ locations)
- * - materials (25 materials)
- * - inventory_lots (30 lots)
- * - inventory_transactions (35 transactions)
- * - inventory_audit_reports (6 reports)
- * - production_batches (25 batches)
- * - batch_components (30 components)
- * - qc_tests (30 tests)
- * - import_export_orders (8 orders)
+ * ============================================================================
+ * SCRIPT KHỞI TẠO DATABASE MONGODB - HỆ THỐNG QUẢN LÝ KHO DƯỢC PHẨM
+ * ============================================================================
+ * 
+ * Mục đích: Script này dùng để khởi tạo toàn bộ database "inventory" cho hệ thống
+ *            Inventory Management System (IMS) - Hệ thống quản lý kho dược phẩm.
+ * 
+ * Chức năng chính:
+ * 1. Tạo database và xóa dữ liệu cũ (nếu có)
+ * 2. Tạo các collection với Schema Validation (kiểm tra kiểu dữ liệu)
+ * 3. Tạo các index để tối ưu hiệu suất truy vấn
+ * 4. Chèn dữ liệu mẫu (seed data) để test và phát triển
+ * 
+ * Các collection được tạo (tổng cộng 15+ collections):
+ * - users (22 người dùng) - Quản lý tài khoản người dùng hệ thống
+ * - warehouses (3 kho) - Quản lý thông tin kho bãi
+ * - storage_locations (31 vị trí) - Vị trí lưu trữ trong kho (kệ, khu vực)
+ * - materials (25 nguyên liệu) - Danh mục nguyên liệu (API, tá dược, bao bì...)
+ * - inventory_lots (30 lô hàng) - Quản lý lô hàng từng nguyên liệu
+ * - inventory_transactions (35 giao dịch) - Lịch sử nhập/xuất/điều chỉnh kho
+ * - inventory_audit_reports (6 báo cáo) - Báo cáo kiểm kê định kỳ
+ * - production_batches (25 lô sản xuất) - Quản lý lô sản xuất thành phẩm
+ * - batch_components (30 thành phần) - Nguyên liệu dùng trong lô sản xuất
+ * - qc_tests (30 bài test) - Kết quả kiểm tra chất lượng (QC)
+ * - import_export_orders (8 phiếu) - Phiếu nhập/xuất kho
+ * - inventory_adjustments - Phiếu điều chỉnh tồn kho
+ * - counters - Bộ đếm tự động sinh mã
+ * - bin_count_records - Ghi nhận kiểm kê theo bin
+ * - warehouse_locations - Cấu trúc phân cấp kho (zone/rack/bin)
+ * - warehouse_slips - Phiếu nhập/xuất kho (slip)
+ * - label_templates - Mẫu nhãn barcode/QR
+ * - password_reset_tokens - Token đặt lại mật khẩu
+ * - audit_logs - Nhật ký audit hệ thống
+ * - inventory_valuation_summaries - Tổng hợp định giá tồn kho
+ * 
+ * Ngày tạo: 2026-03-15
+ * Tác giả: DevOps Team
+ * ============================================================================
  */
 
 // ============================================================================
-// 1. CONNECT & INITIALIZE DATABASE
+// 1. KẾT NỐI & KHỞI TẠO DATABASE
 // ============================================================================
 
+// Kết nối tới database "inventory" (tạo mới nếu chưa tồn tại)
 db = db.getSiblingDB("inventory");
+
+// Xóa toàn bộ dữ liệu cũ trong database để bắt đầu từ đầu (fresh start)
+// CẢNH BÁO: Thao tác này sẽ xóa tất cả collections và documents hiện có
 db.dropDatabase();
 print(">>> Database 'inventory' initialized");
 
 // ============================================================================
-// 2. CREATE COLLECTIONS WITH SCHEMA VALIDATION
+// 2. TẠO CÁC COLLECTION VỚI SCHEMA VALIDATION
 // ============================================================================
+// Phần này định nghĩa cấu trúc dữ liệu cho từng collection sử dụng $jsonSchema
+// Schema Validation giúp đảm bảo tính toàn vẹn dữ liệu (data integrity)
+// Chỉ các document thoả mãn schema mới được phép insert/update
 
-// Users Collection
+// ============================================================================
+// COLLECTION: USERS - Quản lý tài khoản người dùng hệ thống
+// ============================================================================
+// Lưu trữ thông tin người dùng, phân quyền qua field "role"
+// Các vai trò: Manager, Operator, Quality Control Technician, IT Administrator
+// is_active: đánh dấu tài khoản còn hoạt động hay đã bị khóa
+// keycloak_id: liên kết với Keycloak Identity Provider để xác thực SSO
+// ============================================================================
 db.createCollection("users", {
   validator: {
     $jsonSchema: {
@@ -58,7 +94,17 @@ db.createCollection("users", {
   },
 });
 
-// Materials Collection
+// ============================================================================
+// COLLECTION: MATERIALS - Danh mục nguyên liệu (Material Master Data)
+// ============================================================================
+// Quản lý thông tin master data của tất cả loại nguyên liệu trong hệ thống
+// material_type: API (Active Pharmaceutical Ingredient - hoạt chất),
+//              Excipient (tá dược), Container (bao bì chứa), 
+//              Closure (nắp đậy), Process Chemical, Testing Material
+// storage_conditions: điều kiện bảo quản (nhiệt độ, độ ẩm, ánh sáng...)
+// status: Pending (chờ duyệt), Approved (đã duyệt), Rejected (từ chối)
+// created_by/approved_by: người tạo và người duyệt (tham chiếu user_id)
+// ============================================================================
 db.createCollection("materials", {
   validator: {
     $jsonSchema: {
@@ -101,7 +147,13 @@ db.createCollection("materials", {
   },
 });
 
-// Warehouses Collection
+// ============================================================================
+// COLLECTION: WAREHOUSES - Quản lý thông tin kho bãi
+// ============================================================================
+// Lưu trữ danh sách các kho trong hệ thống (Hà Nội, TP.HCM, Đà Nẵng...)
+// warehouse_name: tên kho, description: mô tả chức năng kho
+// is_active: trạng thái hoạt động của kho
+// ============================================================================
 db.createCollection("warehouses", {
   validator: {
     $jsonSchema: {
@@ -119,7 +171,15 @@ db.createCollection("warehouses", {
   },
 });
 
-// Storage Locations Collection
+// ============================================================================
+// COLLECTION: STORAGE LOCATIONS - Vị trí lưu trữ trong kho
+// ============================================================================
+// Quản lý các vị trí cụ thể trong kho: kệ (rack), khu vực (zone), bin
+// location_name: tên vị trí (ví dụ: "Kho lạnh dãy A1", "QC Lab B2")
+// zone: phân vùng (COLD - lạnh, DRY - khô, QC - kiểm tra, REJECT - loại)
+// warehouse_id: tham chiếu đến kho cha (FK to warehouses collection)
+// expected_qty: số lượng dự kiến tại vị trí này
+// ============================================================================
 db.createCollection("storage_locations", {
   validator: {
     $jsonSchema: {
@@ -139,7 +199,21 @@ db.createCollection("storage_locations", {
   },
 });
 
-// Inventory Lots Collection
+// ============================================================================
+// COLLECTION: INVENTORY LOTS - Quản lý lô hàng từng nguyên liệu
+// ============================================================================
+// Đây là collection quan trọng nhất - lưu thông tin từng lô hàng (batch/lot)
+// lot_id: mã lô hàng duy nhất
+// material_id: tham chiếu nguyên liệu (FK to materials)
+// manufacturer_name/lot: thông tin nhà sản xuất và số lô của họ
+// received_date/expiration_date: ngày nhập kho và hạn sử dụng
+// status: Quarantine (cách ly chờ QC), Accepted (đạt), Rejected (loại), Depleted (hết)
+// quantity: số lượng hiện tại trong lô, unit_of_measure: đơn vị tính
+// warehouse_id/storage_location: vị trí lưu kho hiện tại
+// is_sample: đánh dấu đây là mẫu lưu (retain sample) hay lô thương mại
+// parent_lot_id: tham chiếu lô gốc (dùng khi tách lô - split lot)
+// history: lịch sử thay đổi trạng thái của lô (audit trail)
+// ============================================================================
 db.createCollection("inventory_lots", {
   validator: {
     $jsonSchema: {
@@ -186,7 +260,17 @@ db.createCollection("inventory_lots", {
   },
 });
 
-// Inventory Transactions Collection
+// ============================================================================
+// COLLECTION: INVENTORY TRANSACTIONS - Lịch sử giao dịch kho
+// ============================================================================
+// Ghi nhận tất cả các giao dịch làm thay đổi số lượng tồn kho
+// transaction_type: Receipt (nhập), Usage (xuất dùng), Split (tách lô),
+//                 Adjustment (điều chỉnh), Transfer (chuyển kho), Disposal (hủy)
+// lot_id: lô hàng bị ảnh hưởng bởi giao dịch này
+// related_lot_id: lô liên quan (dùng khi tách lô hoặc chuyển đổi)
+// adjustment_id: tham chiếu đến phiếu điều chỉnh (nếu có)
+// performed_by: người thực hiện (FK to users)
+// ============================================================================
 db.createCollection("inventory_transactions", {
   validator: {
     $jsonSchema: {
@@ -230,7 +314,17 @@ db.createCollection("inventory_transactions", {
   },
 });
 
-// Production Batches Collection
+// ============================================================================
+// COLLECTION: PRODUCTION BATCHES - Quản lý lô sản xuất thành phẩm
+// ============================================================================
+// Theo dõi quá trình sản xuất từng lô thành phẩm (finished goods)
+// batch_number: số lô sản xuất (dùng trong truy xuất nguồn gốc)
+// product_id: tham chiếu đến sản phẩm được sản xuất
+// shelf_life_value/unit: hạn sử dụng của lô (ví dụ: 24 tháng)
+// status: In Progress (đang SX), Complete (hoàn thành), On Hold (tạm dừng), Cancelled (hủy)
+// batch_size: kích thước lô (tổng số lượng thành phẩm trong lô)
+// created_by/approved_by/completed_by: người tạo, duyệt, hoàn thành lô
+// ============================================================================
 db.createCollection("production_batches", {
   validator: {
     $jsonSchema: {
@@ -269,7 +363,15 @@ db.createCollection("production_batches", {
   },
 });
 
-// Batch Components Collection
+// ============================================================================
+// COLLECTION: BATCH COMPONENTS - Nguyên liệu sử dụng trong lô sản xuất
+// ============================================================================
+// Lưu chi tiết từng nguyên liệu (và số lượng) được dùng cho một lô sản xuất
+// Mỗi batch có nhiều components, mỗi component tham chiếu một lot cụ thể
+// planned_quantity: số lượng kế hoạch, actual_quantity: số lượng thực tế đã dùng
+// lot_id: lô hàng cụ thể được xuất kho để phục vụ sản xuất
+// addition_date/added_by: ngày và người thêm nguyên liệu vào lô
+// ============================================================================
 db.createCollection("batch_components", {
   validator: {
     $jsonSchema: {
@@ -301,7 +403,20 @@ db.createCollection("batch_components", {
   },
 });
 
-// QC Tests Collection
+// ============================================================================
+// COLLECTION: QC TESTS - Kết quả kiểm tra chất lượng (Quality Control)
+// ============================================================================
+// Lưu kết quả các bài test kiểm tra chất lượng cho từng lô hàng
+// test_type: Identity (định danh), Potency (hàm lượng), Microbial (vi sinh),
+//           Growth Promotion (thử thách), Physical (cảm quan), Chemical (hóa học)
+// test_method: phương pháp thử (ví dụ: HPLC, GC, TLC...)
+// test_result: kết quả chi tiết (đạt/không đạt, chỉ số cụ thể...)
+// result_status: Pass (đạt), Fail (không đạt), Pending (chờ kết quả)
+// performed_by: kỹ thuật viên QC thực hiện, verified_by: người xác nhận
+// retry_count: số lần thử lại (nếu kết quả không rõ ràng)
+// label_id: nhãn QC đã được in cho lô này
+// history: lịch sử các lần test (audit trail cho lô hàng)
+// ============================================================================
 db.createCollection("qc_tests", {
   validator: {
     $jsonSchema: {
@@ -352,7 +467,20 @@ db.createCollection("qc_tests", {
   },
 });
 
-// Import/Export Orders Collection (US24)
+// ============================================================================
+// COLLECTION: IMPORT/EXPORT ORDERS - Phiếu nhập/xuất kho (User Story 24)
+// ============================================================================
+// Quản lý quy trình nhập kho (Inbound) và xuắt kho (Outbound)
+// order_type: Inbound (nhập từ nhà cung cấp), Outbound (xuất cho khách hàng/sản xuất)
+// status: PendingConfirmation (chờ xác nhận), Confirmed (đã xác nhận), Rejected (từ chối)
+// items: danh sách nguyên liệu trong phiếu (material_id, quantity, unit...)
+// attachments: file đính kèm (hóa đơn, chứng từ...) - lưu thông tin file
+// blind_count_required: yêu cầu kiểm kê mù (người kiểm kê không biết số lượng dự kiến)
+// confirmed_items: kết quả kiểm kê thực tế sau khi nhận/ghi nhận hàng
+//   - expected_quantity: số lượng trên chứng từ
+//   - actual_quantity: số lượng thực tế nhận được/ghi nhận
+//   - variance_quantity: chênh lệch (thừa/thiếu)
+// ============================================================================
 db.createCollection("import_export_orders", {
   validator: {
     $jsonSchema: {
@@ -445,7 +573,19 @@ db.createCollection("import_export_orders", {
   },
 });
 
-// Inventory Audit Reports Collection (US16)
+// ============================================================================
+// COLLECTION: INVENTORY AUDIT REPORTS - Báo cáo kiểm kê định kỳ (US16)
+// ============================================================================
+// Quản lý việc tạo và lưu trữ các báo cáo kiểm kê tồn kho
+// period_from/to: khoảng thời gian báo cáo (từ ngày... đến ngày...)
+// report_template_code: mẫu báo cáo được sử dụng
+// scope_warehouse_ids: danh sách các kho được đưa vào báo cáo (null = tất cả)
+// status: PENDING (chờ xử lý), PROCESSING (đang tạo), READY (hoàn thành), FAILED (lỗi)
+// summary_*: các chỉ số tổng hợp (tổng số mặt hàng, số lượng, giá trị...)
+// file_storage_key: khóa lưu trữ file báo cáo (trên cloud/storage)
+// Digital Signature fields: signed_at, signature_provider, serial_number, valid_from/to
+// requested_by/approved_by: người yêu cầu và phê duyệt báo cáo
+// ============================================================================
 db.createCollection("inventory_audit_reports", {
   validator: {
     $jsonSchema: {
@@ -497,9 +637,21 @@ db.createCollection("inventory_audit_reports", {
   },
 });
 
-// --- Additional collections discovered in schemas ---
+// ============================================================================
+// CÁC COLLECTION BỔ SUNG (phát hiện từ schemas)
+// ============================================================================
 
-// Inventory Adjustments
+// ============================================================================
+// COLLECTION: INVENTORY ADJUSTMENTS - Phiếu điều chỉnh tồn kho
+// ============================================================================
+// Ghi nhận các điều chỉnh tồn kho (hư hỏng, thất thoát, hết hạn, đính chính...)
+// adjustment_quantity: số lượng điều chỉnh (dương = tăng, âm = giảm)
+// quantity_before/after: số lượng tồn trước và sau điều chỉnh
+// reason_code: lý do điều chỉnh (DAMAGED, LOST, EXPIRED, COUNT_CORRECTION...)
+// unit_cost_snapshot: giá đơn vị tại thời điểm điều chỉnh (để tính giá trị tồn kho)
+// valuation_before/after/delta: giá trị tồn kho trước/sau/thay đổi (để báo cáo tài chính)
+// linked_transaction_id: liên kết với inventory_transactions (ghi nhận giao dịch tương ứng)
+// ============================================================================
 db.createCollection("inventory_adjustments", {
   validator: {
     $jsonSchema: {
@@ -545,7 +697,13 @@ db.createCollection("inventory_adjustments", {
   },
 });
 
-// Counters (for sequence generators)
+// ============================================================================
+// COLLECTION: COUNTERS - Bộ đếm tự động sinh mã (Sequence Generator)
+// ============================================================================
+// Dùng để sinh mã tự động tăng dần cho các collection khác
+// Ví dụ: "users" → seq = 23 nghĩa là user tiếp theo sẽ là USR-024
+// name: tên collection cần sinh mã, seq: giá trị hiện tại của bộ đếm
+// ============================================================================
 db.createCollection("counters", {
   validator: {
     $jsonSchema: {
@@ -559,7 +717,15 @@ db.createCollection("counters", {
   },
 });
 
-// Bin Count Records (bin_count_records)
+// ============================================================================
+// COLLECTION: BIN COUNT RECORDS - Ghi nhận kiểm kê theo bin (khay/kệ)
+// ============================================================================
+// Ghi lại kết quả kiểm kê thực tế tại từng bin (vị trí lưu trữ nhỏ nhất)
+// bin_code: mã bin được kiểm kê, counted_by: người kiểm kê
+// entries: chi tiết các mặt hàng trong bin (material, quantity...)
+// flag_review: đánh dấu cần xem xét lại (khi có chênh lệch lớn)
+// attachments: hình ảnh/chứng từ đính kèm từ quá trình kiểm kê
+// ============================================================================
 db.createCollection("bin_count_records", {
   validator: {
     $jsonSchema: {
@@ -580,7 +746,15 @@ db.createCollection("bin_count_records", {
   },
 });
 
-// Warehouse hierarchical locations
+// ============================================================================
+// COLLECTION: WAREHOUSE LOCATIONS - Cấu trúc phân cấp kho (Hierarchy)
+// ============================================================================
+// Quản lý cấu trúc phân cấp: Kho → Zone → Rack → Bin
+// location_code: mã định danh (ví dụ: "WH1-Z01-R02-B03")
+// level: cấp độ trong phân cấp (Warehouse/Zone/Rack/Bin)
+// parent_code: mã cấp cha (null nếu là cấp cao nhất)
+// capacity: sức chứa tối đa của vị trí này
+// ============================================================================
 db.createCollection("warehouse_locations", {
   validator: {
     $jsonSchema: {
@@ -602,7 +776,17 @@ db.createCollection("warehouse_locations", {
   },
 });
 
-// Warehouse slips (in/out slips)
+// ============================================================================
+// COLLECTION: WAREHOUSE SLIPS - Phiếu nhập/xuất kho (Phiếu kho)
+// ============================================================================
+// Lưu trữ thông tin các phiếu kho (slip) khi nhập/xuất hàng hóa
+// slip_number: số phiếu (unique), type: IN (nhập) hoặc OUT (xuất)
+// status: PENDING (chờ), CONFIRMED (đã xác nhận), REJECTED (từ chối)
+// confirmed_by/at: người và thời điểm xác nhận phiếu
+// locked: đánh dấu phiếu đã bị khóa (không cho sửa đổi thêm)
+// processed_transactions: các giao dịch kho đã được thực hiện từ phiếu này
+// lines: chi tiết từng dòng hàng trong phiếu
+// ============================================================================
 db.createCollection("warehouse_slips", {
   validator: {
     $jsonSchema: {
@@ -635,7 +819,15 @@ db.createCollection("warehouse_slips", {
   },
 });
 
-// Label templates
+// ============================================================================
+// COLLECTION: LABEL TEMPLATES - Mẫu nhãn Barcode/QR Code
+// ============================================================================
+// Quản lý các mẫu nhãn dùng để in mã vạch (barcode) hoặc mã QR
+// template_name: tên mẫu (ví dụ: "Nhãn lô hàng A5", "Nhãn thành phẩm...")
+// label_type: loại nhãn (Barcode 1D, QR Code 2D, DataMatrix...)
+// template_content: nội dung mẫu (thường là HTML/CSS hoặc template engine)
+// width/height: kích thước nhãn (mm hoặc pixel tùy cấu hình)
+// ============================================================================
 db.createCollection("label_templates", {
   validator: {
     $jsonSchema: {
@@ -655,7 +847,14 @@ db.createCollection("label_templates", {
   },
 });
 
-// Password reset tokens
+// ============================================================================
+// COLLECTION: PASSWORD RESET TOKENS - Quản lý token đặt lại mật khẩu
+// ============================================================================
+// Lưu trữ các token dùng để đặt lại mật khẩu qua email
+// token: mã token ngẫu nhiên (unique), user_id/email: người dùng yêu cầu
+// expires_at: thời điểm token hết hạn (thường là 15-60 phút)
+// used: đánh dấu token đã được sử dụng (tránh reuse attack)
+// ============================================================================
 db.createCollection("password_reset_tokens", {
   validator: {
     $jsonSchema: {
@@ -672,7 +871,16 @@ db.createCollection("password_reset_tokens", {
   },
 });
 
-// Audit logs
+// ============================================================================
+// COLLECTION: AUDIT LOGS - Nhật ký kiểm toán hệ thống
+// ============================================================================
+// Ghi nhận tất cả các hành động quan trọng của người dùng (audit trail)
+// username/user_id: người thực hiện hành động
+// action: hành động (ví dụ: "LOGIN", "CREATE_LOT", "DELETE_USER"...)
+// ip/user_agent: thông tin thiết bị truy cập (phục vụ điều tra bảo mật)
+// details: chi tiết bổ sung (thường là object chứa thông tin hành động)
+// timestamp: thời điểm ghi nhận (dùng để truy vết)
+// ============================================================================
 db.createCollection("audit_logs", {
   validator: {
     $jsonSchema: {
@@ -691,7 +899,17 @@ db.createCollection("audit_logs", {
   },
 });
 
-// Inventory valuation summaries
+// ============================================================================
+// COLLECTION: INVENTORY VALUATION SUMMARIES - Tổng hợp định giá tồn kho
+// ============================================================================
+// Lưu giá trị tồn kho từng nguyên liệu (phục vụ báo cáo tài chính)
+// material_id: tham chiếu nguyên liệu
+// unit_cost_reference: giá đơn vị tham chiếu (từ lần nhập gần nhất hoặc trung bình)
+// total_quantity: tổng số lượng tồn hiện tại
+// total_value: tổng giá trị tồn kho (total_quantity × unit_cost_reference)
+// last_adjustment_id: phiếu điều chỉnh gần nhất ảnh hưởng đến định giá
+// last_updated_by: người cập nhật gần nhất
+// ============================================================================
 db.createCollection("inventory_valuation_summaries", {
   validator: {
     $jsonSchema: {
@@ -714,9 +932,17 @@ db.createCollection("inventory_valuation_summaries", {
 print(">>> All collections created successfully");
 
 // ============================================================================
-// 3. CREATE INDEXES FOR PERFORMANCE
+// 3. TẠO INDEXES ĐỂ TỐI ƯU HIỆU SUẤT TRUY VẤN
 // ============================================================================
+// Index giúp tăng tốc độ truy vấn (query), đặc biệt với collection lớn
+// unique: true → đảm bảo không có 2 document nào có cùng giá trị field đó
+// sparse: true → chỉ index các document có field đó (bỏ qua null/undefined)
+// -1: sắp xếp giảm dần (dùng cho sorting theo thời gian mới nhất)
 
+// Index cho Users Collection
+// user_id, username, email: unique index để đảm bảo tính duy nhất
+// keycloak_id: unique sparse (có thể null với user chưa liên kết Keycloak)
+// role, is_active: index cho filter nhanh theo quyền/trạng thái
 db.users.createIndex({ user_id: 1 }, { unique: true });
 db.users.createIndex({ keycloak_id: 1 }, { unique: true, sparse: true });
 db.users.createIndex({ username: 1 }, { unique: true });
@@ -724,20 +950,40 @@ db.users.createIndex({ email: 1 }, { unique: true });
 db.users.createIndex({ role: 1 });
 db.users.createIndex({ is_active: 1 });
 
+// Index cho Warehouses Collection
+// warehouse_id: unique để định danh nhanh kho
+// warehouse_name: tìm kiếm theo tên
+// is_active: filter nhanh các kho đang hoạt động
 db.warehouses.createIndex({ warehouse_id: 1 }, { unique: true });
 db.warehouses.createIndex({ warehouse_name: 1 });
 db.warehouses.createIndex({ is_active: 1 });
 
+// Index cho Storage Locations Collection
+// location_id: unique định danh vị trí
+// warehouse_id + is_active: tìm nhanh các vị trí trong một kho đang hoạt động
+// location_name: tìm kiếm full-text (text index)
 db.storage_locations.createIndex({ location_id: 1 }, { unique: true });
 db.storage_locations.createIndex({ warehouse_id: 1, is_active: 1 });
 db.storage_locations.createIndex({ location_name: "text" });
 
+// Index cho Materials Collection
+// material_id, part_number: unique để định danh và tìm kiếm nhanh
+// material_type, status: filter theo loại nguyên liệu và trạng thái duyệt
+// material_name: tìm kiếm full-text theo tên nguyên liệu
 db.materials.createIndex({ material_id: 1 }, { unique: true });
 db.materials.createIndex({ part_number: 1 }, { unique: true });
 db.materials.createIndex({ material_type: 1 });
 db.materials.createIndex({ status: 1 });
 db.materials.createIndex({ material_name: "text" });
 
+// Index cho Inventory Lots Collection
+// lot_id: unique định danh lô hàng
+// material_id: tìm tất cả lô của một nguyên liệu
+// status: filter theo trạng thái (Quarantine/Accepted/Rejected...)
+// expiration_date: cảnh báo lô sắp hết hạn
+// created_date: sắp xếp theo thời gian nhập kho
+// is_sample + parent_lot_id: tìm các lô con (tách từ lô gốc)
+// material_id + status: combo index tối ưu truy vấn lô theo nguyên liệu và trạng thái
 db.inventory_lots.createIndex({ lot_id: 1 }, { unique: true });
 db.inventory_lots.createIndex({ material_id: 1 });
 db.inventory_lots.createIndex({ status: 1 });
@@ -746,6 +992,13 @@ db.inventory_lots.createIndex({ created_date: -1 });
 db.inventory_lots.createIndex({ is_sample: 1, parent_lot_id: 1 });
 db.inventory_lots.createIndex({ material_id: 1, status: 1 });
 
+// Index cho Inventory Transactions Collection
+// transaction_id: unique định danh giao dịch
+// lot_id: tìm tất cả giao dịch của một lô (lịch sử nhập/xuất)
+// lot_id + transaction_date: lịch sử giao dịch theo thời gian
+// transaction_type: filter theo loại giao dịch
+// transaction_date: sắp xếp theo thời gian gần nhất
+// performed_by: tìm giao dịch theo người thực hiện
 db.inventory_transactions.createIndex({ transaction_id: 1 }, { unique: true });
 db.inventory_transactions.createIndex({ lot_id: 1 });
 db.inventory_transactions.createIndex({ lot_id: 1, transaction_date: -1 });
@@ -753,20 +1006,40 @@ db.inventory_transactions.createIndex({ transaction_type: 1 });
 db.inventory_transactions.createIndex({ transaction_date: -1 });
 db.inventory_transactions.createIndex({ performed_by: 1 });
 
+// Index cho Production Batches Collection
+// batch_id, batch_number: unique định danh lô sản xuất
+// product_id: tìm các lô của một sản phẩm
+// status: filter theo trạng thái sản xuất
 db.production_batches.createIndex({ batch_id: 1 }, { unique: true });
 db.production_batches.createIndex({ batch_number: 1 }, { unique: true });
 db.production_batches.createIndex({ product_id: 1 });
 db.production_batches.createIndex({ status: 1 });
 
+// Index cho Batch Components Collection
+// component_id: unique định danh thành phần
+// batch_id: tìm tất cả nguyên liệu trong một lô sản xuất
+// lot_id: truy vết nguyên liệu từ lô nào được dùng cho lô sản xuất nào
 db.batch_components.createIndex({ component_id: 1 }, { unique: true });
 db.batch_components.createIndex({ batch_id: 1 });
 db.batch_components.createIndex({ lot_id: 1 });
 
+// Index cho QC Tests Collection
+// test_id: unique định danh bài test
+// lot_id: tìm tất cả kết quả QC của một lô hàng
+// result_status: filter theo Pass/Fail/Pending
+// test_date: sắp xếp theo thời gian test gần nhất
 db.qc_tests.createIndex({ test_id: 1 }, { unique: true });
 db.qc_tests.createIndex({ lot_id: 1 });
 db.qc_tests.createIndex({ result_status: 1 });
 db.qc_tests.createIndex({ test_date: -1 });
 
+// Index cho Import/Export Orders Collection
+// order_id: unique định danh phiếu
+// status + created_date: tìm phiếu theo trạng thái và thời gian
+// created_by + created_date: lịch sử phiếu theo người tạo
+// order_type + status: filter phiếu nhập/ xuất theo trạng thái
+// Combo index: created_by + status + created_date (tối ưu truy vấn lịch sử phiếu của user)
+// status + modified_date: tìm các phiếu vừa được cập nhật trạng thái
 db.import_export_orders.createIndex({ order_id: 1 }, { unique: true });
 db.import_export_orders.createIndex({ status: 1, created_date: -1 });
 db.import_export_orders.createIndex({ created_by: 1, created_date: -1 });
@@ -778,55 +1051,110 @@ db.import_export_orders.createIndex({
 });
 db.import_export_orders.createIndex({ status: 1, modified_date: -1 });
 
+// Index cho Inventory Audit Reports Collection
+// report_id: unique định danh báo cáo
+// status + created_date: tìm báo cáo theo trạng thái và thời gian tạo
+// requested_by + created_date: lịch sử báo cáo theo người yêu cầu
+// period_from + period_to: tìm báo cáo trong khoảng thời gian
 db.inventory_audit_reports.createIndex({ report_id: 1 }, { unique: true });
 db.inventory_audit_reports.createIndex({ status: 1, created_date: -1 });
 db.inventory_audit_reports.createIndex({ requested_by: 1, created_date: -1 });
 db.inventory_audit_reports.createIndex({ period_from: 1, period_to: 1 });
 
 // Indexes for additional collections discovered in schemas
+
+// Index cho Inventory Adjustments Collection
+// adjustment_id: unique định danh phiếu điều chỉnh
+// lot_id + created_date: lịch sử điều chỉnh của một lô
+// material_id + created_date: lịch sử điều chỉnh của một nguyên liệu
+// reason_code + created_date: thống kê điều chỉnh theo lý do
+// performed_by + created_date: lịch sử điều chỉnh theo người thực hiện
 db.inventory_adjustments.createIndex({ adjustment_id: 1 }, { unique: true });
 db.inventory_adjustments.createIndex({ lot_id: 1, created_date: -1 });
 db.inventory_adjustments.createIndex({ material_id: 1, created_date: -1 });
 db.inventory_adjustments.createIndex({ reason_code: 1, created_date: -1 });
 db.inventory_adjustments.createIndex({ performed_by: 1, created_date: -1 });
 
+// Index cho Counters Collection
+// name: unique để đảm bảo mỗi collection chỉ có một bộ đếm
 db.counters.createIndex({ name: 1 }, { unique: true });
 
+// Index cho Bin Count Records Collection
+// bin_code: tìm kiếm theo mã bin
+// counted_at: sắp xếp theo thời gian kiểm kê
+// flag_review: tìm các bin cần xem xét lại
 db.bin_count_records.createIndex({ bin_code: 1 });
 db.bin_count_records.createIndex({ counted_at: -1 });
 db.bin_count_records.createIndex({ flag_review: 1 });
 
+// Index cho Warehouse Locations Collection
+// location_code: unique định danh vị trí phân cấp
+// level: filter theo cấp độ (Warehouse/Zone/Rack/Bin)
+// parent_code: tìm các vị trí con của một vị trí cha
+// is_active: filter các vị trí đang hoạt động
 db.warehouse_locations.createIndex({ location_code: 1 }, { unique: true });
 db.warehouse_locations.createIndex({ level: 1 });
 db.warehouse_locations.createIndex({ parent_code: 1 });
 db.warehouse_locations.createIndex({ is_active: 1 });
 
+// Index cho Warehouse Slips Collection
+// slip_number: unique định danh phiếu kho
+// warehouse_id + status: tìm phiếu theo kho và trạng thái
+// slip_id: unique (dùng cho tham chiếu từ các bảng khác)
 db.warehouse_slips.createIndex({ slip_number: 1 }, { unique: true });
 db.warehouse_slips.createIndex({ warehouse_id: 1, status: 1 });
 db.warehouse_slips.createIndex({ slip_id: 1 }, { unique: true });
 
+// Index cho Label Templates Collection
+// template_id: unique định danh mẫu nhãn
+// label_type: filter theo loại nhãn
+// template_name: tìm kiếm full-text theo tên mẫu
+// created_date: sắp xếp theo thời gian tạo
 db.label_templates.createIndex({ template_id: 1 }, { unique: true });
 db.label_templates.createIndex({ label_type: 1 });
 db.label_templates.createIndex({ template_name: "text" });
 db.label_templates.createIndex({ created_date: -1 });
 
+// Index cho Password Reset Tokens Collection
+// token: unique để đảm bảo token không trùng lặp
+// user_id: tìm token theo người dùng
+// email: tìm token theo email (khi user yêu cầu reset nhiều lần)
 db.password_reset_tokens.createIndex({ token: 1 }, { unique: true });
 db.password_reset_tokens.createIndex({ user_id: 1 });
 db.password_reset_tokens.createIndex({ email: 1 });
 
+// Index cho Audit Logs Collection
+// timestamp: sắp xếp theo thời gian mới nhất (truy vết)
+// username: tìm log theo người dùng
+// action: thống kê theo loại hành động
 db.audit_logs.createIndex({ timestamp: -1 });
 db.audit_logs.createIndex({ username: 1 });
 db.audit_logs.createIndex({ action: 1 });
 
+// Index cho Inventory Valuation Summaries Collection
+// material_id: unique để mỗi nguyên liệu chỉ có một bản ghi tổng hợp
+// modified_date: sắp xếp theo thời gian cập nhật gần nhất
 db.inventory_valuation_summaries.createIndex({ material_id: 1 }, { unique: true });
 db.inventory_valuation_summaries.createIndex({ modified_date: -1 });
 
 print(">>> All indexes created successfully");
 
 // ============================================================================
-// 4. INSERT SEED DATA
+// 4. CHÈN DỮ LIỆU MẪU (SEED DATA)
 // ============================================================================
+// Phần này chèn dữ liệu mẫu (test data) vào các collection để phục vụ
+// việc phát triển, test và demo hệ thống.
+// Lưu ý: Dữ liệu mẫu này tuân thủ nghiêm ngặt cấu trúc Dược phẩm
+// (API = Active Pharmaceutical Ingredient, Excipient = tá dược...)
 
+// ============================================================================
+// DỮ LIỆU MẪU: USERS (22 người dùng)
+// ============================================================================
+// Tạo tài khoản cho 4 nhóm quyền: Manager (3), Operator (8), 
+// Quality Control Technician (6), IT Administrator (2)
+// Người dùng không hoạt động (is_active = false): USR-010, USR-020
+// Người dùng chưa đăng nhập lần nào (last_login = null): USR-021, USR-022
+// ============================================================================
 // ---- USERS (20 users) ----
 db.users.insertMany([
   {
@@ -1051,6 +1379,14 @@ db.users.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: WAREHOUSES (3 kho)
+// ============================================================================
+// 3 kho đại diện cho 3 miền Bắc - Trung - Nam
+// EX-WH-1: Kho Hà Nội (nguyên liệu lạnh + QC Lab)
+// EX-WH-2: Kho TP.HCM (nguyên liệu khô + lưu trữ)
+// EX-WH-3: Kho Đà Nẵng (bao bì + thành phẩm)
+// ============================================================================
 // ---- WAREHOUSES (3 warehouses) ----
 db.warehouses.insertMany([
   {
@@ -1079,6 +1415,15 @@ db.warehouses.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: STORAGE LOCATIONS (31 vị trí lưu trữ)
+// ============================================================================
+// Phân bố theo 3 kho:
+// - EX-WH-1 (Hà Nội): 15 vị trí (COLD-STORE-A1~B5: 11 kho lạnh, QC-LAB-B2~B4: 3 lab, REJECT-BAY-A: 1 khu loại)
+// - EX-WH-2 (TP.HCM): 7 vị trí (DRY-STORE-C1~D1: 5 kho khô, ARCHIVE: 1 khu lưu trữ)
+// - EX-WH-3 (Đà Nẵng): 9 vị trí (PACKAGING-D1~E2: 4 khu đóng gói, FINISHED-G1~G3: 3 kho thành phẩm)
+// Zone: COLD (lạnh 2-8°C), DRY (khô), QC (kiểm tra), REJECT (loại), ARCHIVE (lưu trữ), PACKAGING (đóng gói), FINISHED (thành phẩm)
+// ============================================================================
 // ---- STORAGE LOCATIONS (31 locations) ----
 db.storage_locations.insertMany([
   {
@@ -1353,6 +1698,15 @@ db.storage_locations.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: MATERIALS (25 nguyên liệu)
+// ============================================================================
+// Bao gồm đầy đủ các loại: API (10), Excipient (6), Container (2), 
+// Closure (2), Dietary Supplement (1), Process Chemical (1), Testing Material (1)
+// Tiền tố mã: API-100001~011, EXC-200001~006, CON-300001~002, CLO-400001~002
+// Tất cả đều có status "Approved" (đã duyệt) - sẵn sàng sử dụng
+// created_by: USR-001 (admin_pharmacy), approved_by: USR-002 (manager_inventory)
+// ============================================================================
 // ---- MATERIALS (25 materials) ----
 db.materials.insertMany([
   {
@@ -1682,6 +2036,16 @@ db.materials.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: INVENTORY LOTS (30 lô hàng)
+// ============================================================================
+// Tạo 30 lô hàng từ 25 nguyên liệu trên, trạng thái đa dạng:
+// - Quarantine (cách ly chờ QC): 3 lô đầu
+// - Accepted (đã duyệt dùng): đa số các lô
+// - Rejected (từ chối): 1 lô (EX-LOT-004)
+// - Depleted (đã hết): 1 lô (EX-LOT-025)
+// Phân bố đều cho 3 kho, các loại nguyên liệu API/Excipient/Container...
+// ============================================================================
 // ---- INVENTORY LOTS (30 lots) ----
 db.inventory_lots.insertMany([
   {
@@ -2360,6 +2724,14 @@ db.inventory_lots.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: INVENTORY TRANSACTIONS (35 giao dịch kho)
+// ============================================================================
+// Ghi nhận các giao dịch kho: Receipt (nhập), Usage (xuất), Split (tách lô),
+// Adjustment (điều chỉnh), Transfer (chuyển kho), Disposal (hủy)
+// Mỗi lô hàng có thể có nhiều giao dịch (nhập → xuât → điều chỉnh...)
+// performed_by: người thực hiện (tham chiếu user_id)
+// ============================================================================
 // ---- INVENTORY TRANSACTIONS (35 transactions) ----
 db.inventory_transactions.insertMany([
   {
@@ -2854,6 +3226,16 @@ db.inventory_transactions.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: PRODUCTION BATCHES (25 lô sản xuất)
+// ============================================================================
+// Tạo 25 lô sản xuất thành phẩm từ các nguyên liệu đã nhập
+// Trạng thái đa dạng: In Progress (đang SX), Complete (hoàn thành), 
+// On Hold (tạm dừng), Cancelled (hủy)
+// Mỗi lô có hạn sử dụng (shelf_life_value + unit: 12-24 tháng)
+// created_by: người tạo lô (thường là Manager)
+// approved_by: người duyệt (QC Manager), completed_by: người hoàn thành
+// ============================================================================
 // ---- PRODUCTION BATCHES (25 batches) ----
 db.production_batches.insertMany([
   {
@@ -3233,6 +3615,15 @@ db.production_batches.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: BATCH COMPONENTS (30 thành phần)
+// ============================================================================
+// Định nghĩa các nguyên liệu (từ inventory_lots) được dùng cho từng lô sản xuất
+// Mỗi batch có thể có nhiều components (nguyên liệu khác nhau)
+// planned_quantity: số lượng kế hoạch, actual_quantity: số lượng thực tế đã dùng
+// lot_id: tham chiếu lô hàng cụ thể được xuất kho cho sản xuất
+// addition_date/added_by: ngày và người thêm nguyên liệu vào lô
+// ============================================================================
 // ---- BATCH COMPONENTS (30 components) ----
 db.batch_components.insertMany([
   {
@@ -3613,6 +4004,15 @@ for (let i = 2; i <= 30; i++) {
 }
 db.inventory_transactions.insertMany(extraTxns);
 
+// ============================================================================
+// DỮ LIỆU MẪU: QC TESTS (30 bài test)
+// ============================================================================
+// Các loại test: Identity (định danh), Potency (hàm lượng), 
+// Microbial (vi sinh), Growth Promotion (thử thách), 
+// Physical (cảm quan), Chemical (hóa học)
+// Kết quả: Pass (đạt), Fail (không đạt), Pending (chờ)
+// performed_by: kỹ thuật viên QC (usuually USR-007~USR-010, USR-014, USR-018)
+// ============================================================================
 // ---- QC TESTS (30 tests) ----
 db.qc_tests.insertMany([
   {
@@ -4097,6 +4497,16 @@ db.qc_tests.insertMany([
   },
 ]);
 
+// ============================================================================
+// DỮ LIỆU MẪU: IMPORT/EXPORT ORDERS (8 phiếu nhập/xuất)
+// ============================================================================
+// 5 phiếu Inbound (nhập kho), 3 phiếu Outbound (xuất kho)
+// Trạng thái: PendingConfirmation (3), Confirmed (5)
+// Mỗi phiếu có danh sách items (nguyên liệu, số lượng, vị trí...)
+// attachments: file đính kèm (PDF, ảnh...)
+// blind_count_required: yêu cầu kiểm kê mù (USR-002 tạo 2 phiếu yêu cầu)
+// confirmed_items: kết quả kiểm kê thực tế (sau khi xác nhận phiếu)
+// ============================================================================
 // ---- IMPORT/EXPORT ORDERS (US24 + US25 demo - 8 orders) ----
 db.import_export_orders.insertMany([
   {
@@ -4323,7 +4733,17 @@ db.import_export_orders.insertMany([
   },
 ]);
 
-// ---- INVENTORY AUDIT REPORTS (6 reports) ----
+// ============================================================================
+// DỮ LIỆU MẪU: INVENTORY AUDIT REPORTS (6 báo cáo kiểm kê)
+// ============================================================================
+// Tạo 6 báo cáo kiểm kê (US16) với các trạng thái khác nhau:
+// - READY (4 báo cáo): đã hoàn thành, có file báo cáo
+// - PENDING (1 báo cáo): chờ xử lý
+// - PROCESSING (1 báo cáo): đang tạo
+// scope_warehouse_ids: null (báo cáo toàn hệ thống) hoặc chỉ định kho cụ thể
+// Digital signature: 2 báo cáo đã được ký số (signed_at không null)
+// ============================================================================
+// ---- INVENTORY AUDIT REPORTS (6 reports) ---- 
 db.inventory_audit_reports.insertMany([
   {
     report_id: "EX-RPT-1",
@@ -4584,12 +5004,21 @@ db.inventory_valuation_summaries.insertMany([
 
 print(">>> All seed data inserted successfully!");
 print(">>> Pharmacy Inventory Management System initialized with:");
-print("    - 20 users");
-print("    - 25 materials");
-print("    - 30 inventory lots");
-print("    - 35 inventory transactions");
-print("    - 6 inventory audit reports");
-print("    - 25 production batches");
+print("    - 22 users (Managers, Operators, QC Technicians, IT Admins)");
+print("    - 3 warehouses (Hanoi, TP.HCM, Da Nang)");
+print("    - 31 storage locations (cold storage, dry storage, QC labs...)");
+print("    - 25 materials (APIs, Excipients, Containers, Closures...)");
+print("    - 30 inventory lots (various statuses: Quarantine, Accepted...)");
+print("    - 35 inventory transactions (receipts, usage, adjustments...)");
+print("    - 6 inventory audit reports (various statuses with digital signatures)");
+print("    - 25 production batches (various statuses: In Progress, Complete...)");
+print("    - 30 batch components (materials used in production)");
+print("    - 30 QC tests (Identity, Potency, Microbial, Physical...)");
+print("    - 8 import/export orders (Inbound/Outbound with blind count)");
+print("");
+print(">>> Database initialization completed at: " + new Date());
+print(">>> All collections have Schema Validation and Performance Indexes");
+print(">>> Ready for development, testing, and demo!");
 print("    - 30 batch components");
 print("    - 30 QC tests");
 print("    - 8 import/export orders (US24 + US25 demo)");

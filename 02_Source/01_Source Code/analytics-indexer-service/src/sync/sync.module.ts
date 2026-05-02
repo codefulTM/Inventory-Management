@@ -1,3 +1,22 @@
+/**
+ * File: sync/sync.module.ts
+ * Mục đích: Module quản lý tất cả các thành phần đồng bộ dữ liệu
+ * 
+ * Module này đăng ký:
+ * - Các Mongoose models cho 7 collections cần đồng bộ
+ * - 7 Sync services cho từng collection
+ * - SyncService tổng để điều phối đồng bộ
+ * - SyncScheduler để chạy đồng bộ định kỳ (cron job)
+ * 
+ * Các collections được đồng bộ:
+ * 1. inventory_lots - Lô hàng
+ * 2. inventory_transactions - Giao dịch kho
+ * 3. qc_tests - Kiểm tra chất lượng
+ * 4. materials - Vật tư
+ * 5. audit_logs -> inventory_audit_reports - Nhật ký hệ thống
+ * 6. import_export_orders - Đơn nhập/xuất
+ * 7. docs_knowledge - Tài liệu Markdown (không qua MongoDB)
+ */
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { InventoryLot, InventoryLotSchema } from '../schemas/inventory-lot.schema';
@@ -18,6 +37,7 @@ import { SyncScheduler } from './sync.scheduler';
 
 @Module({
   imports: [
+    // Đăng ký Mongoose models cho các collections cần đồng bộ
     MongooseModule.forFeature([
       { name: InventoryLot.name, schema: InventoryLotSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
@@ -28,14 +48,19 @@ import { SyncScheduler } from './sync.scheduler';
     ]),
   ],
   providers: [
+    // 7 Sync services cho từng collection
     InventoryLotsSync,
     InventoryTransactionsSync,
     QCTestsSync,
     MaterialsSync,
     AuditLogsSync,
     ImportExportOrdersSync,
-    MarkdownKnowledgeSync,
+    MarkdownKnowledgeSync,  // Không cần Mongoose model (đọc file Markdown)
+    
+    // Service tổng điều phối đồng bộ
     SyncService,
+    
+    // Scheduler chạy đồng bộ định kỳ (cron)
     SyncScheduler,
   ],
 })

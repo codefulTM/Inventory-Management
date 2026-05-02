@@ -1,3 +1,20 @@
+// =============================================================================
+// File: reports/repositories/reports.repository.ts
+// Mục đích: Repository layer truy vấn dữ liệu trực tiếp từ Elasticsearch
+// 
+// Trách nhiệm:
+// - Xây dựng Elasticsearch queries/aggregations phù hợp cho từng loại báo cáo
+// - Thực thi search queries và xử lý response từ ES
+// - Map ES response sang DTO objects
+// - Log debug info cho mỗi query
+// 
+// Các indices được truy vấn:
+// - inventory_lots_*: dữ liệu lot hàng (status, quantity, expiration)
+// - inventory_transactions_*: dữ liệu giao dịch xuất/nhập kho
+// - qc_tests_*: dữ liệu kiểm tra chất lượng
+// - inventory_audit_reports_*: dữ liệu audit trail
+// =============================================================================
+
 import { Injectable, Inject, Logger } from "@nestjs/common";
 import { Client } from "@elastic/elasticsearch";
 import { ELASTICSEARCH_CLIENT } from "../../elasticsearch/elasticsearch.constants";
@@ -16,10 +33,16 @@ import type {
 
 @Injectable()
 export class ReportsRepository {
+  // Logger để debug và theo dõi các queries
   private readonly logger = new Logger(ReportsRepository.name);
 
+  // Inject Elasticsearch Client đã được cấu hình từ ElasticsearchQueryModule
   constructor(@Inject(ELASTICSEARCH_CLIENT) private readonly es: Client) {}
 
+  // ---------------------------------------------------------------------------
+  // Chuẩn hóa interval cho date_histogram aggregation
+  // Chỉ chấp nhận 'day', 'week', 'month'
+  // ---------------------------------------------------------------------------
   private normalizeInterval(interval?: string): TrendInterval {
     if (interval === "week" || interval === "month") {
       return interval;
@@ -27,6 +50,9 @@ export class ReportsRepository {
     return "day";
   }
 
+  // ---------------------------------------------------------------------------
+  // Giải quyết thời gian tìm kiếm, tương tự như ở Service nhưng dùng Date objects
+  // ---------------------------------------------------------------------------
   private resolveTimeWindow(from?: Date, to?: Date, fallbackDays = 90) {
     const toDate = to ?? new Date();
     const fromDate =
@@ -38,6 +64,12 @@ export class ReportsRepository {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Lấy date format string cho Elasticsearch date_histogram
+  // - month: "yyyy-MM" (ví dụ: 2026-04)
+  // - week: "yyyy-ww" (ví dụ: 2026-15, tuần thứ 15)
+  // - day: "yyyy-MM-dd" (mặc định)
+  // ---------------------------------------------------------------------------
   private getDateFormat(interval: TrendInterval): string {
     if (interval === "month") {
       return "yyyy-MM";
@@ -48,15 +80,24 @@ export class ReportsRepository {
     return "yyyy-MM-dd";
   }
 
+  // =========================================================================
+  // BÁO CÁO TRẠNG THÁI INVENTORY
+  // =========================================================================
+  
   /**
-   * Query inventory_lots_* — aggregate by status, count lots and sum quantity.
+   * Truy vấn inventory_lots_* index
+   * Aggregation: nhóm theo status, tính tổng quantity, lấy mẫu các lots
+   * Trả về: danh sách tất cả lots với thông tin material_id, lot_id, quantity, status
    */
   async getInventoryStatus(
     from?: Date,
     to?: Date,
     warehouseId?: string,
   ): Promise<InventoryStatusItemDto[]> {
+    // Xây dựng mảng điều kiện lọc (must clauses)
     const must: any[] = [];
+    
+    // Lọc theo khoảng thời gian modified_date nếu có
     if (from || to) {
       must.push({
         range: {
@@ -67,24 +108,28 @@ export class ReportsRepository {
         },
       });
     }
+    
+    // Lọc theo warehouse_id nếu có
     if (warehouseId) {
       must.push({ term: { warehouse_id: warehouseId } });
     }
 
+    // Nếu không có điều kiện nào thì dùng match_all
     const query = must.length ? { bool: { must } } : { match_all: {} };
 
+    // Thực hiện ES search với aggregations
     const result = await this.es.search({
       index: "inventory_lots_*",
-      size: 0,
+      size: 0, // Không cần trả về documents, chỉ cần aggregations
       query,
       aggs: {
         by_status: {
-          terms: { field: "status", size: 50 },
+          terms: { field: "status", size: 50 }, // Nhóm theo status, lấy tối đa 50 status khác nhau
           aggs: {
-            total_quantity: { sum: { field: "quantity" } },
+            total_quantity: { sum: { field: "quantity" } }, // Tính tổng quantity cho mỗi status
             sample_lots: {
               top_hits: {
-                size: 100,
+                size: 100, // Lấy tối đa 100 lots mẫu cho mỗi status
                 _source: [
                   "material_id",
                   "lot_id",
@@ -99,10 +144,12 @@ export class ReportsRepository {
       },
     });
 
+    // Xử lý response: lấy các buckets từ aggregation
     const buckets: any[] =
       (result.aggregations?.by_status as any)?.buckets ?? [];
     const items: InventoryStatusItemDto[] = [];
 
+    // Duyệt qua từng status bucket và lấy các lots mẫu
     for (const bucket of buckets) {
       const hits: any[] = bucket.sample_lots?.hits?.hits ?? [];
       for (const hit of hits) {
@@ -123,8 +170,14 @@ export class ReportsRepository {
     return items;
   }
 
+  // =========================================================================
+  // BÁO CÁO SỬ DỤNG NGUYÊN LIỆU
+  // =========================================================================
+  
   /**
-   * Query inventory_transactions_* — filter by date range, aggregate by material_id.
+   * Truy vấn inventory_transactions_* index
+   * Aggregation: nhóm theo material_id, tính tổng quantity và đếm số giao dịch
+   * Trả về: danh sách material với transaction_count và total_quantity
    */
   async getMaterialUsage(
     from?: Date,
@@ -132,6 +185,8 @@ export class ReportsRepository {
     warehouseId?: string,
   ): Promise<MaterialUsageItemDto[]> {
     const must: any[] = [];
+    
+    // Lọc theo transaction_date
     if (from || to) {
       must.push({
         range: {
@@ -154,10 +209,10 @@ export class ReportsRepository {
       query,
       aggs: {
         by_material: {
-          terms: { field: "material_id", size: 500 },
+          terms: { field: "material_id", size: 500 }, // Top 500 materials được giao dịch nhiều nhất
           aggs: {
             total_quantity: {
-              sum: { field: "quantity" },
+              sum: { field: "quantity" }, // Tổng quantity cho mỗi material
             },
           },
         },
@@ -167,18 +222,26 @@ export class ReportsRepository {
     const buckets: any[] =
       (result.aggregations?.by_material as any)?.buckets ?? [];
 
+    // Map buckets sang DTO, mỗi bucket là một material
     const items: MaterialUsageItemDto[] = buckets.map((bucket) => ({
       material_id: bucket.key,
-      transaction_count: bucket.doc_count ?? 0,
-      total_quantity: bucket.total_quantity?.value ?? 0,
+      transaction_count: bucket.doc_count ?? 0, // Số lượng giao dịch (documents)
+      total_quantity: bucket.total_quantity?.value ?? 0, // Tổng số lượng
     }));
 
     this.logger.debug(`[getMaterialUsage] returned ${items.length} items`);
     return items;
   }
 
+  // =========================================================================
+  // BÁO CÁO HIỆU SUẤT QC
+  // =========================================================================
+  
   /**
-   * Query qc_tests_* — aggregate by result_status, compute pass/fail per supplier.
+   * Truy vấn qc_tests_* index
+   * Aggregation: nhóm theo supplier_name, sau đó theo result_status (Pass/Fail)
+   * Tính quality_rate = (approved / (approved + rejected)) * 100
+   * Hỗ trợ cả 2 nhãn: "Pass"/"Fail" và "Accepted"/"Rejected"
    */
   async getQcPerformance(
     from?: Date,
@@ -186,6 +249,8 @@ export class ReportsRepository {
     warehouseId?: string,
   ): Promise<QcPerformanceItemDto[]> {
     const must: any[] = [];
+    
+    // Lọc theo test_date
     if (from || to) {
       must.push({
         range: {
@@ -208,10 +273,10 @@ export class ReportsRepository {
       query,
       aggs: {
         by_supplier: {
-          terms: { field: "supplier_name", size: 500 },
+          terms: { field: "supplier_name", size: 500 }, // Top 500 suppliers
           aggs: {
             by_result: {
-              terms: { field: "result_status", size: 10 },
+              terms: { field: "result_status", size: 10 }, // Các kết quả: Pass, Fail, Pending...
             },
           },
         },
@@ -221,15 +286,20 @@ export class ReportsRepository {
     const buckets: any[] =
       (result.aggregations?.by_supplier as any)?.buckets ?? [];
 
+    // Map từng supplier bucket sang DTO, tính quality_rate
     const items: QcPerformanceItemDto[] = buckets.map((supplierBucket) => {
       const resultBuckets: any[] = supplierBucket.by_result?.buckets ?? [];
+      
+      // Đếm số lượng Pass/Accepted và Fail/Rejected
       const approved =
         resultBuckets.find((b) => b.key === "Pass" || b.key === "Accepted")
           ?.doc_count ?? 0;
       const rejected =
         resultBuckets.find((b) => b.key === "Fail" || b.key === "Rejected")
           ?.doc_count ?? 0;
+      
       const total = approved + rejected;
+      // Tính tỷ lệ chất lượng, làm tròn 2 chữ số thập phân
       const quality_rate =
         total > 0 ? Math.round((approved / total) * 10000) / 100 : 0;
 
@@ -245,8 +315,14 @@ export class ReportsRepository {
     return items;
   }
 
+  // =========================================================================
+  // BÁO CÁO AUDIT TRAIL (có phân trang)
+  // =========================================================================
+  
   /**
-   * Query inventory_audit_reports_* — match_all, sorted by modified_date desc, paginated.
+   * Truy vấn inventory_audit_reports_* index
+   * Lấy tất cả audit entries, sắp xếp theo modified_date giảm dần
+   * Hỗ trợ phân trang với page và size
    */
   async getAuditTrail(
     page = 0,
@@ -256,6 +332,8 @@ export class ReportsRepository {
     warehouseId?: string,
   ): Promise<AuditEntryDto[]> {
     const must: any[] = [];
+    
+    // Lọc theo modified_date
     if (from || to) {
       must.push({
         range: {
@@ -272,22 +350,24 @@ export class ReportsRepository {
 
     const query = must.length ? { bool: { must } } : { match_all: {} };
 
+    // Lấy documents (không dùng aggregations) với phân trang
     const result = await this.es.search({
       index: "inventory_audit_reports_*",
-      from: page * size,
-      size,
+      from: page * size, // Công thức skip: page * size
+      size, // Số lượng records trên mỗi page
       query,
-      sort: [{ modified_date: { order: "desc" } }],
+      sort: [{ modified_date: { order: "desc" } }], // Sắp xếp mới nhất trước
     });
 
     const hits: any[] = result.hits?.hits ?? [];
 
+    // Map ES hits sang AuditEntryDto
     const entries: AuditEntryDto[] = hits.map((hit) => {
       const src = hit._source;
       return {
         action: src.action ?? "",
-        entity: src.entity ?? src.collection ?? "",
-        performed_by: src.performed_by ?? src.user_id ?? "",
+        entity: src.entity ?? src.collection ?? "", // Hỗ trợ cả 2 field name
+        performed_by: src.performed_by ?? src.user_id ?? "", // Hỗ trợ cả 2 field name
         performed_at: src.performed_at
           ? new Date(src.performed_at)
           : new Date(src.modified_date ?? 0),
@@ -301,6 +381,10 @@ export class ReportsRepository {
     return entries;
   }
 
+  // =========================================================================
+  // BÁO CÁO XU HƯỚNG INVENTORY (time-series)
+  // =========================================================================
+  
   async getInventoryTrend(
     from?: Date,
     to?: Date,
@@ -311,6 +395,7 @@ export class ReportsRepository {
     const { fromDate, toDate } = this.resolveTimeWindow(from, to, 120);
 
     const must: any[] = [];
+    // Luôn có date range cho trend reports
     must.push({
       range: {
         modified_date: {
@@ -323,6 +408,7 @@ export class ReportsRepository {
       must.push({ term: { warehouse_id: warehouseId } });
     }
 
+    // Date histogram aggregation: nhóm theo thời gian (day/week/month)
     const response = await this.es.search({
       index: "inventory_lots_*",
       size: 0,
@@ -331,9 +417,9 @@ export class ReportsRepository {
         by_period: {
           date_histogram: {
             field: "modified_date",
-            calendar_interval: normalizedInterval,
-            min_doc_count: 0,
-            format: this.getDateFormat(normalizedInterval),
+            calendar_interval: normalizedInterval, // day, week, hoặc month
+            min_doc_count: 0, // Trả về cả các period không có data
+            format: this.getDateFormat(normalizedInterval), // Format chuỗi period
           },
           aggs: {
             total_quantity: {
@@ -348,13 +434,19 @@ export class ReportsRepository {
 
     const buckets: any[] =
       (response.aggregations?.by_period as any)?.buckets ?? [];
+    
+    // Map mỗi period bucket sang InventoryTrendPointDto
     return buckets.map((bucket) => ({
-      period: bucket.key_as_string,
-      lot_count: bucket.doc_count ?? 0,
-      total_quantity: bucket.total_quantity?.value ?? 0,
+      period: bucket.key_as_string, // Chuỗi thời gian đã format
+      lot_count: bucket.doc_count ?? 0, // Số lượng lots trong period này
+      total_quantity: bucket.total_quantity?.value ?? 0, // Tổng quantity
     }));
   }
 
+  // =========================================================================
+  // BÁO CÁO XU HƯỚNG SỬ DỤNG NGUYÊN LIỆU (time-series + top N materials)
+  // =========================================================================
+  
   async getMaterialUsageTrend(
     from?: Date,
     to?: Date,
@@ -378,6 +470,7 @@ export class ReportsRepository {
       must.push({ term: { warehouse_id: warehouseId } });
     }
 
+    // Double aggregation: date_histogram -> terms(material_id)
     const response = await this.es.search({
       index: "inventory_transactions_*",
       size: 0,
@@ -394,7 +487,7 @@ export class ReportsRepository {
             by_material: {
               terms: {
                 field: "material_id",
-                size: Math.max(1, limit),
+                size: Math.max(1, limit), // Top N materials
               },
               aggs: {
                 total_quantity: {
@@ -411,6 +504,7 @@ export class ReportsRepository {
     const buckets: any[] =
       (response.aggregations?.by_period as any)?.buckets ?? [];
 
+    // Flatten: mỗi combination của (period, material) thành một point
     for (const periodBucket of buckets) {
       const materialBuckets: any[] = periodBucket.by_material?.buckets ?? [];
       for (const materialBucket of materialBuckets) {
@@ -426,6 +520,10 @@ export class ReportsRepository {
     return points;
   }
 
+  // =========================================================================
+  // BÁO CÁO XU HƯỚNG QC + XẾP HẠNG NHÀ CUNG CẤP
+  // =========================================================================
+  
   async getQcTrend(
     from?: Date,
     to?: Date,
@@ -452,11 +550,13 @@ export class ReportsRepository {
       must.push({ term: { warehouse_id: warehouseId } });
     }
 
+    // Complex aggregation: cả date_histogram và terms(supplier) cùng lúc
     const response = await this.es.search({
       index: "qc_tests_*",
       size: 0,
       query: { bool: { must } },
       aggs: {
+        // Aggregation 1: Xu hướng theo thời gian
         by_period: {
           date_histogram: {
             field: "test_date",
@@ -465,23 +565,19 @@ export class ReportsRepository {
             format: this.getDateFormat(normalizedInterval),
           },
           aggs: {
+            // Dùng filter aggregations để đếm pass/fail/pending
             pass_count: {
-              filter: {
-                term: { result_status: "Pass" },
-              },
+              filter: { term: { result_status: "Pass" } },
             },
             fail_count: {
-              filter: {
-                term: { result_status: "Fail" },
-              },
+              filter: { term: { result_status: "Fail" } },
             },
             pending_count: {
-              filter: {
-                term: { result_status: "Pending" },
-              },
+              filter: { term: { result_status: "Pending" } },
             },
           },
         },
+        // Aggregation 2: Xếp hạng nhà cung cấp (top N)
         by_supplier: {
           terms: {
             field: "supplier_name",
@@ -489,20 +585,17 @@ export class ReportsRepository {
           },
           aggs: {
             pass_count: {
-              filter: {
-                term: { result_status: "Pass" },
-              },
+              filter: { term: { result_status: "Pass" } },
             },
             fail_count: {
-              filter: {
-                term: { result_status: "Fail" },
-              },
+              filter: { term: { result_status: "Fail" } },
             },
           },
         },
       },
     });
 
+    // Xử lý trend points theo thời gian
     const periodBuckets: any[] =
       (response.aggregations?.by_period as any)?.buckets ?? [];
     const points: QcTrendPointDto[] = periodBuckets.map((bucket) => ({
@@ -512,6 +605,7 @@ export class ReportsRepository {
       pending_count: bucket.pending_count?.doc_count ?? 0,
     }));
 
+    // Xử lý supplier rankings
     const supplierBuckets: any[] =
       (response.aggregations?.by_supplier as any)?.buckets ?? [];
     const supplier_rankings: QcSupplierRankingItemDto[] = supplierBuckets.map(
@@ -537,6 +631,10 @@ export class ReportsRepository {
     };
   }
 
+  // =========================================================================
+  // BÁO CÁO XU HƯỚNG AUDIT ACTIVITIES
+  // =========================================================================
+  
   async getAuditTrend(
     from?: Date,
     to?: Date,
@@ -572,6 +670,7 @@ export class ReportsRepository {
             format: this.getDateFormat(normalizedInterval),
           },
           aggs: {
+            // Cardinality aggregation: đếm số lượng unique users
             unique_users: {
               cardinality: {
                 field: "performed_by",
@@ -584,6 +683,8 @@ export class ReportsRepository {
 
     const buckets: any[] =
       (response.aggregations?.by_period as any)?.buckets ?? [];
+    
+    // Map sang AuditTrendPointDto: activity_count và unique_users mỗi period
     return buckets.map((bucket) => ({
       period: bucket.key_as_string,
       activity_count: bucket.doc_count ?? 0,

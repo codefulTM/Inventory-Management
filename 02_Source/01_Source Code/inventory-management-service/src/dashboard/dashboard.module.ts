@@ -1,3 +1,12 @@
+/**
+ * DashboardModule - Module cung cấp API tổng hợp dữ liệu cho Dashboard
+ *
+ * Chức năng:
+ * - Tổng hợp thống kê tồn kho, giao dịch, phiếu nhập/xuất
+ * - Cung cấp dữ liệu cho các biểu đồ và widget trên dashboard
+ * - Truy vấn trực tiếp từ nhiều collections (transactions, lots, slips, warehouses)
+ * - Không có repository riêng, query trực tiếp qua Mongoose
+ */
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DashboardController } from './dashboard.controller';

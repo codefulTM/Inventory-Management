@@ -1,3 +1,19 @@
+/**
+ * File: auth.controller.ts
+ * Mô tả: HTTP Controller xử lý các request xác thực từ phía client (frontend).
+ *
+ * Routes chính (prefix: /auth):
+ * - POST /auth/login - Đăng nhập, trả về JWT tokens từ Keycloak
+ * - POST /auth/register - Tự đăng ký tài khoản (chỉ tạo role Operator)
+ * - POST /auth/refresh - Làm mới access_token bằng refresh_token
+ * - POST /auth/logout - Đăng xuất, thu hồi refresh_token tại Keycloak
+ * - POST /auth/forgot-password - Gửi email đặt lại mật khẩu
+ * - POST /auth/reset-password - Đặt lại mật khẩu bằng token
+ * - GET /auth/me - Lấy thông tin user đang đăng nhập (yêu cầu JWT)
+ *
+ * Các routes không yêu cầu xác thực (được đánh dấu @Public):
+ * login, register, refresh, forgot-password, reset-password
+ */
 import {
   Controller,
   Post,
@@ -36,7 +52,8 @@ export class AuthController {
   ) {}
 
   /**
-   * Helper: Get actor's username from @CurrentUser or DB lookup
+   * Helper: Lấy username của người thực hiện hành động từ @CurrentUser hoặc DB
+   * Ưu tiên lấy từ JWT token trước, nếu không có thì tra cứu trong MongoDB
    */
   private async getActorUsername(actor: AuthenticatedUser): Promise<string | undefined> {
     if (actor?.username) {
@@ -63,7 +80,8 @@ export class AuthController {
 
   /**
    * POST /auth/login
-   * Đăng nhập — trả về Keycloak access_token + refresh_token
+   * Đăng nhập — xác thực qua Keycloak, trả về access_token + refresh_token
+   * Không yêu cầu JWT (đánh dấu @Public)
    */
   @Public()
   @Post('login')
@@ -79,7 +97,8 @@ export class AuthController {
 
   /**
    * POST /auth/register
-   * Tự đăng ký tài khoản Operator
+   * Tự đăng ký tài khoản Operator (dành cho nhân viên mới tự tạo tài khoản)
+   * Không yêu cầu JWT (@Public)
    */
   @Public()
   @Post('register')
@@ -90,7 +109,8 @@ export class AuthController {
 
   /**
    * POST /auth/refresh
-   * Làm mới access_token bằng refresh_token
+   * Làm mới access_token bằng refresh_token (khi access_token hết hạn)
+   * Không yêu cầu JWT (@Public) vì người dùng chưa có token mới
    */
   @Public()
   @Post('refresh')
@@ -101,7 +121,8 @@ export class AuthController {
 
   /**
    * POST /auth/logout
-   * Đăng xuất — revoke refresh_token tại Keycloak
+   * Đăng xuất — thu hồi refresh_token tại Keycloak
+   * Yêu cầu JWT (được bảo vệ bởi JwtAuthGuard)
    */
   @UseGuards(JwtAuthGuard)
   @Post('logout')
@@ -123,6 +144,7 @@ export class AuthController {
   /**
    * POST /auth/forgot-password
    * Gửi link đặt lại mật khẩu về email
+   * Không yêu cầu JWT (@Public)
    */
   @Public()
   @Post('forgot-password')
@@ -137,7 +159,8 @@ export class AuthController {
 
   /**
    * POST /auth/reset-password
-   * Đặt lại mật khẩu bằng token
+   * Đặt lại mật khẩu bằng token nhận được qua email
+   * Không yêu cầu JWT (@Public) vì user chưa đăng nhập
    */
   @Public()
   @Post('reset-password')
@@ -152,7 +175,8 @@ export class AuthController {
 
   /**
    * GET /auth/me
-   * Lấy thông tin user đang đăng nhập
+   * Lấy thông tin user đang đăng nhập (dựa trên JWT token)
+   * Yêu cầu JWT (được bảo vệ bởi JwtAuthGuard)
    */
   @UseGuards(JwtAuthGuard)
   @Get('me')

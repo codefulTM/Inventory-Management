@@ -1,9 +1,27 @@
+/**
+ * MaterialSchema - Schema định nghĩa cấu trúc vật tư trong MongoDB
+ *
+ * Collection: materials
+ *
+ * Mô tả: Master data cho vật tư/nguyên liệu sử dụng trong hệ thống quản lý kho.
+ * Mỗi vật tư đại diện cho một loại nguyên liệu, thành phẩm, hoặc phụ liệu.
+ *
+ * Các trường chính:
+ * - material_id: ID nghiệp vụ duy nhất (MAT-XXX, sinh bởi Redis)
+ * - part_number: Mã part number duy nhất
+ * - material_name: Tên vật tư
+ * - material_type: Loại (API, Excipient, Container, v.v.)
+ * - storage_conditions: Điều kiện bảo quản (2-8C, 15-25C, Dry place)
+ * - status: Trạng thái phê duyệt (Pending, Approved, Rejected)
+ *
+ * Timestamps: created_date, modified_date (tự động quản lý bởi Mongoose)
+ */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaOptions } from 'mongoose';
 
 export type MaterialDocument = Material & Document;
 
-// Các trường thời gian đồng nhất với domain model
+// Cấu hình timestamps: dùng tên field created_date/modified_date thay vì createdAt/updatedAt
 const options: SchemaOptions = {
   timestamps: { createdAt: 'created_date', updatedAt: 'modified_date' },
 };

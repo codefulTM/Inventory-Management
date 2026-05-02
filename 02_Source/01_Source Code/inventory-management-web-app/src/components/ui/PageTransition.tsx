@@ -1,11 +1,17 @@
+// File: components/ui/PageTransition.tsx
+// Các component hỗ trợ hiệu ứng chuyển trang và loading skeleton
+// Bao gồm: PageTransition, StaggerList, LoadingSkeleton, EmptyState, SectionHeading, PageHeader
+// Dùng để tạo UX mượt mà khi chuyển trang hoặc đang tải dữ liệu
+
 import type { ReactNode } from 'react';
 
+// Props cho PageTransition
 interface PageTransitionProps {
   children: ReactNode;
   className?: string;
 }
 
-/* Simple CSS-based page transition wrapper */
+// Component bọc page với hiệu ứng fade-in-up animation
 export function PageTransition({ children, className = '' }: PageTransitionProps) {
   return (
     <div
@@ -19,7 +25,7 @@ export function PageTransition({ children, className = '' }: PageTransitionProps
   );
 }
 
-/* StaggerList - animates children with staggered delays */
+// Component hiển thị children với hiệu ứng stagger (lần lượt từng phần tử)
 export function StaggerList({
   children,
   className = '',
@@ -27,10 +33,11 @@ export function StaggerList({
 }: {
   children: ReactNode;
   className?: string;
-  delay?: 'normal' | 'fast';
+  delay?: 'normal' | 'fast'; // Tốc độ delay giữa các phần tử
 }) {
   const delayClass = delay === 'fast' ? 'stagger-item-fast' : 'stagger-item';
 
+  // Chuyển children thành array để map
   const childArray = Array.isArray(children) ? children : [children];
 
   return (
@@ -48,13 +55,13 @@ export function StaggerList({
   );
 }
 
-/* Loading skeleton component */
+// Component hiển thị skeleton loading (placeholder khi đang tải)
 export function LoadingSkeleton({
   className = '',
   variant = 'text',
 }: {
   className?: string;
-  variant?: 'text' | 'circle' | 'rect' | 'card';
+  variant?: 'text' | 'circle' | 'rect' | 'card'; // Hình dạng skeleton
 }) {
   const variantStyles = {
     text: 'h-4 w-3/4 rounded',
@@ -74,13 +81,13 @@ export function LoadingSkeleton({
   );
 }
 
-/* Table skeleton */
+// Component skeleton cho bảng (table)
 export function TableSkeleton({
   rows = 5,
   columns = 4,
 }: {
-  rows?: number;
-  columns?: number;
+  rows?: number; // Số hàng
+  columns?: number; // Số cột
 }) {
   return (
     <div className="space-y-3 p-4">
@@ -102,7 +109,7 @@ export function TableSkeleton({
   );
 }
 
-/* Card skeleton */
+// Component skeleton cho Card
 export function CardSkeleton() {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
@@ -113,7 +120,7 @@ export function CardSkeleton() {
   );
 }
 
-/* StatCard skeleton */
+// Component skeleton cho StatCard
 export function StatCardSkeleton() {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3">
@@ -124,17 +131,17 @@ export function StatCardSkeleton() {
   );
 }
 
-/* Empty state component */
+// Component hiển thị trạng thái rỗng (không có dữ liệu)
 export function EmptyState({
   icon,
   title,
   description,
   action,
 }: {
-  icon?: ReactNode;
-  title: string;
-  description?: string;
-  action?: ReactNode;
+  icon?: ReactNode; // Icon minh họa
+  title: string; // Tiêu đề
+  description?: string; // Mô tả
+  action?: ReactNode; // Nút hành động (ví dụ: "Thêm mới")
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -152,7 +159,7 @@ export function EmptyState({
   );
 }
 
-/* Section heading */
+// Component tiêu đề section (có thể chứa action button)
 export function SectionHeading({
   children,
   className = '',
@@ -170,7 +177,7 @@ export function SectionHeading({
   );
 }
 
-/* Page header */
+// Component header của page (tiêu đề chính + subtitle + actions)
 export function PageHeader({
   title,
   subtitle,

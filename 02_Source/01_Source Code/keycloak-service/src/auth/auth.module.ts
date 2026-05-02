@@ -1,3 +1,17 @@
+/**
+ * File: auth.module.ts
+ * Mô tả: Module xác thực (Authentication & Authorization) - Module quan trọng nhất của service.
+ *
+ * Chức năng chính:
+ * - Cung cấp JWT Strategy để xác thực Bearer token từ Keycloak
+ * - Đăng ký JwtAuthGuard (global guard bảo vệ routes)
+ * - Đăng ký RolesGuard (kiểm tra quyền truy cập theo role)
+ * - Khai báo HTTP controller (AuthController) và gRPC controller (AuthGrpcController)
+ * - Quản lý PasswordResetToken schema cho chức năng quên mật khẩu
+ *
+ * Lưu ý: AuthModule được import sau cùng trong AppModule để đảm bảo global guards
+ * được áp dụng đúng cho tất cả routes trong toàn bộ ứng dụng.
+ */
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -21,10 +35,12 @@ import {
  */
 @Module({
   imports: [
+    // Passport với JWT strategy mặc định
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    UserModule,
-    MailModule,
-    AuditLogModule,
+    UserModule,    // Truy cập user repository
+    MailModule,    // Gửi email quên mật khẩu
+    AuditLogModule, // Ghi log đăng nhập/đăng xuất
+    // Đăng ký schema cho password reset tokens
     MongooseModule.forFeature([
       { name: PasswordResetToken.name, schema: PasswordResetTokenSchema },
     ]),

@@ -1,3 +1,7 @@
+// File: components/operator/import-export-order/ScanInput.tsx
+// Component quét mã (material/lot) để điền nhanh thông tin vào dòng hàng
+// Hỗ trợ chọn dòng cần điền (rowOptions) và hiển thị thông báo kết quả
+
 import { useState } from "react";
 import type { ImportExportOrderType } from "../../../types/importExportOrder";
 

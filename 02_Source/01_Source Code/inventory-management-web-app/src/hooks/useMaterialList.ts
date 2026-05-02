@@ -1,28 +1,38 @@
 /**
  * useMaterialList Hook
- * Manages paginated material list fetching and state
+ * Custom hook quản lý danh sách nguyên liệu với phân trang
+ * Tự động fetch dữ liệu khi page hoặc limit thay đổi
+ * Cung cấp các hàm: nextPage, previousPage, goToPage, setLimit, refetch
  */
 
 import { useState, useEffect, useCallback } from "react";
 import type { Material, PaginatedMaterialResponse } from "../types/material";
 import { materialService } from "../services/material.service";
 
+/**
+ * Interface trả về từ useMaterialList hook
+ */
 interface UseMaterialListReturn {
-  materials: Material[];
-  total: number;
-  page: number;
-  limit: number;
-  loading: boolean;
-  error: Error | null;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  refetch: () => void;
-  nextPage: () => void;
-  previousPage: () => void;
-  goToPage: (page: number) => void;
-  setLimit: (limit: number) => void;
+  materials: Material[];          // Danh sách nguyên liệu
+  total: number;                  // Tổng số nguyên liệu
+  page: number;                   // Trang hiện tại
+  limit: number;                  // Số items mỗi trang
+  loading: boolean;               // Đang tải dữ liệu
+  error: Error | null;            // Lỗi (nếu có)
+  hasNextPage: boolean;           // Còn trang sau không
+  hasPreviousPage: boolean;       // Còn trang trước không
+  refetch: () => void;            // Tải lại dữ liệu
+  nextPage: () => void;           // Chuyển trang sau
+  previousPage: () => void;       // Chuyển trang trước
+  goToPage: (page: number) => void; // Nhảy đến trang cụ thể
+  setLimit: (limit: number) => void; // Đặt số items mỗi trang
 }
 
+/**
+ * Hook quản lý danh sách nguyên liệu phân trang
+ * @param initialPage - Trang ban đầu (mặc định: 1)
+ * @param initialLimit - Số items mỗi trang ban đầu (mặc định: 20)
+ */
 export const useMaterialList = (
   initialPage: number = 1,
   initialLimit: number = 20,

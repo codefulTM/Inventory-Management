@@ -1,9 +1,14 @@
+// File: components/operator/import-export-order/OrderStatusBadge.tsx
+// Component hiển thị trạng thái phiếu nhập/xuất kho
+// Màu sắc: xanh (đã xác nhận), vàng (chờ), đỏ (từ chối)
+
 import type { ImportExportOrderStatus } from "../../../types/importExportOrder";
 
 interface OrderStatusBadgeProps {
   status: ImportExportOrderStatus;
 }
 
+// Cấu hình màu sắc và nhãn cho từng trạng thái
 const STATUS_STYLE: Record<
   ImportExportOrderStatus,
   { label: string; className: string }

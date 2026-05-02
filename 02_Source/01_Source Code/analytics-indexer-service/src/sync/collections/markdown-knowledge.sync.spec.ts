@@ -1,3 +1,14 @@
+/**
+ * File: sync/collections/markdown-knowledge.sync.spec.ts
+ * Mục đích: Unit tests cho MarkdownKnowledgeSync
+ * 
+ * Kiểm tra việc đồng bộ tài liệu Markdown vào Elasticsearch:
+ * - Xử lý khi thư mục Markdown không tồn tại
+ * - Dry-run mode: đếm số chunk nhưng không gọi ES bulk
+ * - Normal mode: index chunks vào ES với đúng options
+ * 
+ * Sử dụng thư mục tạm (tmp) để tạo file Markdown test
+ */
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';

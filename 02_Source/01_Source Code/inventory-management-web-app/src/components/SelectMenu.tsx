@@ -1,33 +1,41 @@
+// File: components/SelectMenu.tsx
+// Component dropdown selection nâng cao với tính năng tìm kiếm và phân trang
+// Sử dụng React Portal để render dropdown bên ngoài DOM hierarchy (tránh overflow hidden)
+// Hỗ trợ keyboard navigation (ArrowUp/Down, Enter, Escape)
+
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 
+// Định nghĩa kiểu dữ liệu cho một item trong SelectMenu
 export type SelectItem = { id: string | number; label: string };
 
+// Props cho SelectMenu
 interface Props {
-  items: SelectItem[];
-  value?: string | number;
-  onChange?: (id: string | number) => void;
-  className?: string;
-  name?: string;
-  disabled?: boolean;
-  placeholder?: string;
-  label?: string;
-  // Search
-  showSearch?: boolean;
-  searchValue?: string;
-  onSearchChange?: (q: string) => void;
-  onSearch?: (q: string) => void;
-  searchPlaceholder?: string;
-  // Pagination
-  showPagination?: boolean;
-  // styling
-  selectClassName?: string;
-  page?: number;
-  totalPages?: number;
-  onPageChange?: (page: number) => void;
-  onPrev?: () => void;
-  onNext?: () => void;
-  loading?: boolean;
+  items: SelectItem[]; // Danh sách các item để chọn
+  value?: string | number; // Giá trị đang được chọn
+  onChange?: (id: string | number) => void; // Callback khi chọn item
+  className?: string; // Class tùy chỉnh
+  name?: string; // Tên cho form submission
+  disabled?: boolean; // Vô hiệu hóa
+  placeholder?: string; // Placeholder khi chưa chọn
+  label?: string; // Label cho select
+
+  // Tính năng tìm kiếm
+  showSearch?: boolean; // Hiển thị ô tìm kiếm
+  searchValue?: string; // Giá trị tìm kiếm (controlled)
+  onSearchChange?: (q: string) => void; // Callback khi search thay đổi (debounced)
+  onSearch?: (q: string) => void; // Callback khi nhấn Enter tìm kiếm
+  searchPlaceholder?: string; // Placeholder cho ô tìm kiếm
+
+  // Tính năng phân trang
+  showPagination?: boolean; // Hiển thị phân trang
+  page?: number; // Trang hiện tại
+  totalPages?: number; // Tổng số trang
+  onPageChange?: (page: number) => void; // Callback đổi trang
+  onPrev?: () => void; // Callback trang trước
+  onNext?: () => void; // Callback trang sau
+
+  loading?: boolean; // Trạng thái đang tải
 }
 
 const SelectMenu: React.FC<Props> = ({
@@ -53,17 +61,21 @@ const SelectMenu: React.FC<Props> = ({
   onNext,
   loading = false,
 }) => {
+  // State quản lý trạng thái dropdown
   const [open, setOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchValue ?? "");
   const [highlighted, setHighlighted] = useState<number>(-1);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  
+  // Refs cho các phần tử DOM
+  const rootRef = useRef<HTMLDivElement | null>(null); // Ref cho root element
+  const listRef = useRef<HTMLDivElement | null>(null); // Ref cho danh sách items
+  const dropdownRef = useRef<HTMLDivElement | null>(null); // Ref cho dropdown portal
   const [portalStyle, setPortalStyle] = useState({ top: 0, left: 0, width: 0 });
 
+  // Cập nhật localSearch khi searchValue từ props thay đổi
   useEffect(() => setLocalSearch(searchValue ?? ""), [searchValue]);
 
-  // debounce live-search: call onSearchChange after typing stops
+  // Debounce search: Gọi onSearchChange sau 300ms khi ngừng gõ
   const onSearchChangeRef = useRef<((q: string) => void) | null>(null);
   useEffect(() => {
     onSearchChangeRef.current = onSearchChange ?? null;
@@ -77,7 +89,7 @@ const SelectMenu: React.FC<Props> = ({
     return () => clearTimeout(t);
   }, [localSearch]);
 
-  // close when clicking outside
+  // Đóng dropdown khi click ra ngoài
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!rootRef.current) return;
@@ -92,9 +104,10 @@ const SelectMenu: React.FC<Props> = ({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  // Item đang được chọn
   const selected = items.find((it) => String(it.id) === String(value));
 
-  // local filtering for better UX when backend doesn't perform search
+  // Normalize chuỗi (bỏ dấu tiếng Việt) để tìm kiếm không dấu
   const normalize = (s: string) =>
     (s || "")
       .toString()
@@ -102,18 +115,22 @@ const SelectMenu: React.FC<Props> = ({
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
 
+  // Lọc items theo từ khóa tìm kiếm (local filter)
   const q = (normalize(localSearch) || "").trim();
   const displayedItems = q
     ? items.filter((it) => normalize(it.label || "").includes(q))
     : items;
 
+  // Toggle mở/đóng dropdown
   const toggleOpen = () => setOpen((s) => !s);
 
+  // Xử lý khi chọn một item
   const handleSelect = (it: SelectItem) => {
     onChange && onChange(it.id);
     setOpen(false);
   };
 
+  // Scroll item đang highlight vào view
   const scrollHighlightedIntoView = () => {
     try {
       if (!listRef.current) return;
@@ -126,7 +143,7 @@ const SelectMenu: React.FC<Props> = ({
     }
   };
 
-  // handle keyboard even when dropdown is rendered in a portal
+  // Xử lý keyboard events (Arrow keys, Enter, Escape)
   useEffect(() => {
     if (!open) return;
     function onDocKey(e: KeyboardEvent) {
@@ -155,16 +172,19 @@ const SelectMenu: React.FC<Props> = ({
     return () => document.removeEventListener("keydown", onDocKey);
   }, [open, displayedItems, highlighted, localSearch, onSearch]);
 
+  // Xử lý phân trang - trang trước
   const handlePrev = () => {
     if (onPrev) return onPrev();
     if (onPageChange && page > 1) onPageChange(page - 1);
   };
 
+  // Xử lý phân trang - trang sau
   const handleNext = () => {
     if (onNext) return onNext();
     if (onPageChange && totalPages && page < totalPages) onPageChange(page + 1);
   };
 
+  // Xử lý nhập số trang trực tiếp
   const handlePageInputChange = (raw: string) => {
     const num = Number(raw || 0);
     if (!Number.isFinite(num) || num < 1) return;
@@ -172,12 +192,13 @@ const SelectMenu: React.FC<Props> = ({
     if (onPageChange) onPageChange(num);
   };
 
+  // Tính toán vị trí dropdown (dùng Portal để tránh overflow)
   useEffect(() => {
     if (!open) return;
     function update() {
       if (!rootRef.current) return;
       const rect = rootRef.current.getBoundingClientRect();
-      const margin = 8; // keep a small gap from screen edges
+      const margin = 8;
       let width = Math.round(rect.width);
       const maxWidth = Math.floor(window.innerWidth - margin * 2);
       if (width > maxWidth) width = maxWidth;
@@ -200,7 +221,7 @@ const SelectMenu: React.FC<Props> = ({
     };
   }, [open]);
 
-  // when opening, highlight current selected item (if any)
+  // Khi mở dropdown, highlight item đang được chọn
   useEffect(() => {
     if (!open) return;
     const idx = displayedItems.findIndex(
@@ -211,6 +232,7 @@ const SelectMenu: React.FC<Props> = ({
 
   return (
     <div ref={rootRef} className={`${className} relative`}>
+      {/* Button hiển thị selected value / placeholder */}
       <button
         type="button"
         aria-haspopup="listbox"
@@ -221,6 +243,8 @@ const SelectMenu: React.FC<Props> = ({
         <span>{selected ? selected.label : (placeholder ?? "")}</span>
         <span className="ml-2 text-sm">{open ? "▴" : "▾"}</span>
       </button>
+
+      {/* Dropdown hiển thị qua Portal */}
       {open &&
         createPortal(
           <div
@@ -237,6 +261,7 @@ const SelectMenu: React.FC<Props> = ({
             className="bg-white border rounded shadow-md flex flex-col"
             role="dialog"
           >
+            {/* Ô tìm kiếm */}
             {showSearch && (
               <div className="p-2 border-b">
                 <input
@@ -255,6 +280,7 @@ const SelectMenu: React.FC<Props> = ({
               </div>
             )}
 
+            {/* Danh sách items */}
             <div
               ref={listRef}
               className="max-h-56 overflow-auto p-1"
@@ -286,6 +312,7 @@ const SelectMenu: React.FC<Props> = ({
               )}
             </div>
 
+            {/* Phân trang */}
             {showPagination && (
               <div className="p-2 border-t flex flex-wrap items-center justify-between text-sm gap-2">
                 <div className="flex flex-wrap items-center gap-2">

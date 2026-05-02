@@ -1,9 +1,22 @@
+/**
+ * Export Utilities
+ * Tiện ích xuất dữ liệu ra file CSV
+ * Hỗ trợ export giao dịch tồn kho với định dạng chuẩn
+ */
+
 import type { InventoryTransaction } from '../services/transactionService';
 
+/**
+ * Record dữ liệu cho CSV - giá trị có thể là string, number hoặc boolean
+ */
 interface CSVRecord {
   [key: string]: string | number | boolean;
 }
 
+/**
+ * Escape giá trị cho CSV: xử lý dấu ngoặc kép, dấu phẩy, newline
+ * @param value - Giá trị cần escape
+ */
 const escapeCSVValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return '';
@@ -11,7 +24,7 @@ const escapeCSVValue = (value: unknown): string => {
 
   const stringValue = String(value);
 
-  // Escape double quotes and wrap in quotes if needed
+  // Escape double quotes và wrap trong quotes nếu có ký tự đặc biệt
   if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
@@ -19,6 +32,9 @@ const escapeCSVValue = (value: unknown): string => {
   return stringValue;
 };
 
+/**
+ * Format ngày giờ cho CSV: MM/DD/YYYY, HH:MM:SS AM/PM
+ */
 const formatDateForCSV = (date: string | Date): string => {
   const dateObj = new Date(date);
   return dateObj.toLocaleString('en-US', {
@@ -31,13 +47,18 @@ const formatDateForCSV = (date: string | Date): string => {
   });
 };
 
+/**
+ * Xuất danh sách giao dịch tồn kho ra file CSV
+ * @param transactions - Danh sách giao dịch cần export
+ * @param filename - Tên file (mặc định: 'inventory-transactions.csv')
+ */
 export const exportTransactionsToCSV = (transactions: InventoryTransaction[], filename: string = 'inventory-transactions.csv'): void => {
   if (!transactions || transactions.length === 0) {
     console.warn('No transactions to export');
     return;
   }
 
-  // Prepare headers
+  // Tiêu đề cột
   const headers = [
     'Transaction ID',
     'Lot ID',
@@ -52,7 +73,7 @@ export const exportTransactionsToCSV = (transactions: InventoryTransaction[], fi
     'Created Date',
   ];
 
-  // Prepare data rows
+  // Dữ liệu các dòng
   const dataRows: CSVRecord[] = transactions.map((tx) => ({
     'Transaction ID': tx.transaction_id,
     'Lot ID': tx.lot_id,
@@ -67,13 +88,13 @@ export const exportTransactionsToCSV = (transactions: InventoryTransaction[], fi
     'Created Date': formatDateForCSV(tx.created_date),
   }));
 
-  // Build CSV content
+  // Xây dựng nội dung CSV
   let csvContent = headers.map(escapeCSVValue).join(',') + '\n';
   csvContent += dataRows
     .map((row) => headers.map((header) => escapeCSVValue(row[header])).join(','))
     .join('\n');
 
-  // Create blob and download
+  // Tạo blob và tải xuống
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -86,10 +107,14 @@ export const exportTransactionsToCSV = (transactions: InventoryTransaction[], fi
   link.click();
   document.body.removeChild(link);
 
-  // Clean up object URL
+  // Dọn dẹp object URL
   URL.revokeObjectURL(url);
 };
 
+/**
+ * Tạo tên file CSV với timestamp
+ * Format: inventory-transactions-MM-DD-YYYY-HH-MM.csv
+ */
 export const generateCSVFilename = (): string => {
   const now = new Date();
   const dateString = now

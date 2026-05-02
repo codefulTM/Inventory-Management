@@ -11,8 +11,19 @@ import { UserRole } from '../../schemas/user.schema';
 import { AuthenticatedUser } from './jwt.strategy';
 
 /**
- * RolesGuard — kiểm tra role của user sau khi JwtAuthGuard xác thực.
- * Dùng kết hợp với @Roles(...) decorator.
+ * RolesGuard - Guard kiểm tra quyền truy cập dựa trên role của user
+ * 
+ * Chức năng:
+ * - Chạy SAU khi JwtAuthGuard đã xác thực thành công
+ * - Đọc metadata @Roles() để lấy danh sách role yêu cầu
+ * - Kiểm tra xem user có role nằm trong danh sách yêu cầu không
+ * - Throw ForbiddenException nếu user không có quyền
+ * 
+ * Cách sử dụng:
+ * - Thêm decorator @Roles(UserRole.MANAGER) vào controller hoặc method
+ * - Nếu không có @Roles(), mọi user đã xác thực đều được truy cập
+ * 
+ * Flow: Request → JwtAuthGuard (xác thực) → RolesGuard (phân quyền) → Handler
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -20,23 +31,32 @@ export class RolesGuard implements CanActivate {
 
   constructor(private readonly reflector: Reflector) {}
 
+  /**
+   * Kiểm tra xem user có quyền truy cập route hay không
+   * @param context - ExecutionContext chứa thông tin về route
+   * @returns true nếu được phép truy cập
+   * @throws ForbiddenException nếu không có quyền
+   */
   canActivate(context: ExecutionContext): boolean {
+    // Đọc metadata @Roles() từ handler (method) và class (controller)
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
 
-    // Nếu route không yêu cầu role cụ thể → cho phép
+    // Nếu route không yêu cầu role cụ thể → cho phép tất cả user đã xác thực
     if (!requiredRoles || requiredRoles.length === 0) {
       this.logger.debug('[RolesGuard] No role required for this route');
       return true;
     }
 
+    // Lấy request và user từ request (đã được JwtAuthGuard gắn vào)
     const request = context
       .switchToHttp()
       .getRequest<{ user?: AuthenticatedUser }>();
     const user = request.user;
 
+    // Kiểm tra có user không (JwtAuthGuard phải chạy trước đó)
     if (!user) {
       this.logger.error('[RolesGuard] No user found in request');
       throw new ForbiddenException('Không có thông tin xác thực');
@@ -46,6 +66,7 @@ export class RolesGuard implements CanActivate {
       `[RolesGuard] Checking role - User: ${user.username}, Role: ${user.role}, Required: ${requiredRoles.join(', ')}`,
     );
 
+    // Kiểm tra user có role nằm trong danh sách yêu cầu không
     const hasRole = requiredRoles.includes(user.role);
     if (!hasRole) {
       this.logger.warn(

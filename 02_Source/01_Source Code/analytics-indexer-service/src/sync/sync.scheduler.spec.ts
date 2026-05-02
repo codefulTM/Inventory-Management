@@ -1,3 +1,12 @@
+/**
+ * File: sync/sync.scheduler.spec.ts
+ * Mục đích: Unit tests cho SyncScheduler
+ * 
+ * Kiểm tra cơ chế scheduling và chống chồng chéo (overlap prevention):
+ * - runSync gọi syncService.runFullSync khi tick
+ * - Bỏ qua tick nếu chu kỳ trước chưa hoàn thành (running flag)
+ * - Reset running flag sau khi sync hoàn tất (kể cả khi throw error)
+ */
 import { SyncScheduler } from "./sync.scheduler";
 import { SyncService, RunFullSyncSummary } from "./sync.service";
 import { ConfigService } from "@nestjs/config";

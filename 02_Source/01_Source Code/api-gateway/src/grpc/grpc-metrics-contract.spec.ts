@@ -1,8 +1,17 @@
 /**
- * Contract tests — gRPC MetricsReportsService (api-gateway ↔ metrics-service)
- *
- * Verifies that ReportsController correctly calls gRPC methods with the shapes
- * defined in metrics.proto. Uses NestJS testing module with mocked gRPC client.
+ * File: grpc-metrics-contract.spec.ts
+ * Mô tả: Contract tests — gRPC MetricsReportsService (api-gateway ↔ metrics-service)
+ * Chức năng: Xác minh ReportsController gọi đúng gRPC methods với đúng định dạng
+ *            theo định nghĩa trong metrics.proto
+ * 
+ * Các RPC được test:
+ * - GetInventoryStatus    — Trạng thái tồn kho
+ * - GetMaterialUsage      — Thống kê sử dụng nguyên vật liệu
+ * - GetQcPerformance      — Hiệu suất kiểm tra chất lượng
+ * - GetAuditReport        — Báo cáo kiểm toán (phân trang)
+ * 
+ * Sử dụng NestJS testing module với mocked gRPC client
+ * Không cần gRPC server thật — mock client để capture request shape
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { of, throwError } from 'rxjs';

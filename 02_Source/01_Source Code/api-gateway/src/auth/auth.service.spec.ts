@@ -1,3 +1,10 @@
+/**
+ * File: auth.service.spec.ts
+ * Mô tả: Unit tests cho AuthGatewayService
+ * Chức năng: Kiểm tra AuthGatewayService gọi đúng gRPC methods từ keycloak-service
+ * 
+ * Mock: gRPC client (AUTH_SERVICE_TOKEN)
+ */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGatewayService } from './auth.service';
 import { AUTH_SERVICE_TOKEN } from '../grpc/grpc.module';

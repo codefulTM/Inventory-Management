@@ -1,34 +1,52 @@
+/**
+ * Component InventoryAuditReportDetailPanel
+ * Hiển thị chi tiết báo cáo kiểm kê kho cho quản lý (Manager role)
+ * Cho phép xem thông tin chi tiết, tải PDF và làm mới dữ liệu báo cáo
+ */
 import {
   INVENTORY_AUDIT_REPORT_STATUS_LABELS,
   type InventoryAuditReportItem,
   type InventoryAuditReportStatus,
 } from "../../../types/inventoryAuditReport";
 
+/** Props cho component InventoryAuditReportDetailPanel */
 interface InventoryAuditReportDetailPanelProps {
+  /** Dữ liệu báo cáo kiểm kê cần hiển thị chi tiết (null nếu chưa chọn) */
   report: InventoryAuditReportItem | null;
+  /** Trạng thái đang tải dữ liệu chi tiết */
   loading?: boolean;
+  /** Thông báo lỗi nếu có */
   error?: string | null;
+  /** Trạng thái đang tải xuống file PDF */
   downloading?: boolean;
+  /** Hàm callback khi người dùng nhấn tải PDF báo cáo */
   onDownload: (reportId: string) => Promise<void>;
+  /** Hàm callback khi người dùng nhấn làm mới chi tiết */
   onRefresh: (reportId: string) => Promise<void>;
 }
 
+/** Hàm trả về class CSS tương ứng với trạng thái báo cáo kiểm kê */
 function statusClassName(status: InventoryAuditReportStatus): string {
+  // Trạng thái đã sẵn sàng để tải
   if (status === "READY") {
     return "bg-emerald-100 text-emerald-700";
   }
 
+  // Trạng thái thất bại khi tạo báo cáo
   if (status === "FAILED") {
     return "bg-red-100 text-red-700";
   }
 
+  // Trạng thái đang xử lý báo cáo
   if (status === "PROCESSING") {
     return "bg-amber-100 text-amber-700";
   }
 
+  // Trạng thái mặc định
   return "bg-slate-100 text-slate-700";
 }
 
+/** Hàm hiển thị giá trị, trả về dấu gạch ngang nếu giá trị rỗng/null/undefined */
 function renderValue(value?: string | number | null): string {
   if (value === null || value === undefined || value === "") {
     return "-";
@@ -37,12 +55,14 @@ function renderValue(value?: string | number | null): string {
   return String(value);
 }
 
+/** Hàm định dạng chuỗi ngày tháng sang định dạng tiếng Việt */
 function renderDate(value?: string): string {
   if (!value) {
     return "-";
   }
 
   const parsed = new Date(value);
+  // Kiểm tra nếu ngày không hợp lệ
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
@@ -50,6 +70,7 @@ function renderDate(value?: string): string {
   return parsed.toLocaleString("vi-VN");
 }
 
+/** Component con hiển thị một trường thông tin (label + value) trong bảng chi tiết */
 function Field({
   label,
   value,
@@ -69,6 +90,7 @@ function Field({
   );
 }
 
+/** Component chính hiển thị panel chi tiết báo cáo kiểm kê */
 export default function InventoryAuditReportDetailPanel({
   report,
   loading = false,

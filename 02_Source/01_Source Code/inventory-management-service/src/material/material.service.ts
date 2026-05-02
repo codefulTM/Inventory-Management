@@ -3,6 +3,23 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/**
+ * MaterialService - Service xử lý nghiệp vụ quản lý vật tư
+ * 
+ * Chức năng chính:
+ * - Tạo mới vật tư với ID tự động (MAT-XXX từ Redis)
+ * - Kiểm tra trùng lặp material_id và part_number
+ * - Lấy danh sách vật tư (có phân trang hoặc lấy tất cả)
+ * - Tìm kiếm vật tư theo tên, ID, part number
+ * - Lọc vật tư theo loại (material_type)
+ * - Cập nhật và xóa vật tư
+ * - Export dữ liệu ra Excel/PDF
+ * 
+ * Quy tắc nghiệp vụ:
+ * - material_id phải duy nhất
+ * - part_number phải duy nhất
+ * - Hỗ trợ cả MongoDB ObjectId và business ID (material_id) trong các thao tác
+ */
 import {
   Injectable,
   ConflictException,
@@ -20,34 +37,32 @@ import {
 } from './material.dto';
 import { RedisIdService } from '../redis-id/redis-id.service';
 
-/**
- * Material Service
- * Contains business logic for Material operations
- */
 @Injectable()
 export class MaterialService {
   private readonly logger = new Logger(MaterialService.name);
 
   constructor(
     private readonly repository: MaterialRepository,
-    private readonly redisIdService: RedisIdService,
+    private readonly redisIdService: RedisIdService, // Service tạo ID tự động từ Redis
   ) {}
 
   /**
-   * Create a new material
-   * Validates unique constraints: material_id, part_number
-   * @param createDto - Material creation data
-   * @returns - Created material response
-   * @throws ConflictException - If material_id or part_number already exists
+   * Tạo mới một vật tư
+   * Tự động sinh material_id nếu không được cung cấp
+   * Kiểm tra trùng lặp material_id và part_number
+   * 
+   * @param createDto - Dữ liệu tạo vật tư
+   * @returns MaterialResponseDto - Thông tin vật tư đã tạo
+   * @throws ConflictException nếu material_id hoặc part_number đã tồn tại
    */
   async create(createDto: CreateMaterialDto): Promise<MaterialResponseDto> {
-    // Auto-generate material_id if not provided
+    // Tự động sinh material_id nếu không được cung cấp (dùng Redis)
     if (!createDto.material_id) {
       createDto.material_id = await this.redisIdService.nextId('MAT');
     }
     this.logger.log(`Creating material: ${createDto.material_id}`);
 
-    // Check for duplicate material_id
+    // Kiểm tra trùng lặp material_id
     const existingById = await this.repository.findByMaterialId(
       createDto.material_id,
     );
@@ -60,7 +75,7 @@ export class MaterialService {
       );
     }
 
-    // Check for duplicate part_number
+    // Kiểm tra trùng lặp part_number
     const existingByPartNumber = await this.repository.findByPartNumber(
       createDto.part_number,
     );
@@ -73,7 +88,7 @@ export class MaterialService {
       );
     }
 
-    // Create the material
+    // Tạo vật tư mới
     const material = await this.repository.create(createDto);
     this.logger.log(`Material created successfully: ${material._id}`);
 
@@ -81,8 +96,8 @@ export class MaterialService {
   }
 
   /**
-   * Get all materials without pagination
-   * @returns - List of all material responses
+   * Lấy tất cả vật tư (không phân trang)
+   * @returns Danh sách tất cả vật tư
    */
   async findAllWithoutPagination(): Promise<MaterialResponseDto[]> {
     const materials = await this.repository.findAllWithoutPagination();
@@ -90,17 +105,23 @@ export class MaterialService {
   }
 
   /**
-   * Get all materials; returns unified pagination response
-   * page/limit optional; when undefined returns all results as one page
+   * Lấy danh sách vật tư - có phân trang hoặc lấy tất cả
+   * Nếu không cung cấp page/limit → lấy tất cả (trả về dạng phân trang 1 page)
+   * 
+   * @param page - Số trang (bắt đầu từ 1), optional
+   * @param limit - Số bản ghi mỗi trang, optional
+   * @returns PaginatedMaterialResponseDto - Dữ liệu phân trang
    */
   async findAll(
     page?: number,
     limit?: number,
   ): Promise<PaginatedMaterialResponseDto> {
+    // Nếu có page và limit → dùng phân trang
     if (page !== undefined && limit !== undefined) {
       return this.findAllWithPagination(page, limit);
     }
 
+    // Ngược lại lấy tất cả
     const all = await this.findAllWithoutPagination();
     return {
       data: all,
@@ -114,17 +135,18 @@ export class MaterialService {
   }
 
   /**
-   * Get all materials with pagination
-   * @param page - Page number (1-indexed)
-   * @param limit - Records per page
-   * @returns - Paginated materials response
-   * @throws BadRequestException - If page or limit is invalid
+   * Lấy danh sách vật tư có phân trang
+   * 
+   * @param page - Số trang (bắt đầu từ 1)
+   * @param limit - Số bản ghi mỗi trang (tối đa 100)
+   * @returns PaginatedMaterialResponseDto - Dữ liệu phân trang
+   * @throws BadRequestException nếu page hoặc limit không hợp lệ
    */
   async findAllWithPagination(
     page: number = 1,
     limit: number = 20,
   ): Promise<PaginatedMaterialResponseDto> {
-    // Validate pagination parameters
+    // Validate tham số phân trang
     if (page < 1) {
       throw new BadRequestException('Page must be >= 1');
     }
@@ -133,7 +155,7 @@ export class MaterialService {
     }
     if (limit > 100) {
       this.logger.warn(`Limit capped at 100, requested: ${limit}`);
-      limit = 100; // Cap max limit to 100
+      limit = 100; // Giới hạn tối đa 100 bản ghi/trang
     }
 
     this.logger.debug(`Finding all materials - page: ${page}, limit: ${limit}`);
@@ -152,15 +174,17 @@ export class MaterialService {
   }
 
   /**
-   * Get single material by MongoDB ID
-   * @param id - MongoDB ObjectId
-   * @returns - Material response
-   * @throws NotFoundException - If material not found
+   * Tìm vật tư theo ID
+   * Hỗ trợ cả MongoDB ObjectId và business material_id
+   * 
+   * @param id - MongoDB ObjectId hoặc material_id (ví dụ: "MAT-002")
+   * @returns MaterialResponseDto - Thông tin vật tư
+   * @throws NotFoundException nếu không tìm thấy
    */
   async findById(id: string): Promise<MaterialResponseDto> {
     this.logger.debug(`Finding material by ID: ${id}`);
 
-    // Accept either a MongoDB ObjectId or the business `material_id` (e.g. "MAT-002").
+    // Chấp nhận cả MongoDB ObjectId và business material_id
     let material;
     if (isValidObjectId(id)) {
       material = await this.repository.findById(id);
@@ -177,20 +201,21 @@ export class MaterialService {
   }
 
   /**
-   * Search materials by multiple fields
-   * Searches in: material_name, material_id, part_number
-   * @param query - Search query string
-   * @param page - Page number (1-indexed)
-   * @param limit - Records per page
-   * @returns - Paginated search results
-   * @throws BadRequestException - If query is empty
+   * Tìm kiếm vật tư theo từ khóa
+   * Tìm trong các trường: material_name, material_id, part_number
+   * 
+   * @param query - Từ khóa tìm kiếm (tối thiểu 2 ký tự)
+   * @param page - Số trang
+   * @param limit - Số bản ghi mỗi trang
+   * @returns PaginatedMaterialResponseDto - Kết quả tìm kiếm phân trang
+   * @throws BadRequestException nếu query rỗng hoặc quá ngắn
    */
   async search(
     query: string,
     page: number = 1,
     limit: number = 20,
   ): Promise<PaginatedMaterialResponseDto> {
-    // Validate search query
+    // Validate từ khóa tìm kiếm
     if (!query || query.trim().length === 0) {
       throw new BadRequestException('Search query cannot be empty');
     }
@@ -201,7 +226,7 @@ export class MaterialService {
       );
     }
 
-    // Validate pagination parameters
+    // Validate phân trang
     if (page < 1) {
       throw new BadRequestException('Page must be >= 1');
     }
@@ -227,19 +252,20 @@ export class MaterialService {
   }
 
   /**
-   * Filter materials by material_type
-   * @param type - Material type
-   * @param page - Page number (1-indexed)
-   * @param limit - Records per page
-   * @returns - Paginated filtered results
-   * @throws BadRequestException - If material type is invalid
+   * Lọc vật tư theo loại (material_type)
+   * 
+   * @param type - Loại vật tư (API, Excipient, Dietary Supplement...)
+   * @param page - Số trang
+   * @param limit - Số bản ghi mỗi trang
+   * @returns PaginatedMaterialResponseDto - Kết quả lọc phân trang
+   * @throws BadRequestException nếu loại vật tư không hợp lệ
    */
   async filterByType(
     type: string,
     page: number = 1,
     limit: number = 20,
   ): Promise<PaginatedMaterialResponseDto> {
-    // Define valid material types
+    // Các loại vật tư hợp lệ
     const validTypes = [
       'API',
       'Excipient',
@@ -250,7 +276,7 @@ export class MaterialService {
       'Testing Material',
     ];
 
-    // Validate material type
+    // Validate loại vật tư
     if (!validTypes.includes(type)) {
       this.logger.warn(`Invalid material type attempted: ${type}`);
       throw new BadRequestException(
@@ -258,7 +284,7 @@ export class MaterialService {
       );
     }
 
-    // Validate pagination parameters
+    // Validate phân trang
     if (page < 1) {
       throw new BadRequestException('Page must be >= 1');
     }
@@ -284,11 +310,13 @@ export class MaterialService {
   }
 
   /**
-   * Update material
-   * @param id - MongoDB ObjectId
-   * @param updateDto - Fields to update
-   * @returns - Updated material response
-   * @throws NotFoundException - If material not found
+   * Cập nhật thông tin vật tư
+   * Hỗ trợ cả MongoDB ObjectId và business material_id
+   * 
+   * @param id - MongoDB ObjectId hoặc material_id
+   * @param updateDto - Dữ liệu cập nhật
+   * @returns MaterialResponseDto - Thông tin vật tư sau khi cập nhật
+   * @throws NotFoundException nếu không tìm thấy vật tư
    */
   async update(
     id: string,
@@ -296,8 +324,7 @@ export class MaterialService {
   ): Promise<MaterialResponseDto> {
     this.logger.log(`Updating material: ${id}`);
 
-    // Resolve whether `id` is an ObjectId or a business `material_id` and
-    // obtain the real Mongo `_id` to perform updates safely.
+    // Xác định ID (ObjectId hoặc material_id) và lấy _id thực sự
     let material = null as any;
     let resolvedId = id;
     if (isValidObjectId(id)) {
@@ -312,7 +339,7 @@ export class MaterialService {
       throw new NotFoundException(`Material with ID '${id}' not found`);
     }
 
-    // Perform the update using resolved MongoDB _id
+    // Thực hiện cập nhật sử dụng MongoDB _id
     const updated = await this.repository.update(resolvedId, updateDto);
     this.logger.log(`Material updated successfully: ${id}`);
 
@@ -320,15 +347,17 @@ export class MaterialService {
   }
 
   /**
-   * Delete material
-   * @param id - MongoDB ObjectId
-   * @returns - Deletion confirmation message
-   * @throws NotFoundException - If material not found
+   * Xóa vật tư
+   * Hỗ trợ cả MongoDB ObjectId và business material_id
+   * 
+   * @param id - MongoDB ObjectId hoặc material_id
+   * @returns Thông báo xóa thành công
+   * @throws NotFoundException nếu không tìm thấy vật tư
    */
   async delete(id: string): Promise<{ message: string }> {
     this.logger.log(`Deleting material: ${id}`);
 
-    // Resolve either MongoDB ObjectId or business material_id
+    // Xác định ID (ObjectId hoặc material_id)
     let material = null as any;
     let resolvedId = id;
     if (isValidObjectId(id)) {
@@ -343,7 +372,7 @@ export class MaterialService {
       throw new NotFoundException(`Material with ID '${id}' not found`);
     }
 
-    // Delete the material using resolved MongoDB _id
+    // Xóa vật tư sử dụng MongoDB _id
     await this.repository.delete(resolvedId);
     this.logger.log(`Material deleted successfully: ${id}`);
 
@@ -351,9 +380,8 @@ export class MaterialService {
   }
 
   /**
-   * Remove material (for test compatibility)
-   * @param id - MongoDB ObjectId
-   * @returns - { deleted: boolean }
+   * Xóa vật tư (dành cho test compatibility)
+   * Trả về { deleted: boolean } thay vì throw exception
    */
   async remove(id: string): Promise<{ deleted: boolean }> {
     try {
@@ -365,14 +393,18 @@ export class MaterialService {
   }
 
   /**
-   * Get all distinct material types
-   * @returns - Array of unique material types
+   * Lấy danh sách các loại vật tư duy nhất
+   * @returns Array các loại vật tư
    */
   async getDistinctTypes(): Promise<string[]> {
     this.logger.debug('Fetching distinct material types');
     return this.repository.getDistinctTypes();
   }
 
+  /**
+   * Lấy danh sách vật tư dạng options (dùng cho dropdown)
+   * Có thể lọc theo từ khóa và trạng thái
+   */
   async getOptions(
     query?: string,
     status?: string,
@@ -392,13 +424,14 @@ export class MaterialService {
   }
 
   /**
-   * Export materials to Excel format
-   * @param materials - Array of materials to export
-   * @returns - Excel buffer
+   * Export danh sách vật tư ra file Excel
+   * @param materials - Danh sách vật tư cần export
+   * @returns Buffer - Dữ liệu file Excel
    */
   async exportToExcel(materials: any[]): Promise<Buffer> {
     const XLSX = await import('xlsx');
 
+    // Chuyển đổi dữ liệu sang định dạng worksheet
     const worksheetData = materials.map((m) => ({
       'Material ID': m.material_id,
       'Part Number': m.part_number,
@@ -413,7 +446,7 @@ export class MaterialService {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Materials');
 
-    // Set column widths
+    // Cài đặt độ rộng cột
     const columnWidths = [15, 15, 25, 15, 20, 15, 15];
     worksheet['!cols'] = columnWidths.map((w) => ({ wch: w }));
 
@@ -422,9 +455,9 @@ export class MaterialService {
   }
 
   /**
-   * Export materials to PDF format
-   * @param materials - Array of materials to export
-   * @returns - PDF buffer
+   * Export danh sách vật tư ra file PDF
+   * @param materials - Danh sách vật tư cần export
+   * @returns Buffer - Dữ liệu file PDF
    */
   async exportToPDF(materials: any[]): Promise<Buffer> {
     const PDFDocument = await import('pdfkit');
@@ -448,14 +481,14 @@ export class MaterialService {
 
       doc.on('error', reject);
 
-      // Add title
+      // Thêm tiêu đề
       doc
         .fontSize(16)
         .font('Helvetica-Bold')
         .text('Material List', { align: 'center' });
       doc.moveDown();
 
-      // Add metadata
+      // Thêm metadata
       doc
         .fontSize(10)
         .font('Helvetica')
@@ -463,7 +496,7 @@ export class MaterialService {
       doc.text(`Total Records: ${materials.length}`);
       doc.moveDown();
 
-      // Add table header
+      // Thêm header của bảng
       const tableTop = doc.y;
       const colWidths = {
         id: 50,
@@ -485,12 +518,12 @@ export class MaterialService {
       );
       doc.moveDown();
 
-      // Add rows
+      // Thêm các dòng dữ liệu
       doc.font('Helvetica').fontSize(8);
       materials.forEach((material) => {
         const y = doc.y;
 
-        // Draw row content
+        // Vẽ nội dung dòng
         doc.text(material.material_id || '-', 40, y, {
           width: colWidths.id,
           ellipsis: true,
@@ -520,13 +553,13 @@ export class MaterialService {
 
         doc.moveDown(1.5);
 
-        // Add page break if needed
+        // Thêm trang mới nếu cần
         if (doc.y > 750) {
           doc.addPage();
         }
       });
 
-      // Add footer
+      // Thêm footer
       doc
         .fontSize(8)
         .font('Helvetica-Oblique')
@@ -540,9 +573,11 @@ export class MaterialService {
   }
 
   /**
-   * Convert Material document to response DTO
+   * Chuyển đổi Material document sang MaterialResponseDto
+   * Loại bỏ các field không cần thiết, format dữ liệu
+   * 
    * @param material - Mongoose Material document
-   * @returns - MaterialResponseDto
+   * @returns MaterialResponseDto - Dữ liệu trả về cho client
    */
   private toResponseDto(material: any): MaterialResponseDto {
     return {

@@ -1,52 +1,75 @@
+/**
+ * ErrorLogs - Trang nhật ký lỗi (Logs) dành cho IT Administrator
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách log hệ thống (error, warn, info, debug)
+ * - Tìm kiếm log theo mã lỗi, module hoặc nội dung
+ * - Phân trang (pagination) để duyệt log dễ dàng
+ * - Hiển thị thông tin: Thời gian, Mức độ, Nội dung, Mã lỗi, Module
+ * 
+ * Quyền truy cập: Chỉ IT Administrator (/admin/*)
+ */
 import { useState, useEffect } from 'react';
 import { Alert, Table, Tag, Input, Pagination } from 'antd';
 import { Search, FileText } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';
 import { PageWrapper, LoadingSkeleton } from '../../components/ui';
 
+// Kiểu dữ liệu cho một bản ghi log hệ thống
 interface AppLog {
-  _id: string;
-  level: 'info' | 'warn' | 'error' | 'debug';
-  message: string;
-  error_code?: string;
-  module?: string;
-  created_at: string;
+  _id: string;                              // ID duy nhất của log
+  level: 'info' | 'warn' | 'error' | 'debug'; // Mức độ log
+  message: string;                            // Nội dung log
+  error_code?: string;                         // Mã lỗi (nếu có)
+  module?: string;                             // Module phát sinh log
+  created_at: string;                          // Thời gian tạo log
 }
 
+// Ánh xạ mức độ log sang màu Tag trong Ant Design
 const LEVEL_COLOR: Record<string, string> = {
-  error: 'red',
-  warn: 'orange',
-  info: 'blue',
-  debug: 'default',
+  error: 'red',    // Lỗi - Đỏ
+  warn: 'orange',   // Cảnh báo - Cam
+  info: 'blue',    // Thông tin - Xanh dương
+  debug: 'default', // Debug - Xám mặc định
 };
 
 export default function ErrorLogs() {
+  // State lưu danh sách log từ backend
   const [logs, setLogs] = useState<AppLog[]>([]);
+  // Từ khóa tìm kiếm (mã lỗi, module, nội dung)
   const [search, setSearch] = useState('');
+  // Trang hiện tại (phân trang)
   const [page, setPage] = useState(1);
+  // Số lượng log trên mỗi trang (cố định 20)
   const [limit] = useState(20);
+  // Tổng số trang
   const [total, setTotal] = useState(0);
+  // Trạng thái đang tải dữ liệu
   const [loading, setLoading] = useState(false);
+  // Thông báo lỗi
   const [error, setError] = useState('');
 
+  // useEffect: Tự động tải lại log khi chuyển trang
   useEffect(() => {
     fetchLogs();
   }, [page]);
 
+  // Hàm lấy danh sách log từ backend API
+  // Có hỗ trợ tìm kiếm: nếu có từ khóa thì gọi /logs/search, ngược lại gọi /logs
   const fetchLogs = async (searchQuery = '') => {
     setLoading(true);
     setError('');
     try {
       const endpoint = searchQuery.trim() ? '/logs/search' : '/logs';
       const params: Record<string, any> = { page, limit };
-      if (searchQuery.trim()) params.q = searchQuery;
+      if (searchQuery.trim()) params.q = searchQuery; // Thêm từ khóa tìm kiếm vào params
 
       const { data, error: apiError } = await apiClient.get<{ data: AppLog[]; pages: number }>(endpoint, { params });
 
       if (apiError) throw new Error(apiError.message || 'Không thể tải logs');
 
       setLogs(data?.data || []);
-      setTotal(data?.pages || 1);
+      setTotal(data?.pages || 1); // Tổng số trang để phân trang
     } catch (err: any) {
       setError(err.message || 'Lỗi khi tải logs');
     } finally {
@@ -54,11 +77,13 @@ export default function ErrorLogs() {
     }
   };
 
+  // Xử lý tìm kiếm: Reset về trang 1 và gọi API với từ khóa
   const handleSearch = () => {
     setPage(1);
     fetchLogs(search);
   };
 
+  // Cấu hình cột cho bảng log hệ thống
   const columns = [
     {
       title: 'Thời gian',
@@ -72,6 +97,7 @@ export default function ErrorLogs() {
       dataIndex: 'level',
       key: 'level',
       width: 90,
+      // Hiển thị Tag với màu tương ứng (Đỏ-Error, Cam-Warn, Xanh-Info)
       render: (level: string) => <Tag color={LEVEL_COLOR[level] || 'default'}>{level.toUpperCase()}</Tag>,
     },
     {
@@ -96,6 +122,7 @@ export default function ErrorLogs() {
     },
   ];
 
+  // Hiển thị skeleton loading khi mới mount và chưa có dữ liệu log
   if (loading && logs.length === 0) {
     return (
       <PageWrapper>

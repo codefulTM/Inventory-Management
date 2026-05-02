@@ -27,24 +27,76 @@ import { UserRole } from "../schemas/user.schema";
 import { CurrentUser } from "../common/auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../common/auth/jwt.strategy";
 
+/**
+ * InventoryLotController - Controller quản lý lô hàng tồn kho
+ * 
+ * Định tuyến (Routing): /inventory-lots
+ * Bảo vệ bởi: JwtAuthGuard + RolesGuard
+ * 
+ * Các endpoints:
+ * - POST /inventory-lots - Tạo mới lô hàng (Operator, Manager, QC)
+ * - POST /inventory-lots/bulk-quarantine - Cập nhật hàng loạt sang Quarantine (QC, Manager)
+ * - GET /inventory-lots - Lấy danh sách có phân trang (Operator, Manager, QC)
+ * - GET /inventory-lots/statistics - Thống kê lô hàng (Operator, Manager, QC)
+ * - GET /inventory-lots/expiring-soon - Lô sắp hết hạn (Operator, Manager, QC)
+ * - GET /inventory-lots/expired - Lô đã hết hạn (Operator, Manager, QC)
+ * - GET /inventory-lots/samples - Lô mẫu (Operator, Manager, QC)
+ * - GET /inventory-lots/search - Tìm kiếm lô hàng (Operator, Manager, QC)
+ * - GET /inventory-lots/options - Lấy options cho dropdown (Operator, Manager, QC)
+ * - GET /inventory-lots/filter - Lọc lô theo nhiều tiêu chí (Operator, Manager, QC)
+ * - GET /inventory-lots/material/:material_id - Lô theo vật tư (Operator, Manager, QC)
+ * - GET /inventory-lots/samples/:parent_lot_id - Mẫu của lô cha (Operator, Manager, QC)
+ * - GET /inventory-lots/:id - Chi tiết lô hàng (Operator, Manager, QC)
+ * - PUT /inventory-lots/:id - Cập nhật lô (Manager only)
+ * - PUT /inventory-lots/:id/status/:status - Cập nhật trạng thái (Manager only)
+ * - DELETE /inventory-lots/:id - Xóa lô (Manager only)
+ */
 @Controller('inventory-lots')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class InventoryLotController {
   constructor(private readonly inventoryLotService: InventoryLotService) {}
 
   // ==================== CRUD Operations ====================
+
+  /**
+   * POST /inventory-lots
+   * Tạo mới lô hàng
+   * Tự động sinh lot_id nếu không cung cấp
+   * Tự động tạo Receipt transaction
+   * 
+   * Body: CreateInventoryLotDto
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Roles(UserRole.OPERATOR, UserRole.MANAGER, UserRole.QC_TECHNICIAN)
   @Post()
   async create(@Body(ValidationPipe) dto: CreateInventoryLotDto) {
     return await this.inventoryLotService.create(dto);
   }
 
+  /**
+   * POST /inventory-lots/bulk-quarantine
+   * Cập nhật hàng loạt nhiều lô sang trạng thái Quarantine
+   * 
+   * Body: { lot_ids: string[] }
+   * Phân quyền: QC Technician, Manager
+   */
   @Roles(UserRole.QC_TECHNICIAN, UserRole.MANAGER)
   @Post('bulk-quarantine')
   async bulkQuarantine(@Body(ValidationPipe) dto: BulkQuarantineDto) {
     return await this.inventoryLotService.bulkQuarantine(dto.lot_ids);
   }
 
+  /**
+   * GET /inventory-lots
+   * Lấy danh sách lô hàng có phân trang
+   * 
+   * Query params:
+   * - page: Số trang (mặc định: 1)
+   * - limit: Số bản ghi/trang (mặc định: 10)
+   * - status: Lọc theo trạng thái (tùy chọn)
+   * 
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Roles(UserRole.OPERATOR, UserRole.MANAGER, UserRole.QC_TECHNICIAN)
   @Get()
   async findAll(
@@ -65,21 +117,50 @@ export class InventoryLotController {
     );
   }
 
+  /**
+   * GET /inventory-lots/statistics
+   * Thống kê lô hàng
+   * Bao gồm: tổng, theo trạng thái, sắp hết hạn, đã hết hạn
+   * 
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('statistics')
   async getStatistics() {
     return await this.inventoryLotService.getLotsStatistics();
   }
 
+  /**
+   * GET /inventory-lots/expiring-soon
+   * Lấy danh sách lô sắp hết hạn
+   * 
+   * Query params:
+   * - days: Số ngày tới (mặc định: 30)
+   * 
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('expiring-soon')
   async getExpiringSoon(@Query('days') days: string = '30') {
     return await this.inventoryLotService.getExpiringSoon(parseInt(days, 10));
   }
 
+  /**
+   * GET /inventory-lots/expired
+   * Lấy danh sách lô đã hết hạn
+   * 
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('expired')
   async getExpiredLots() {
     return await this.inventoryLotService.getExpiredLots();
   }
 
+  /**
+   * GET /inventory-lots/samples
+   * Lấy danh sách lô mẫu (is_sample = true)
+   * 
+   * Query params: page, limit
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('samples')
   async findSampleLots(
     @Query('page') page: string = '1',
@@ -91,6 +172,14 @@ export class InventoryLotController {
     );
   }
 
+  /**
+   * GET /inventory-lots/search
+   * Tìm kiếm lô hàng theo từ khóa
+   * Tìm trong: manufacturer_name, manufacturer_lot, supplier_name, lot_id
+   * 
+   * Query params: q (bắt buộc), page, limit
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('search')
   async search(
     @Query('q') query: string,
@@ -107,6 +196,13 @@ export class InventoryLotController {
     );
   }
 
+  /**
+   * GET /inventory-lots/options
+   * Lấy danh sách lô dạng options (cho dropdown)
+   * 
+   * Query params: q, material_id, status, exclude_status, warehouse_id, page, limit
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('options')
   async getOptions(
     @Query('q') q?: string,
@@ -137,6 +233,13 @@ export class InventoryLotController {
     );
   }
 
+  /**
+   * GET /inventory-lots/filter
+   * Lọc lô hàng theo nhiều tiêu chí
+   * 
+   * Query params: material_id, status, is_sample, manufacturer_name, page, limit
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('filter')
   async filter(
     @Query('material_id') material_id?: string,
@@ -159,6 +262,14 @@ export class InventoryLotController {
     );
   }
 
+  /**
+   * GET /inventory-lots/material/:material_id
+   * Lấy tất cả lô của một vật tư
+   * 
+   * Route params: material_id
+   * Query params: page, limit
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('material/:material_id')
   async findByMaterialId(
     @Param('material_id') material_id: string,
@@ -172,16 +283,40 @@ export class InventoryLotController {
     );
   }
 
+  /**
+   * GET /inventory-lots/samples/:parent_lot_id
+   * Lấy các lô mẫu của một lô cha
+   * 
+   * Route params: parent_lot_id
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get('samples/:parent_lot_id')
   async findSamplesByParentLot(@Param('parent_lot_id') parent_lot_id: string) {
     return await this.inventoryLotService.findSamplesByParentLot(parent_lot_id);
   }
 
+  /**
+   * GET /inventory-lots/:id
+   * Lấy chi tiết một lô hàng
+   * 
+   * Route params: id (lot_id)
+   * Phân quyền: Operator, Manager, QC Technician
+   */
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return await this.inventoryLotService.findById(id);
   }
 
+  /**
+   * PUT /inventory-lots/:id
+   * Cập nhật lô hàng
+   * Tự động tạo InventoryTransaction nếu số lượng thay đổi
+   * Tự động ghi Audit Log
+   * 
+   * Route params: id (lot_id)
+   * Body: UpdateInventoryLotDto
+   * Phân quyền: Manager only
+   */
   @Roles(UserRole.MANAGER)
   @Put(':id')
   async update(
@@ -200,11 +335,27 @@ export class InventoryLotController {
     return await this.inventoryLotService.update(id, dto, actor, ctx);
   }
 
+  /**
+   * PUT /inventory-lots/:id/status/:status
+   * Cập nhật trạng thái lô hàng
+   * Validate chuyển đổi trạng thái hợp lệ
+   * 
+   * Route params: id (lot_id), status
+   * Phân quyền: Manager only
+   */
   @Put(':id/status/:status')
   async updateStatus(@Param('id') id: string, @Param('status') status: string) {
     return await this.inventoryLotService.updateStatus(id, status);
   }
 
+  /**
+   * DELETE /inventory-lots/:id
+   * Xóa lô hàng
+   * Chỉ cho phép xóa lô Quarantine và chưa có giao dịch
+   * 
+   * Route params: id (lot_id)
+   * Phân quyền: Manager only
+   */
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return await this.inventoryLotService.delete(id);

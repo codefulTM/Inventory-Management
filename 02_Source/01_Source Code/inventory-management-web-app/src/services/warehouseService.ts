@@ -1,3 +1,9 @@
+/**
+ * Warehouse Service
+ * Service quản lý kho hàng (Warehouse)
+ * CRUD: fetch, create, update, delete warehouse
+ */
+
 import { apiClient } from "./apiClient";
 import type {
   Warehouse,
@@ -6,6 +12,10 @@ import type {
   UpdateWarehouseRequest,
 } from "../types/warehouse";
 
+/**
+ * Chuẩn hóa dữ liệu warehouse từ API response
+ * Đảm bảo warehouse_id và _id đồng nhất, format created_date
+ */
 function normalize(w: any): Warehouse {
   return {
     ...w,
@@ -17,6 +27,12 @@ function normalize(w: any): Warehouse {
   };
 }
 
+/**
+ * Lấy danh sách kho hàng với phân trang
+ * @param page - Trang hiện tại
+ * @param limit - Số items mỗi trang
+ * @param q - Từ khóa tìm kiếm (optional)
+ */
 export async function fetchWarehouses(
   page = 1,
   limit = 20,
@@ -42,18 +58,27 @@ export async function fetchWarehouses(
   };
 }
 
+/**
+ * Lấy chi tiết một kho hàng
+ */
 export async function fetchWarehouse(id: string): Promise<Warehouse> {
   const { data, error } = await apiClient.get<any>(`/warehouses/${id}`);
   if (error) throw error;
   return normalize(data);
 }
 
+/**
+ * Tạo kho hàng mới
+ */
 export async function createWarehouse(payload: CreateWarehouseRequest) {
   const { data, error } = await apiClient.post<any>(`/warehouses`, payload);
   if (error) throw error;
   return normalize(data);
 }
 
+/**
+ * Cập nhật thông tin kho hàng
+ */
 export async function updateWarehouse(
   id: string,
   payload: UpdateWarehouseRequest,
@@ -66,6 +91,9 @@ export async function updateWarehouse(
   return normalize(data);
 }
 
+/**
+ * Xóa kho hàng
+ */
 export async function removeWarehouse(id: string) {
   const { data, error } = await apiClient.delete<any>(`/warehouses/${id}`);
   if (error) throw error;

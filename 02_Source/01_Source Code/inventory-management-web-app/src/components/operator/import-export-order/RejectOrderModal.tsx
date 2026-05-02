@@ -1,3 +1,7 @@
+// File: components/operator/import-export-order/RejectOrderModal.tsx
+// Modal nhập lý do từ chối phiếu nhập/xuất kho
+// Validate: Lý do bắt buộc, tối đa 255 ký tự
+
 import { useState } from "react";
 
 interface RejectOrderModalProps {

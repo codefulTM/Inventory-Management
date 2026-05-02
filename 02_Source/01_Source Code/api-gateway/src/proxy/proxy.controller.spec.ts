@@ -1,3 +1,16 @@
+/**
+ * File: proxy.controller.spec.ts
+ * Mô tả: Unit tests cho ProxyController
+ * Chức năng: Kiểm tra logic proxy của API Gateway
+ * 
+ * Các trường hợp test:
+ * 1. Route guarding — chặn /reports/*, trả về 404
+ * 2. Backend proxying — forward GET, POST, headers, query string đến backend
+ * 3. AI service routing — forward /ai/* đến ai-service
+ * 4. Upstream error handling — xử lý lỗi kết nối (502), pass-through status codes
+ * 
+ * Mock: ConfigService và global.fetch()
+ */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProxyController } from './proxy.controller';
 import { ConfigService } from '@nestjs/config';

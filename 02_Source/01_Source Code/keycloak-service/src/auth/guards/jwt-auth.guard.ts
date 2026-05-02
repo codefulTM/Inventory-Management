@@ -1,3 +1,16 @@
+/**
+ * File: jwt-auth.guard.ts
+ * Mô tả: Guard bảo vệ các routes yêu cầu xác thực bằng JWT Bearer token.
+ *
+ * Chức năng:
+ * - Kiểm tra xem route có được đánh dấu @Public() hay không
+ * - Nếu là public route → cho phép truy cập không cần token
+ * - Nếu không phải public → gọi Passport JWT strategy để xác thực token
+ * - Xử lý lỗi khi token không hợp lệ hoặc hết hạn
+ *
+ * Sử dụng: Được đăng ký là global guard trong AppModule
+ * (thông qua AuthModule exports JwtAuthGuard)
+ */
 import {
   Injectable,
   ExecutionContext,

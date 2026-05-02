@@ -1,3 +1,10 @@
+/**
+ * AddModal - Modal thêm mới lô hàng (Inventory Lot) dành cho Manager
+ * Chức năng: Form nhập liệu để tạo mới một lô hàng
+ * Thông tin bao gồm: mã lô, vật tư, nhà sản xuất, số lượng, vị trí lưu trữ
+ * Ngày sản xuất, hạn sử dụng, trạng thái (Accepted/Quarantine/Rejected/Depleted)
+ * Manager có thể chọn kho, vị trí kệ và điền đầy đủ thông tin lô hàng
+ */
 import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
 import {
@@ -19,10 +26,10 @@ import { useWarehouseList } from "../../../../hooks/useWarehouseList";
 import { useBinWorklist } from "../hooks/useBinWorklist";
 
 interface AddModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (values: EditFormValues) => Promise<void>;
-  submitError?: string | null;
+  isOpen: boolean;         // Modal có đang mở không
+  onClose: () => void;      // Hàm đóng modal
+  onSubmit: (values: EditFormValues) => Promise<void>; // Hàm xử lý thêm mới
+  submitError?: string | null; // Lỗi khi submit
 }
 
 export function AddModal({

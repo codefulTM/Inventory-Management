@@ -1,3 +1,20 @@
+/**
+ * InboundControl Page (QC)
+ * Trang kiểm định chất lượng lô hàng đầu vào
+ * 
+ * Quy trình kiểm định đầu vào:
+ * 1. Hiển thị danh sách lô hàng theo trạng thái (Quarantine/Accepted/Rejected/Hold)
+ * 2. Tìm kiếm theo tên sản phẩm, lọc theo trạng thái
+ * 3. Mở modal kiểm định: nhập kết quả (độ ẩm, tinh khiết, cảm quan)
+ * 4. Tự động đánh dấu Pass/Fail dựa trên ngưỡng:
+ *    - Độ ẩm ≤ 5% VÀ Tinh khiết ≥ 98% → Pass (đạt)
+ *    - Ngược lại → Fail (không đạt)
+ * 5. Gửi kết quả QC + quyết định lô (Accept/Reject/Hold) lên backend
+ * 
+ * Tự động hóa: Hệ thống tự đánh giá đạt/không đạt dựa trên tiêu chuẩn
+ */
+
+
 import { useState, useEffect, useCallback } from 'react';
 import { ClipboardCheck, X, Search } from 'lucide-react';
 import Toast from '../../components/Toast';
@@ -61,21 +78,58 @@ const DEFAULT_FORM: InspectionForm = {
 
 const PAGE_SIZE = 10;
 
+/**
+ * InboundControl Component - Kiểm định lô hàng đầu vào từ nhà cung cấp
+ * 
+ * Quy trình kiểm định đầu vào:
+ * 1. Hiển thị danh sách lô hàng (mặc định: chỉ lô Quarantine - chờ kiểm định)
+ * 2. QC chọn một lô → Mở modal kiểm định
+ * 3. Nhập kết quả: Độ ẩm (%), Tinh khiết (%), Cảm quan
+ * 4. Tự động đánh giá: Pass (đạt) nếu Độ ẩm ≤ 5% VÀ Tinh khiết ≥ 98%
+ * 5. Chọn quyết định: Chấp nhận (Approved) / Từ chối (Rejected) / Tạm giữ (Hold)
+ * 6. Gửi kết quả QC test + Quyết định lô lên backend
+ * 
+ * form: Chứa thông tin kiểm nghiệm và quyết định của QC
+ */
 export default function InboundControl() {
+  // Danh sách lô hàng từ backend (đã lọc theo trạng thái)
   const [lots, setLots] = useState<InventoryLot[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Lọc theo trạng thái: Tất cả / Quarantine (mặc định) / Accepted / Rejected / Hold
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('Quarantine');
+  
+  // Tìm kiếm theo tên sản phẩm
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Phân trang
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // Lô hàng đang được chọn để kiểm định
   const [selectedLot, setSelectedLot] = useState<InventoryLot | null>(null);
+  
+  // Form kiểm định - Chứa kết quả và quyết định
   const [form, setForm] = useState<InspectionForm>(DEFAULT_FORM);
+  
+  // Trạng thái gửi dữ liệu và lỗi
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  
+  // Toast thông báo
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  /**
+   * Tải danh sách lô hàng từ backend
+   * Lọc theo trạng thái (nếu không phải 'all')
+   */
+  /**
+   * Tải danh sách lô hàng từ backend
+   * Lọc theo trạng thái (nếu không phải 'all')
+   */
   const loadLots = useCallback(async () => {
     setLoading(true);
     try {
+      // Gọi API lấy danh sách lô, lọc theo trạng thái nếu cần
       const data = await getInventoryLots(STATUS_MAP[filterStatus]);
       console.log('Fetched lots:', data);
       setLots(data);
@@ -86,16 +140,21 @@ export default function InboundControl() {
     }
   }, [filterStatus]);
 
+  // Tự động tải dữ liệu khi component mount hoặc filterStatus thay đổi
   useEffect(() => {
     void loadLots();
   }, [loadLots]);
 
+  /**
+   * Lọc danh sách lô theo từ khóa tìm kiếm (tên sản phẩm)
+   */
   const displayedLots = searchQuery.trim()
     ? lots.filter((lot) =>
         lot.material_name?.toLowerCase().includes(searchQuery.trim().toLowerCase())
       )
     : lots;
 
+  // Phân trang danh sách lô
   const totalItems = displayedLots.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const pageStart = (currentPage - 1) * PAGE_SIZE;
@@ -103,15 +162,17 @@ export default function InboundControl() {
   const displayFrom = totalItems === 0 ? 0 : pageStart + 1;
   const displayTo = Math.min(currentPage * PAGE_SIZE, totalItems);
 
+  // Điều chỉnh trang hiện tại nếu vượt quá tổng số trang
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
 
+  // === Mở/Đóng modal kiểm định ===
   function openModal(lot: InventoryLot) {
     setSelectedLot(lot);
-    setForm(DEFAULT_FORM);
+    setForm(DEFAULT_FORM);  // Reset form về giá trị mặc định
     setModalError(null);
   }
 
@@ -120,7 +181,13 @@ export default function InboundControl() {
     setModalError(null);
   }
 
-  // Auto-determine pass/fail based on moisture ≤ 5% and purity ≥ 98%
+  /**
+   * Tự động xác định Đạt (Pass) hay Không đạt (Fail)
+   * Dựa trên:
+   * - Độ ẩm ≤ 5%
+   * - Tinh khiết ≥ 98%
+   * Nếu thỏa mãn cả 2 → Pass, ngược lại → Fail
+   */
   function isAutoPass(f: InspectionForm): boolean {
     const m = parseFloat(f.moisture);
     const p = parseFloat(f.purity);
@@ -128,12 +195,26 @@ export default function InboundControl() {
     return m <= 5.0 && p >= 98.0;
   }
 
+  /**
+   * Xử lý gửi kết quả kiểm định lên backend
+   * 
+   * Quy trình:
+   * 1. Kiểm tra dữ liệu đầu vào (đầy đủ kết quả, lý do từ chối nếu từ chối)
+   * 2. Xác định trạng thái kết quả: Pass (đạt) / Fail (không đạt) / Pending (tạm giữ)
+   * 3. Tạo QC Test record qua API createQCTest
+   * 4. Gửi quyết định lô qua API submitLotDecision (Accept/Reject/Hold)
+   * 5. Cập nhật lại danh sách lô và đóng modal
+   */
   async function handleSubmit() {
     if (!selectedLot) return;
+    
+    // Kiểm tra bắt buộc: Phải nhập đủ kết quả độ ẩm, tinh khiết, cảm quan
     if (!form.moisture || !form.purity || !form.sensory) {
       setModalError('Vui lòng nhập đầy đủ kết quả kiểm nghiệm');
       return;
     }
+    
+    // Nếu từ chối lô thì bắt buộc phải có lý do
     if (form.decision === 'rejected' && !form.rejectReason.trim()) {
       setModalError('Vui lòng nhập lý do từ chối');
       return;
@@ -142,30 +223,34 @@ export default function InboundControl() {
     setSubmitting(true);
     setModalError(null);
     try {
-      const pass = isAutoPass(form);
+      // Xác định trạng thái kết quả dựa trên quyết định của QC
+      const resultStatus: CreateQCTestDto['result_status'] =
+        form.decision === 'approved' ? 'Pass' : form.decision === 'rejected' ? 'Fail' : 'Pending';
+
+      // Tạo DTO cho QC Test - Ghi nhận kết quả kiểm nghiệm
       const testDto: CreateQCTestDto = {
-        lot_id: selectedLot.lot_id,
-        test_type: form.testType,
+        lot_id: selectedLot.lot_id,               // Mã lô đầu vào
+        test_type: form.testType,                 // Loại kiểm tra
         test_method: form.testMethod || 'USP Standard',
         test_date: new Date().toISOString().split('T')[0],
         test_result: `Độ ẩm: ${form.moisture}%, Tinh khiết: ${form.purity}%, Cảm quan: ${form.sensory}`,
-        acceptance_criteria: 'Độ ẩm ≤ 5%, Tinh khiết ≥ 98%',
-        result_status: form.decision === 'hold' ? 'Pending' : pass ? 'Pass' : 'Fail',
+        result_status: resultStatus,
         performed_by: 'qc_user',
         reject_reason: form.decision === 'rejected' ? form.rejectReason : undefined,
         label_id: form.label || undefined,
       };
       await createQCTest(testDto);
 
+      // Gửi quyết định lô
       const decisionDto: LotDecisionDto = {
-        decision: DECISION_MAP[form.decision],
+        decision: form.decision === 'approved' ? 'Accepted' : form.decision === 'rejected' ? 'Rejected' : 'Hold',
         verified_by: 'qc_user',
         reject_reason: form.decision === 'rejected' ? form.rejectReason : undefined,
         label_id: form.label || undefined,
       };
       await submitLotDecision(selectedLot.lot_id, decisionDto);
 
-      setToast({ message: `Đã cập nhật lô ${selectedLot.lot_id} thành công`, type: 'success' });
+      setToast({ message: `Đã xử lý lô ${selectedLot.lot_id} thành công`, type: 'success' });
       closeModal();
       void loadLots();
     } catch (err) {
@@ -177,14 +262,15 @@ export default function InboundControl() {
 
   return (
     <div className="p-6 space-y-5">
-      {/* Header */}
+      {/* Tiêu đề trang kiểm định lô đầu vào */}
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-none uppercase">Kiểm định lô đầu vào</h1>
-        <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest mt-1">Kiểm định chất lượng nguyên liệu nhập từ nhà cung cấp</p>
+        <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest mt-1">Kiểm tra chất lượng nguyên liệu nhập từ nhà cung cấp</p>
       </div>
 
-      {/* Toolbar: Search + Filter */}
+      {/* Thanh công cụ: Tìm kiếm + Lọc theo trạng thái */}
       <div className="flex flex-wrap items-center gap-3">
+        {/* Ô tìm kiếm theo tên sản phẩm */}
         <div className="relative flex-1 min-w-50 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
@@ -192,12 +278,13 @@ export default function InboundControl() {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              setCurrentPage(1);
+              setCurrentPage(1);  // Reset về trang 1 khi tìm kiếm
             }}
             placeholder="Tìm theo tên sản phẩm..."
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+        {/* Dropdown lọc theo trạng thái */}
         <select
           value={filterStatus}
           onChange={(e) => {
@@ -215,7 +302,7 @@ export default function InboundControl() {
         </select>
       </div>
 
-      {/* Table */}
+      {/* Bảng danh sách lô hàng đầu vào */}
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
         {loading ? (
           <div className="p-6 space-y-3">

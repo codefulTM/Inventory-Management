@@ -1,3 +1,8 @@
+// File: components/operator/import-export-order/ConfirmOrderDrawer.tsx
+// Drawer xác nhận phiếu nhập/xuất kho (Import/Export Order)
+// Cho phép nhập số lượng thực tế (actual_quantity) cho từng dòng
+// Có thể thêm ghi chú xác nhận trước khi submit
+
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import OrderStatusBadge from "./OrderStatusBadge";

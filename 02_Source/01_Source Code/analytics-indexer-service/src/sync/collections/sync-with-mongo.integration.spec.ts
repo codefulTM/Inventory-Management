@@ -1,12 +1,13 @@
 /**
- * Integration tests — analytics-indexer-service sync with real MongoDB
- *
- * Uses mongodb-memory-server to run a real MongoDB instance in-process.
- * Seeds documents directly via Mongoose models, then runs the sync pipeline,
- * and verifies that ElasticSearch bulk operations receive the correct payloads.
- *
- * This is different from the E2E test (which mocks Mongoose models).
- * Here we insert real documents and verify the full query → ES path.
+ * File: sync/collections/sync-with-mongo.integration.spec.ts
+ * Mục đích: Integration tests - Đồng bộ analytics-indexer-service với MongoDB thật
+ * 
+ * Sử dụng mongodb-memory-server để chạy MongoDB in-process.
+ * Seed dữ liệu trực tiếp qua Mongoose models, sau đó chạy pipeline sync
+ * và kiểm tra rằng ES bulk operations nhận đúng payload.
+ * 
+ * Khác với E2E test (mock Mongoose models):
+ * Ở đây insert tài liệu thật và kiểm tra toàn bộ đường đi: query → ES
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';

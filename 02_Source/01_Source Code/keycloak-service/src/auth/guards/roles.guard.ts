@@ -1,3 +1,19 @@
+/**
+ * File: roles.guard.ts
+ * Mô tả: Guard kiểm tra quyền truy cập dựa trên vai trò (role) của user.
+ *
+ * Chức năng:
+ * - Chạy sau khi JwtAuthGuard đã xác thực thành công
+ * - Đọc metadata @Roles() từ route hoặc controller
+ * - Kiểm tra xem user có vai trò nằm trong danh sách yêu cầu không
+ * - Nếu user không có quyền → ném ForbiddenException
+ *
+ * Sử dụng:
+ * - Được đăng ký là global guard trong AppModule
+ * - Kết hợp với decorator @Roles(UserRole.MANAGER, ...) để chỉ định quyền truy cập
+ *
+ * Ví dụ: @Roles(UserRole.MANAGER) @Get('admin-only') → Chỉ Manager mới truy cập được
+ */
 import {
   Injectable,
   ExecutionContext,
@@ -21,6 +37,7 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    // Lấy danh sách role yêu cầu từ @Roles() decorator
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
@@ -46,6 +63,7 @@ export class RolesGuard implements CanActivate {
       `[RolesGuard] Checking role - User: ${user.username}, Role: ${user.role}, Required: ${requiredRoles.join(', ')}`,
     );
 
+    // Kiểm tra user có role nằm trong danh sách yêu cầu không
     const hasRole = requiredRoles.includes(user.role);
     if (!hasRole) {
       this.logger.warn(

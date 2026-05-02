@@ -1,3 +1,10 @@
+/**
+ * File: register.dto.ts
+ * Mô tả: Data Transfer Object cho chức năng đăng ký tài khoản mới.
+ *
+ * Chức năng: Validate thông tin đăng ký (tự đăng ký - chỉ tạo role Operator)
+ * Được sử dụng trong POST /auth/register
+ */
 import {
   IsString,
   IsNotEmpty,

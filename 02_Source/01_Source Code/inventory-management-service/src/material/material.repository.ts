@@ -1,14 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/**
+ * MaterialRepository - Lớp thao tác trực tiếp với cơ sở dữ liệu MongoDB
+ * 
+ * Chức năng chính:
+ * - Thực hiện các truy vấn CRUD với collection "materials"
+ * - Hỗ trợ phân trang (pagination), tìm kiếm, lọc dữ liệu
+ * - Sử dụng Mongoose Model để tương tác với MongoDB
+ * - Cung cấp các phương thức tìm kiếm theo nhiều tiêu chí khác nhau
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Material, MaterialDocument } from '../schemas/material.schema';
 import { CreateMaterialDto, UpdateMaterialDto } from './material.dto';
 
-/**
- * Material Repository
- * Handles all database operations for Materials collection
- */
 @Injectable()
 export class MaterialRepository {
   private readonly logger = new Logger(MaterialRepository.name);
@@ -19,9 +24,9 @@ export class MaterialRepository {
   ) {}
 
   /**
-   * Create a new material record
-   * @param createDto - Material creation data
-   * @returns - Created material document
+   * Tạo mới một vật tư trong database
+   * @param createDto - Dữ liệu tạo vật tư
+   * @returns MaterialDocument - Document vật tư đã được lưu
    */
   async create(createDto: CreateMaterialDto): Promise<MaterialDocument> {
     this.logger.debug(`Creating material: ${createDto.material_id}`);
@@ -30,22 +35,24 @@ export class MaterialRepository {
   }
 
   /**
-   * Find all materials without pagination
-   * @returns - List of all material documents
+   * Lấy tất cả vật tư (không phân trang)
+   * @returns Danh sách tất cả MaterialDocument
    */
   async findAllWithoutPagination(): Promise<MaterialDocument[]> {
     return this.materialModel.find().exec();
   }
 
   /**
-   * Find all materials with pagination support
-   * @param page - Page number (1-indexed)
-   * @param limit - Records per page
-   * @returns - Paginated materials with metadata
+   * Lấy danh sách vật tư có phân trang
+   * Sắp xếp theo created_date giảm dần (mới nhất trước)
+   * 
+   * @param page - Số trang (bắt đầu từ 1)
+   * @param limit - Số bản ghi mỗi trang
+   * @returns Object chứa data và metadata phân trang
    */
   async findAllWithPagination(
-    page: number = 1,
-    limit: number = 20,
+    page: number =1,
+    limit: number =20,
   ): Promise<{
     data: MaterialDocument[];
     total: number;
@@ -54,12 +61,12 @@ export class MaterialRepository {
   }> {
     this.logger.debug(`Finding materials - page: ${page}, limit: ${limit}`);
 
-    const skip = (page - 1) * limit;
+    const skip = (page -1) * limit;
     const data = await this.materialModel
       .find()
       .skip(skip)
       .limit(limit)
-      .sort({ created_date: -1 }) // Sort by newest first
+      .sort({ created_date: -1 }) // Sắp xếp mới nhất trước
       .exec();
 
     const total = await this.materialModel.countDocuments();
@@ -73,9 +80,9 @@ export class MaterialRepository {
   }
 
   /**
-   * Find material by MongoDB _id
+   * Tìm vật tư theo MongoDB _id
    * @param id - MongoDB ObjectId
-   * @returns - Material document or null
+   * @returns MaterialDocument hoặc null nếu không tìm thấy
    */
   async findById(id: string): Promise<MaterialDocument | null> {
     this.logger.debug(`Finding material by ID: ${id}`);
@@ -83,24 +90,35 @@ export class MaterialRepository {
   }
 
   /**
-   * Find material by material_id (business key)
-   * @param materialId - Material ID (e.g., "MAT-001")
-   * @returns - Material document or null
+   * Tìm vật tư theo material_id (business key)
+   * Ví dụ: "MAT-001", "MAT-002"
+   * 
+   * @param materialId - Material ID (business key)
+   * @returns MaterialDocument hoặc null nếu không tìm thấy
    */
   async findByMaterialId(materialId: string): Promise<MaterialDocument | null> {
     this.logger.debug(`Finding material by material_id: ${materialId}`);
     return this.materialModel.findOne({ material_id: materialId }).exec();
   }
 
+  /**
+   * Tìm nhiều vật tư theo danh sách material_id
+   * Sử dụng toán tử $in của MongoDB
+   * 
+   * @param materialIds - Danh sách material_id cần tìm
+   * @returns Danh sách MaterialDocument (lean - plain JavaScript objects)
+   */
   async findByMaterialIds(materialIds: string[]): Promise<MaterialDocument[]> {
     if (!materialIds || materialIds.length === 0) return [];
     return this.materialModel.find({ material_id: { $in: materialIds } }).lean().exec();
   }
 
   /**
-   * Find material by part_number
-   * @param partNumber - Part number
-   * @returns - Material document or null
+   * Tìm vật tư theo part_number
+   * part_number là duy nhất trong hệ thống
+   * 
+   * @param partNumber - Part number cần tìm
+   * @returns MaterialDocument hoặc null nếu không tìm thấy
    */
   async findByPartNumber(partNumber: string): Promise<MaterialDocument | null> {
     this.logger.debug(`Finding material by part_number: ${partNumber}`);
@@ -108,27 +126,29 @@ export class MaterialRepository {
   }
 
   /**
-   * Search materials by multiple fields (multi-field search)
-   * Searches in: material_name, material_id, part_number
-   * @param query - Search query string
-   * @param page - Page number (1-indexed)
-   * @param limit - Records per page
-   * @returns - Paginated search results
+   * Tìm kiếm vật tư theo từ khóa (multi-field search)
+   * Tìm trong: material_name, material_id, part_number
+   * Sử dụng regex case-insensitive
+   * 
+   * @param query - Từ khóa tìm kiếm
+   * @param page - Số trang
+   * @param limit - Số bản ghi mỗi trang
+   * @returns Object chứa data và total
    */
   async search(
     query: string,
-    page: number = 1,
-    limit: number = 20,
+    page: number =1,
+    limit: number =20,
   ): Promise<{
     data: MaterialDocument[];
     total: number;
   }> {
     this.logger.debug(`Searching materials with query: ${query}`);
 
-    const skip = (page - 1) * limit;
+    const skip = (page -1) * limit;
     const regex = new RegExp(query, 'i'); // Case-insensitive regex
-
-    // Search across multiple fields
+    
+    // Tìm kiếm trên nhiều trường
     const searchQuery = {
       $or: [
         { material_name: regex },
@@ -149,11 +169,21 @@ export class MaterialRepository {
     return { data, total };
   }
 
+  /**
+   * Lấy danh sách vật tư dạng options (cho dropdown/select)
+   * Chỉ trả về các trường cần thiết: material_id, material_name, part_number
+   * 
+   * @param query - Từ khóa tìm kiếm (tùy chọn)
+   * @param status - Lọc theo trạng thái (tùy chọn)
+   * @param page - Số trang
+   * @param limit - Số bản ghi mỗi trang
+   * @returns Object chứa data và metadata phân trang
+   */
   async findOptions(
     query?: string,
     status?: string,
-    page: number = 1,
-    limit: number = 20,
+    page: number =1,
+    limit: number =20,
   ): Promise<{
     data: Array<{
       material_id: string;
@@ -164,13 +194,15 @@ export class MaterialRepository {
     page: number;
     limit: number;
   }> {
-    const skip = (page - 1) * limit;
+    const skip = (page -1) * limit;
     const mongoQuery: Record<string, unknown> = {};
 
+    // Lọc theo trạng thái nếu có
     if (status) {
       mongoQuery.status = status;
     }
 
+    // Tìm kiếm theo từ khóa nếu có
     if (query?.trim()) {
       const regex = new RegExp(query.trim(), 'i');
       mongoQuery.$or = [
@@ -210,23 +242,24 @@ export class MaterialRepository {
   }
 
   /**
-   * Filter materials by material_type
-   * @param materialType - Material type enum value
-   * @param page - Page number (1-indexed)
-   * @param limit - Records per page
-   * @returns - Paginated filtered results
+   * Lọc vật tư theo loại (material_type)
+   * 
+   * @param materialType - Loại vật tư (API, Excipient, etc.)
+   * @param page - Số trang
+   * @param limit - Số bản ghi mỗi trang
+   * @returns Object chứa data và total
    */
   async filterByType(
     materialType: string,
-    page: number = 1,
-    limit: number = 20,
+    page: number =1,
+    limit: number =20,
   ): Promise<{
     data: MaterialDocument[];
     total: number;
   }> {
     this.logger.debug(`Filtering materials by type: ${materialType}`);
 
-    const skip = (page - 1) * limit;
+    const skip = (page -1) * limit;
     const filterQuery = { material_type: materialType };
 
     const data = await this.materialModel
@@ -242,10 +275,12 @@ export class MaterialRepository {
   }
 
   /**
-   * Update material by ID
+   * Cập nhật vật tư theo ID
+   * Sử dụng findByIdAndUpdate với tùy chọn trả về document mới
+   * 
    * @param id - MongoDB ObjectId
-   * @param updateDto - Fields to update
-   * @returns - Updated material document or null
+   * @param updateDto - Dữ liệu cập nhật
+   * @returns MaterialDocument đã cập nhật hoặc null
    */
   async update(
     id: string,
@@ -255,16 +290,16 @@ export class MaterialRepository {
 
     return this.materialModel
       .findByIdAndUpdate(id, updateDto, {
-        new: true, // Return updated document
-        runValidators: true, // Run schema validators on update
+        new: true, // Trả về document sau khi cập nhật
+        runValidators: true, // Chạy schema validators khi cập nhật
       })
       .exec();
   }
 
   /**
-   * Delete material by ID (hard delete)
+   * Xóa vật tư theo ID (hard delete)
    * @param id - MongoDB ObjectId
-   * @returns - Deleted material document or null
+   * @returns MaterialDocument đã xóa hoặc null
    */
   async delete(id: string): Promise<MaterialDocument | null> {
     this.logger.debug(`Deleting material: ${id}`);
@@ -272,11 +307,13 @@ export class MaterialRepository {
   }
 
   /**
-   * Check if a value already exists for a specific field (for duplicate detection)
-   * @param field - Field name to check (material_id, part_number)
-   * @param value - Value to search for
-   * @param excludeId - Optional MongoDB ID to exclude from check (for updates)
-   * @returns - true if duplicate exists, false otherwise
+   * Kiểm tra trùng lặp cho một trường cụ thể
+   * Dùng cho validate uniqueness (material_id, part_number)
+   * 
+   * @param field - Tên trường cần kiểm tra ('material_id' hoặc 'part_number')
+   * @param value - Giá trị cần kiểm tra
+   * @param excludeId - Optional: MongoDB ID loại trừ (dùng khi update)
+   * @returns true nếu đã tồn tại, false nếu chưa
    */
   async isDuplicate(
     field: 'material_id' | 'part_number',
@@ -289,7 +326,7 @@ export class MaterialRepository {
 
     const query: any = { [field]: value };
 
-    // Exclude current document during update
+    // Loại trừ document hiện tại khi đang update
     if (excludeId) {
       query._id = { $ne: excludeId };
     }
@@ -299,8 +336,8 @@ export class MaterialRepository {
   }
 
   /**
-   * Get document count
-   * @returns - Total number of materials in database
+   * Đếm tổng số vật tư trong database
+   * @returns Tổng số vật tư
    */
   async count(): Promise<number> {
     this.logger.debug('Counting total materials');
@@ -308,8 +345,10 @@ export class MaterialRepository {
   }
 
   /**
-   * Get list of unique material types
-   * @returns - Array of unique material types
+   * Lấy danh sách các loại vật tư duy nhất
+   * Sử dụng distinct() của MongoDB
+   * 
+   * @returns Array các loại vật tư không trùng lặp
    */
   async getDistinctTypes(): Promise<string[]> {
     this.logger.debug('Fetching distinct material types');

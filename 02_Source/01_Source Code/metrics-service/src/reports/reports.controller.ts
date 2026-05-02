@@ -1,15 +1,31 @@
+// =============================================================================
+// File: reports/reports.controller.ts
+// Mục đích: gRPC Controller xử lý các requests từ client gọi đến MetricsReportsService
+// 
+// Mỗi method được đánh dấu @GrpcMethod sẽ map với một RPC definition trong file 
+// proto/metrics.proto. Controller này chịu trách nhiệm:
+// - Nhận dữ liệu từ gRPC request
+// - Gọi ReportsService tương ứng
+// - Chuyển đổi DTO objects sang định dạng gRPC response (thường là ISO string dates)
+// =============================================================================
+
 import { Controller } from "@nestjs/common";
 import { GrpcMethod } from "@nestjs/microservices";
 import { ReportsService } from "./reports.service";
 
 /**
  * ReportsController — gRPC handler for MetricsReportsService.
- * Each method maps to one RPC defined in proto/metrics.proto.
+ * Mỗi method map với một RPC được định nghĩa trong proto/metrics.proto.
  */
 @Controller()
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetInventoryStatus
+  // Mục đích: Lấy báo cáo trạng thái inventory (theo status: Accepted, Quarantine...)
+  // Params: from, to (date range), interval (day/week/month), warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetInventoryStatus")
   async getInventoryStatus(data: {
     from?: string;
@@ -23,6 +39,7 @@ export class ReportsController {
       data.interval,
       data.warehouse_id,
     );
+    // Chuyển đổi Date objects sang ISO string để gRPC serialize đúng
     return {
       generated_at: report.generated_at.toISOString(),
       total_lots: report.total_lots,
@@ -38,6 +55,11 @@ export class ReportsController {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetMaterialUsage
+  // Mục đích: Lấy báo cáo sử dụng nguyên liệu (tổng quantity, số lần giao dịch)
+  // Params: from, to (date range), warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetMaterialUsage")
   async getMaterialUsage(data: {
     from?: string;
@@ -61,6 +83,11 @@ export class ReportsController {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetQcPerformance
+  // Mục đích: Lấy báo cáo hiệu suất QC theo nhà cung cấp (approved/rejected ratio)
+  // Params: from, to (date range), warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetQcPerformance")
   async getQcPerformance(data: {
     from?: string;
@@ -83,6 +110,11 @@ export class ReportsController {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetAuditReport
+  // Mục đích: Lấy báo cáo audit trail (lịch sử thay đổi) có phân trang
+  // Params: from, to (date range), page, size (pagination), warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetAuditReport")
   async getAuditReport(data: {
     from?: string;
@@ -105,11 +137,17 @@ export class ReportsController {
         entity: entry.entity,
         performed_by: entry.performed_by,
         performed_at: entry.performed_at.toISOString(),
+        // details là object, cần stringify để gRPC truyền tải
         details: entry.details ? JSON.stringify(entry.details) : "",
       })),
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetInventoryTrend
+  // Mục đích: Lấy dữ liệu xu hướng inventory theo thời gian (time-series)
+  // Params: from, to (date range), interval (day/week/month), warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetInventoryTrend")
   async getInventoryTrend(data: {
     from?: string;
@@ -133,6 +171,11 @@ export class ReportsController {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetMaterialUsageTrend
+  // Mục đích: Lấy xu hướng sử dụng nguyên liệu theo thời gian, top N materials
+  // Params: from, to, interval, limit (số lượng material), warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetMaterialUsageTrend")
   async getMaterialUsageTrend(data: {
     from?: string;
@@ -158,6 +201,11 @@ export class ReportsController {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetQcTrend
+  // Mục đích: Lấy xu hướng QC theo thời gian + xếp hạng nhà cung cấp
+  // Params: from, to, interval, limit (top N suppliers), warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetQcTrend")
   async getQcTrend(data: {
     from?: string;
@@ -184,6 +232,11 @@ export class ReportsController {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // RPC: GetAuditTrend
+  // Mục đích: Lấy xu hướng hoạt động audit theo thời gian
+  // Params: from, to, interval, warehouse_id
+  // ---------------------------------------------------------------------------
   @GrpcMethod("MetricsReportsService", "GetAuditTrend")
   async getAuditTrend(data: {
     from?: string;

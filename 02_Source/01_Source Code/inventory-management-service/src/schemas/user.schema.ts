@@ -1,9 +1,33 @@
+/**
+ * UserSchema - Schema định nghĩa người dùng hệ thống trong MongoDB
+ *
+ * Collection: users
+ *
+ * Mô tả: Lưu trữ thông tin người dùng đã được đồng bộ từ Keycloak.
+ * Không lưu mật khẩu — xác thực qua Keycloak.
+ *
+ * Các role trong hệ thống:
+ * - Manager: Quản lý kho, có quyền cao nhất trong nghiệp vụ
+ * - Operator: Nhân viên vận hành kho (nhập/xuất, quản lý lô)
+ * - QC_TECHNICIAN: Kỹ thuật viên kiểm tra chất lượng
+ * - IT_ADMINISTRATOR: Quản trị viên hệ thống
+ *
+ * Các trường chính:
+ * - user_id: ID nội bộ (UUID, tự động sinh)
+ * - keycloak_id: ID từ Keycloak (dùng để đồng bộ)
+ * - username, email: Thông tin đăng nhập
+ * - role: Vai trò trong hệ thống
+ * - is_active: Trạng thái hoạt động
+ * - lock_type, lock_reason: Thông tin khóa tài khoản
+ * - last_login: Thời điểm đăng nhập cuối cùng
+ */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaOptions } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 export type UserDocument = User & Document;
 
+/** Enum định nghĩa các vai trò người dùng trong hệ thống */
 export enum UserRole {
   MANAGER = 'Manager',
   OPERATOR = 'Operator',

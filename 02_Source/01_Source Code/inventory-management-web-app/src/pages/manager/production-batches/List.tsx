@@ -1,3 +1,11 @@
+/**
+ * ProductionBatchList - Trang danh sách lô sản xuất dành cho Manager
+ * Chức năng: Hiển thị, tìm kiếm, lọc và quản lý các lô sản xuất (Production Batches)
+ * - Xem danh sách lô theo trạng thái (In Progress, Complete, On Hold, Cancelled)
+ * - Tạo mới, chỉnh sửa, xóa lô sản xuất
+ * - Xem chi tiết lô và các thành phần nguyên liệu
+ * Manager có thể theo dõi quá trình sản xuất và chuyển trạng thái lô
+ */
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -18,11 +26,12 @@ import {
   deleteProductionBatch,
 } from "../../../services/productionBatchService";
 
+// Màu sắc tương ứng với từng trạng thái lô
 const STATUS_COLORS: Record<string, string> = {
-  "In Progress": "bg-blue-100 text-blue-700",
-  Complete: "bg-green-100 text-green-700",
-  "On Hold": "bg-yellow-100 text-yellow-700",
-  Cancelled: "bg-red-100 text-red-700",
+  "In Progress": "bg-blue-100 text-blue-700",      // Đang xử lý
+  Complete: "bg-green-100 text-green-700",           // Hoàn thành
+  "On Hold": "bg-yellow-100 text-yellow-700",     // Chờ xử lý
+  Cancelled: "bg-red-100 text-red-700",          // Đã hủy
 };
 
 export default function ProductionBatchList() {

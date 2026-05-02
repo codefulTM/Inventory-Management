@@ -1,3 +1,8 @@
+/**
+ * Hook useMaterials - Tải danh sách vật tư để sử dụng trong form lô hàng
+ * Chức năng: Tự động tải danh sách vật tư khi component mount
+ * Trả về: materials (danh sách), loading (trạng thái tải), error (lỗi nếu có)
+ */
 import { useEffect, useState } from "react";
 import { materialService } from "../../../../services/material.service";
 import type { Material } from "../../../../types/material";

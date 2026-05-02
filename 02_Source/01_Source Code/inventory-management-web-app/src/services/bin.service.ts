@@ -1,13 +1,19 @@
+// File: services/bin.service.ts
+// Service quản lý Bin (vị trí lưu kho) trong warehouse
+// Các chức năng: Worklist, Chi tiết bin, Đếm hàng, Tạo/Cập nhật/Xóa bin
+
 import { apiClient } from "./apiClient";
 
+// Interface cho item trong bin worklist
 export interface BinWorklistItem {
-  bin_code: string;
-  expected_qty: number;
-  warehouse_id?: string;
-  lots: Array<{ lot_id: string; material_id: string; qty: number }>;
-  last_count_date?: string;
+  bin_code: string;        // Mã bin
+  expected_qty: number;    // Số lượng kỳ vọng
+  warehouse_id?: string;    // Mã kho (tùy chọn)
+  lots: Array<{ lot_id: string; material_id: string; qty: number }>; // Danh sách lot trong bin
+  last_count_date?: string; // Ngày đếm gần nhất
 }
 
+// Class chứa các phương thức API liên quan đến Bin
 export class BinAPI {
   static async getWorklist(params?: {
     warehouse_id?: string;

@@ -1,3 +1,12 @@
+/**
+ * Manager Dashboard
+ * Dashboard dành cho Manager (Quản lý)
+ * Hiển thị: KPI tồn kho, xu hướng nhập/xuất, nguyên liệu sử dụng, chất lượng QC
+ * Hỗ trợ lọc theo: khoảng thời gian, chu kỳ (ngày/tuần/tháng), kho hàng
+ * Có chức năng drilldown (xem chi tiết giao dịch khi click vào điểm trên biểu đồ)
+ * Xuất CSV cho báo cáo
+ */
+
 import { useEffect, useMemo, useState, useRef } from "react";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import {
@@ -57,10 +66,17 @@ import {
 import { fetchWarehouses } from "../../services/warehouseService";
 import type { Warehouse } from "../../types/warehouse";
 
+/**
+ * Kiểm tra xem số lượng có dưới ngưỡng "sắp hết hàng" không
+ * Ngưỡng: <= 100 được coi là low stock
+ */
 function isLowStock(quantity: number): boolean {
   return quantity <= 100;
 }
 
+/**
+ * Bảng ánh xạ mã action audit sang tiếng Việt
+ */
 const ACTION_LABELS: Record<string, string> = {
   LOGIN_SUCCESS: "Đăng nhập thành công",
   LOGIN_FAILED: "Đăng nhập thất bại",
@@ -75,6 +91,10 @@ const ACTION_LABELS: Record<string, string> = {
   INVENTORY_LOT_UPDATED: "Cập nhật lô hàng",
 };
 
+/**
+ * Chuẩn hóa report data - xử lý trường hợp backend trả về { data: { ... } }
+ * Nếu report không có các field trực tiếp mà nằm trong "data", unwrap nó ra
+ */
 function normalizeReport<T extends object>(raw: T | null): T | null {
   if (!raw) return null;
   // Handle backend wrapping { data: { ... } }
@@ -90,6 +110,9 @@ function normalizeReport<T extends object>(raw: T | null): T | null {
   return raw;
 }
 
+/**
+ * Chuyển Date object thành string định dạng YYYY-MM-DD (UTC)
+ */
 function toDateInput(date: Date): string {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -97,6 +120,11 @@ function toDateInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Chuyển đổi date string (YYYY-MM-DD) thành ISO range
+ * from: bắt đầu ngày (00:00:00.000Z)
+ * to: kết thúc ngày (23:59:59.999Z)
+ */
 function toRangeIso(
   fromInput: string | undefined | null,
   toInput: string | undefined | null,
@@ -110,6 +138,10 @@ function toRangeIso(
   return { from, to };
 }
 
+/**
+ * MiniLineChart - Component vẽ biểu đồ đường đơn giản bằng SVG
+ * Dùng để hiển thị xu hướng trong các card nhỏ
+ */
 function MiniLineChart({ data, color }: { data: number[]; color: string }) {
   if (data.length === 0) {
     return <div className="text-xs text-gray-500">Không có dữ liệu</div>;
@@ -144,6 +176,11 @@ function MiniLineChart({ data, color }: { data: number[]; color: string }) {
   );
 }
 
+/**
+ * downloadCsv - Tải dữ liệu dưới dạng file CSV
+ * @param filename - Tên file tải về
+ * @param rows - Mảng object, mỗi object là một dòng
+ */
 function downloadCsv(
   filename: string,
   rows: Record<string, string | number>[],
@@ -176,13 +213,20 @@ function downloadCsv(
   URL.revokeObjectURL(url);
 }
 
+/**
+ * DashboardManager - Trang dashboard chính của Manager
+ * Hiển thị: 4 KPI cards, biểu đồ nhập/xuất, 4 mini trend charts,
+ * bảng top nguyên liệu, bảng xếp hạng nhà cung cấp, bảng lô sắp hết
+ * Hỗ trợ drilldown vào chi tiết giao dịch từ sparkline
+ */
 export default function DashboardManager() {
+  // State cho bộ lọc
   const [fromDate, setFromDate] = useState<string | null>(null);
   const [toDate, setToDate] = useState<string | null>(null);
   const [interval, setInterval] = useState<TrendInterval>("month");
   const [refreshToken, setRefreshToken] = useState(0);
 
-  // Additional UI + state from frontend dashboard
+  // State bổ sung từ frontend dashboard
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [filterWarehouse, setFilterWarehouse] = useState<string | undefined>(
     undefined,
@@ -204,6 +248,7 @@ export default function DashboardManager() {
   });
   const [drilldownLoading, setDrilldownLoading] = useState(false);
 
+  // State cho dữ liệu báo cáo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -222,6 +267,8 @@ export default function DashboardManager() {
   const [qcTrend, setQcTrend] = useState<QcTrendReport | null>(null);
   const [auditTrend, setAuditTrend] = useState<AuditTrendReport | null>(null);
 
+  // ===== TẢI DỮ LIỆU BÁO CÁO =====
+  // Chạy lại khi filter thay đổi: fromDate, toDate, interval, filterWarehouse
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -229,6 +276,7 @@ export default function DashboardManager() {
 
       try {
         const range = toRangeIso(fromDate, toDate);
+        // Gọi song song 8 API: 4 báo cáo + 4 trend
         const [
           inventory,
           usage,
@@ -278,7 +326,7 @@ export default function DashboardManager() {
           qcTrend,
           auditTrend,
         });
-        // Try to load condensed dashboard summary/trends and warehouses (non-blocking)
+        // Tải bổ sung: summary, trends, warehouses (không chặn nếu lỗi)
         void (async () => {
           try {
             const [dashSum, inT, outT, whs] = await Promise.all([
@@ -323,14 +371,13 @@ export default function DashboardManager() {
     void load();
   }, [fromDate, toDate, interval, refreshToken, filterWarehouse]);
 
-  // mountedRef prevents accidental auto-apply when wiring RangePicker
+  // mountedRef: tránh auto-apply filter khi đang wiring RangePicker
   const mountedRef = useRef(false);
   useEffect(() => {
     mountedRef.current = true;
   }, []);
 
-  // Keep fromDate / toDate in sync when user picks a range.
-  // If either end is invalid/missing, set the corresponding state to null.
+  // Đồng bộ fromDate/toDate khi user chọn khoảng thời gian mới
   useEffect(() => {
     if (!dateRange) {
       setFromDate(null);
@@ -345,13 +392,17 @@ export default function DashboardManager() {
     // only depend on dateRange
   }, [dateRange]);
 
-  // Auto-apply filters when user changes the range/warehouse/interval (skip initial mount)
+  // Auto-apply filters khi user thay đổi khoảng thời gian/kho/chu kỳ
+  // (Hiện tại đang bị comment out - để lại để tham khảo)
   // useEffect(() => {
   //   if (!mountedRef.current) return;
   //   void applyRangeAndWarehouse();
   //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, [dateRange, filterWarehouse, interval]);
 
+  /**
+   * Format ngày giờ ngắn gọn
+   */
   function formatDateShort(iso?: string): string {
     if (!iso) return "-";
     const d = new Date(iso);
@@ -364,6 +415,10 @@ export default function DashboardManager() {
     return `${dd}-${mm}-${yy}, ${hours}:${mins}`;
   }
 
+  /**
+   * Tự động tính chu kỳ phù hợp dựa trên khoảng thời gian
+   * > 180 ngày -> month, > 30 ngày -> week, còn lại -> day
+   */
   function computeInterval(fromIso?: string, toIso?: string): TrendInterval {
     if (!fromIso || !toIso) return "day";
     const fromMs = new Date(fromIso).getTime();
@@ -375,6 +430,9 @@ export default function DashboardManager() {
     return "day";
   }
 
+  /**
+   * Áp dụng bộ lọc: tải lại summary, trends, trigger refresh báo cáo
+   */
   async function applyRangeAndWarehouse() {
     const now = new Date();
     const defaultFrom = new Date(
@@ -422,6 +480,9 @@ export default function DashboardManager() {
     }
   }
 
+  // ===== DỮ LIỆU TÍNH TOÁN (useMemo) =====
+
+  // Danh sách lô sắp hết hàng (low stock)
   const lowStockItems = useMemo(
     () =>
       (inventoryStatus?.items || []).filter((item) =>
@@ -430,6 +491,7 @@ export default function DashboardManager() {
     [inventoryStatus],
   );
 
+  // Tổng số lượng nguyên liệu đã sử dụng
   const totalUsageQuantity = useMemo(
     () =>
       (materialUsage?.items || []).reduce(
@@ -439,6 +501,7 @@ export default function DashboardManager() {
     [materialUsage],
   );
 
+  // Tỷ lệ QC đạt trung bình
   const averageQcRate = useMemo(() => {
     const items = qcPerformance?.items || [];
     if (items.length === 0) return 0;
@@ -449,6 +512,7 @@ export default function DashboardManager() {
     return Number((total / items.length).toFixed(2));
   }, [qcPerformance]);
 
+  // Top 8 nguyên liệu sử dụng nhiều nhất (tổng hợp từ trend data)
   const topMaterials = useMemo(() => {
     const aggregate = new Map<string, { quantity: number; count: number }>();
     for (const point of materialTrend?.points || []) {
@@ -472,6 +536,7 @@ export default function DashboardManager() {
       .slice(0, 8);
   }, [materialTrend]);
 
+  // ===== SERIES DỮ LIỆU CHO BIỂU ĐỒ =====
   const inventoryTrendSeries = useMemo(
     () =>
       (inventoryTrend?.points || []).map((item) =>

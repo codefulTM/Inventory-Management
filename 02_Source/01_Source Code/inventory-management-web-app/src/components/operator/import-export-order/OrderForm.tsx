@@ -1,3 +1,8 @@
+// File: components/operator/import-export-order/OrderForm.tsx
+// Form tạo phiếu nhập/xuất kho (Import/Export Order)
+// Tích hợp: quét mã nhanh, upload chứng từ, chọn material/lot
+// Hiển thị dialog thành công, validate dữ liệu với react-hook-form
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
@@ -26,6 +31,36 @@ import AttachmentUploader, {
 } from "./AttachmentUploader";
 import OrderItemTable from "./OrderItemTable";
 import ScanInput from "./ScanInput";
+
+// Cấu hình giới hạn upload
+const MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+]);
+
+// Generate ID tạm cho attachment
+function createPendingAttachmentId(): string {
+  return `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+}
+
+// Tạo item rỗng cho form
+function createEmptyItem(): ImportExportOrderItem {
+  return {
+    material_id: "",
+    lot_id: "",
+    quantity: 1,
+    unit_of_measure: "",
+    expected_location: "",
+  };
+}
+
+// Làm sạch text (bỏ khoảng trắng đầu/cuối)
+function sanitizeText(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
 
 interface OrderFormProps {
   orderType: ImportExportOrderType;

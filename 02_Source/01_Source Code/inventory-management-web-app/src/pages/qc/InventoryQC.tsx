@@ -1,3 +1,18 @@
+/**
+ * InventoryQC Page (QC)
+ * Trang quản lý tồn kho từ góc độ QC
+ * 
+ * 2 Tab chính:
+ * - Tab 'alert': Cảnh báo lô sắp hết hạn (≤ 30 ngày) hoặc đã hết hạn
+ *   + Hiển thị danh sách lô cần kiểm tra lại (re-test)
+ *   + Mở modal để gia hạn (extend) hoặc hủy lô (discard)
+ * - Tab 'quarantine': Danh sách lô có thể cách ly
+ *   + Hỗ trợ chọn nhiều lô và cách ly hàng loạt (bulk quarantine)
+ * 
+ * Hiển thị thông tin: mã lô, tên nguyên liệu, vị trí kho, số lượng, hạn sử dụng
+ * Màu sắc badge: Quarantine (vàng), Accepted (xanh), Rejected (đỏ), Hold (tím), Depleted (xám)
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Lock, X, MapPin } from 'lucide-react';
 import Toast from '../../components/Toast';
@@ -7,6 +22,11 @@ import type { InventoryLot } from '../../types/qc';
 
 type Tab = 'alert' | 'quarantine';
 
+/**
+ * Xác định số ngày còn lại đến hạn sử dụng
+ * @param expirationDate - Ngày hết hạn của lô
+ * @returns Số ngày còn lại (âm = đã hết hạn), null nếu không có ngày
+ */
 function getDaysUntilExpiry(expirationDate?: string): number | null {
   if (!expirationDate) return null;
   return Math.ceil(
@@ -14,34 +34,47 @@ function getDaysUntilExpiry(expirationDate?: string): number | null {
   );
 }
 
+// Màu sắc badge cho các trạng thái lô hàng
 const STATUS_BADGE: Record<string, string> = {
-  Quarantine: 'bg-amber-100 text-amber-700',
-  Accepted: 'bg-green-100 text-green-700',
-  Rejected: 'bg-red-100 text-red-700',
-  Hold: 'bg-purple-100 text-purple-700',
-  Depleted: 'bg-gray-100 text-gray-500',
+  Quarantine: 'bg-amber-100 text-amber-700',   // Vàng - Chờ kiểm định
+  Accepted: 'bg-green-100 text-green-700',      // Xanh - Đạt chuẩn
+  Rejected: 'bg-red-100 text-red-700',        // Đỏ - Từ chối
+  Hold: 'bg-purple-100 text-purple-700',      // Tím - Tạm giữ
+  Depleted: 'bg-gray-100 text-gray-500',        // Xám - Đã hết
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 10;  // Số lượng lô hiển thị trên mỗi trang
 
 export default function InventoryQC() {
-  const { user } = useAuth();
+  const { user } = useAuth();  // Lấy thông tin người dùng đang đăng nhập
+  
+  // Tab hiện tại: 'alert' = Cảnh báo, 'quarantine' = Cách ly
   const [activeTab, setActiveTab] = useState<Tab>('alert');
+  
+  // Danh sách tất cả lô hàng trong kho
   const [lots, setLots] = useState<InventoryLot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [retestLot, setRetestLot] = useState<InventoryLot | null>(null);
-  const [retestAction, setRetestAction] = useState<'extend' | 'discard' | null>(null);
-  const [newExpiryDate, setNewExpiryDate] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [searchLocation, setSearchLocation] = useState('');
-  const [alertPage, setAlertPage] = useState(1);
-  const [quarantinePage, setQuarantinePage] = useState(1);
+  
+  // === State cho Tab Alert (Cảnh báo hết hạn) ===
+  const [retestLot, setRetestLot] = useState<InventoryLot | null>(null);  // Lô đang thực hiện re-test
+  const [retestAction, setRetestAction] = useState<'extend' | 'discard' | null>(null);  // Hành động: Gia hạn hoặc Hủy
+  const [newExpiryDate, setNewExpiryDate] = useState('');  // Ngày hạn mới (nếu gia hạn)
+  const [submitting, setSubmitting] = useState(false);  // Trạng thái đang gửi dữ liệu
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);  // Danh sách mã lô được chọn (cho bulk quarantine)
+  const [searchLocation, setSearchLocation] = useState('');  // Tìm kiếm theo vị trí kho
+  const [alertPage, setAlertPage] = useState(1);  // Phân trang tab Alert
+  const [quarantinePage, setQuarantinePage] = useState(1);  // Phân trang tab Quarantine
+  
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  /**
+   * Tải tất cả lô hàng từ backend
+   * Lấy danh sách lô để hiển thị cho cả 2 tab
+   */
   const loadLots = useCallback(async () => {
     setLoading(true);
     try {
+      // Gọi API lấy tất cả lô hàng trong kho
       const data = await getInventoryLots();
       console.log('Loaded inventory lots:', data);
       setLots(data);
@@ -50,6 +83,159 @@ export default function InventoryQC() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Tự động tải dữ liệu khi component mount
+  useEffect(() => {
+    void loadLots();
+  }, [loadLots]);
+
+  // === Lọc dữ liệu cho Tab Cảnh báo (Alert) ===
+  // Lọc các lô sắp hết hạn (còn ≤ 30 ngày và chưa hết hạn)
+  const alertLots = lots.filter((lot) => {
+    const days = getDaysUntilExpiry(lot.expiration_date);
+    return days !== null && days <= 30 && days >= 0;
+  });
+
+  // Lọc các lô có thể cách ly (không ở trạng thái Quarantine hoặc Depleted)
+  const quarantinableLots = lots.filter((l) => l.status !== 'Quarantine' && l.status !== 'Depleted');
+
+  // Tìm kiếm theo vị trí kho (cho cả 2 tab)
+  const filteredAlertLots = searchLocation.trim()
+    ? alertLots.filter((lot) =>
+        lot.storage_location?.toLowerCase().includes(searchLocation.trim().toLowerCase())
+      )
+    : alertLots;
+
+  const filteredQuarantinableLots = searchLocation.trim()
+    ? quarantinableLots.filter((lot) =>
+        lot.storage_location?.toLowerCase().includes(searchLocation.trim().toLowerCase())
+      )
+    : quarantinableLots;
+
+  // === Phân trang cho Tab Alert ===
+  const alertTotalItems = filteredAlertLots.length;
+  const alertTotalPages = Math.max(1, Math.ceil(alertTotalItems / PAGE_SIZE));
+  const alertStart = (alertPage - 1) * PAGE_SIZE;
+  const paginatedAlertLots = filteredAlertLots.slice(
+    alertStart,
+    alertStart + PAGE_SIZE,
+  );
+  const alertDisplayFrom = alertTotalItems === 0 ? 0 : alertStart + 1;
+  const alertDisplayTo = Math.min(alertPage * PAGE_SIZE, alertTotalItems);
+
+  // === Phân trang cho Tab Quarantine ===
+  const quarantineTotalItems = filteredQuarantinableLots.length;
+  const quarantineTotalPages = Math.max(
+    1,
+    Math.ceil(quarantineTotalItems / PAGE_SIZE),
+  );
+  const quarantineStart = (quarantinePage - 1) * PAGE_SIZE;
+  const paginatedQuarantinableLots = filteredQuarantinableLots.slice(
+    quarantineStart,
+    quarantineStart + PAGE_SIZE,
+  );
+  const quarantineDisplayFrom = quarantineTotalItems === 0 ? 0 : quarantineStart + 1;
+  const quarantineDisplayTo = Math.min(
+    quarantinePage * PAGE_SIZE,
+    quarantineTotalItems,
+  );
+
+  // Kiểm tra xem tất cả lô ở trang hiện tại của tab Quarantine có được chọn chưa
+  const currentQuarantinePageLotIds = paginatedQuarantinableLots.map(
+    (lot) => lot.lot_id,
+  );
+  const isCurrentQuarantinePageFullySelected =
+    currentQuarantinePageLotIds.length > 0 &&
+    currentQuarantinePageLotIds.every((id) => selectedItems.includes(id));
+
+  // Điều chỉnh trang hiện tại nếu vượt quá tổng số trang
+  useEffect(() => {
+    if (alertPage > alertTotalPages) {
+      setAlertPage(alertTotalPages);
+    }
+  }, [alertPage, alertTotalPages]);
+
+  useEffect(() => {
+    if (quarantinePage > quarantineTotalPages) {
+      setQuarantinePage(quarantineTotalPages);
+    }
+  }, [quarantinePage, quarantineTotalPages]);
+
+  // === Mở modal Re-test cho lô được chọn ===
+  function openRetestModal(lot: InventoryLot) {
+    setRetestLot(lot);
+    setRetestAction(null);
+    setNewExpiryDate('');
+  }
+
+  function closeRetestModal() {
+    setRetestLot(null);
+    setRetestAction(null);
+    setNewExpiryDate('');
+  }
+
+  /**
+   * Xử lý quyết định Re-test
+   * - extend: Gia hạn lô (cần ngày hạn mới)
+   * - discard: Hủy lô (đặt trạng thái Depleted, không thể hoàn tác)
+   */
+  async function handleRetest() {
+    if (!retestLot || !retestAction) return;
+    if (retestAction === 'extend' && !newExpiryDate) {
+      setToast({ message: 'Vui lòng nhập ngày hạn sử dụng mới', type: 'error' });
+      return;
+    }
+    setSubmitting(true);
+    setModalError(null);
+    try {
+      // Gửi quyết định re-test lên backend
+      await submitRetest(retestLot.lot_id, {
+        action: retestAction,
+        performed_by: user?.username ?? 'unknown_user',
+        new_expiry_date: retestAction === 'extend' ? newExpiryDate : undefined,
+      });
+      setToast({
+        message: retestAction === 'extend' ? `Đã gia hạn lô ${retestLot.lot_id}` : `Đã hủy lô ${retestLot.lot_id}`,
+        type: 'success',
+      });
+      closeRetestModal();
+      void loadLots();  // Tải lại dữ liệu
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Lỗi xử lý re-test', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Chọn/bỏ chọn một lô trong danh sách
+  function toggleSelect(lotId: string) {
+    setSelectedItems((prev) =>
+      prev.includes(lotId) ? prev.filter((id) => id !== lotId) : [...prev, lotId],
+    );
+  }
+
+  /**
+   * Cách ly hàng loạt (Bulk Quarantine)
+   * Gửi danh sách các lô được chọn để chuyển sang trạng thái Quarantine
+   */
+  async function handleBulkQuarantine() {
+    if (selectedItems.length === 0) {
+      setToast({ message: 'Vui lòng chọn ít nhất một lô hàng', type: 'error' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await bulkQuarantine(selectedItems);
+      setToast({ message: `Đã cách ly ${result.updated} lô hàng thành công`, type: 'success' });
+      setSelectedItems([]);
+      void loadLots();  // Tải lại dữ liệu
+    } catch {
+      setToast({ message: 'Không thể thực hiện cách ly', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
   }, []);
 
   useEffect(() => {
@@ -186,12 +372,13 @@ export default function InventoryQC() {
 
   return (
     <div className="p-6 space-y-5">
+      {/* Tiêu đề trang Quản lý kho QC */}
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-none uppercase">Kiểm soát kho QC</h1>
         <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest mt-1">Kiểm định lại hàng sắp hết hạn & quản lý cách ly</p>
       </div>
 
-      {/* Toolbar */}
+      {/* Thanh công cụ: Tìm kiếm theo vị trí kho */}
       <div className="flex items-center gap-3">
         <div className="relative w-64">
           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -210,8 +397,9 @@ export default function InventoryQC() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Thanh Tab chuyển đổi giữa 2 chức năng chính */}
       <div className="flex border-b border-gray-200">
+        {/* Tab Cảnh báo chất lượng - Hiển thị lô sắp hết hạn */}
         <button
           onClick={() => {
             setActiveTab('alert');
@@ -224,12 +412,14 @@ export default function InventoryQC() {
           }`}
         >
           Cảnh báo chất lượng
+          {/* Hiển thị badge số lượng lô cảnh báo */}
           {alertLots.length > 0 && (
             <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
               {alertLots.length}
             </span>
           )}
         </button>
+        {/* Tab Cách ly hàng hóa */}
         <button
           onClick={() => {
             setActiveTab('quarantine');
@@ -244,7 +434,7 @@ export default function InventoryQC() {
         </button>
       </div>
 
-      {/* Alert Tab */}
+      {/* === TAB CẢNH BÁO (Alert) - Lô sắp hết hạn ≤ 30 ngày === */}
       {activeTab === 'alert' && (
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
           {loading ? (

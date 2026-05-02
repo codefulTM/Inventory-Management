@@ -1,3 +1,21 @@
+// =============================================================================
+// File: reports/reports.service.ts
+// Mục đích: Service chứa business logic cho tất cả các loại báo cáo
+// 
+// Vai trò:
+// - Đóng vai trò trung gian giữa Controller và Repository
+// - Xử lý tham số đầu vào (parse dates, normalize intervals)
+// - Gọi Repository để lấy dữ liệu thô từ Elasticsearch
+// - Tổng hợp dữ liệu thành các DTO response
+// 
+// Các loại báo cáo được hỗ trợ:
+// 1. Inventory Status - Trạng thái tồn kho theo status
+// 2. Material Usage - Sử dụng nguyên liệu
+// 3. QC Performance - Hiệu suất kiểm tra chất lượng
+// 4. Audit Report - Lịch sử thay đổi (có phân trang)
+// 5. Trend Reports - Báo cáo xu hướng theo thời gian (inventory, usage, qc, audit)
+// =============================================================================
+
 import { Injectable } from "@nestjs/common";
 import { ReportsRepository } from "./repositories/reports.repository";
 import type { InventoryStatusReportDto } from "./dto/inventory-status-report.dto";
@@ -16,6 +34,10 @@ import type {
 export class ReportsService {
   constructor(private readonly reportsRepository: ReportsRepository) {}
 
+  // ---------------------------------------------------------------------------
+  // Chuẩn hóa interval: chỉ chấp nhận 'day', 'week', 'month'
+  // Mặc định là 'day' nếu giá trị không hợp lệ
+  // ---------------------------------------------------------------------------
   private normalizeInterval(interval?: string): TrendInterval {
     if (interval === "week" || interval === "month") {
       return interval;
@@ -23,6 +45,12 @@ export class ReportsService {
     return "day";
   }
 
+  // ---------------------------------------------------------------------------
+  // Giải quyết cửa sổ thời gian (date window) cho các truy vấn
+  // - Nếu from và to đều có: sử dụng nguyên bản
+  // - Nếu chỉ có to: from = to - fallbackDays
+  // - Nếu không có gì: to = now, from = now - fallbackDays
+  // ---------------------------------------------------------------------------
   private resolveDateWindow(from?: string, to?: string, fallbackDays = 90) {
     const toDate = to ? new Date(to) : new Date();
     const fromDate = from
@@ -35,6 +63,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo trạng thái inventory
+  // Truy vấn Elasticsearch để lấy tất cả lots, nhóm theo status
+  // ---------------------------------------------------------------------------
   async getInventoryStatusReport(
     from?: string,
     to?: string,
@@ -55,6 +87,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo sử dụng nguyên liệu
+  // Thống kê số lượng giao dịch và tổng quantity theo từng material
+  // ---------------------------------------------------------------------------
   async getMaterialUsageReport(
     from?: string,
     to?: string,
@@ -75,6 +111,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo hiệu suất QC
+  // Tính tỷ lệ chất lượng (quality_rate) theo từng nhà cung cấp
+  // ---------------------------------------------------------------------------
   async getQcPerformanceReport(
     from?: string,
     to?: string,
@@ -93,6 +133,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo audit trail (lịch sử thay đổi)
+  // Hỗ trợ phân trang với page và size
+  // ---------------------------------------------------------------------------
   async getAuditReport(
     page?: number,
     size?: number,
@@ -115,6 +159,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo xu hướng inventory theo thời gian
+  // fallbackDays=120: xem xu hướng 120 ngày nếu không chỉ định from/to
+  // ---------------------------------------------------------------------------
   async getInventoryTrendReport(
     from?: string,
     to?: string,
@@ -139,6 +187,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo xu hướng sử dụng nguyên liệu
+  // Trả về top N materials có hoạt động nhiều nhất
+  // ---------------------------------------------------------------------------
   async getMaterialUsageTrendReport(
     from?: string,
     to?: string,
@@ -165,6 +217,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo xu hướng QC + xếp hạng nhà cung cấp
+  // Bao gồm cả pass/fail/pending count theo thời gian và ranking theo supplier
+  // ---------------------------------------------------------------------------
   async getQcTrendReport(
     from?: string,
     to?: string,
@@ -193,6 +249,10 @@ export class ReportsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Báo cáo xu hướng audit activities
+  // Thống kê số lượng hoạt động và số user duy nhất theo thời gian
+  // ---------------------------------------------------------------------------
   async getAuditTrendReport(
     from?: string,
     to?: string,

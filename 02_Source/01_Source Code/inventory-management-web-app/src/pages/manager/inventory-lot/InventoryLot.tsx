@@ -1,3 +1,14 @@
+/**
+ * Trang quản lý lô hàng (Inventory Lot Management Page)
+ * Chức năng chính:
+ * - Hiển thị danh sách lô hàng với phân trang
+ * - Tìm kiếm lô hàng theo mã hoặc nhà sản xuất
+ * - Xem chi tiết, chỉnh sửa, thêm mới lô hàng (qua modal)
+ * - Điều chỉnh số lượng tồn kho (inventory adjustment)
+ * - Xem lịch sử điều chỉnh gần đây (khi ở route /manager/stock)
+ * 
+ * Phân quyền: Chỉ Manager mới có quyền chỉnh sửa và điều chỉnh
+ */
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Toast from "../../../components/Toast";
@@ -28,11 +39,17 @@ import {
 } from "./components";
 import { type EditFormValues } from "./utils/types";
 
+/** Kiểu dữ liệu cho thông báo toast */
 type ToastState = {
   message: string;
   type: "success" | "error";
 };
 
+/**
+ * Chuyển đổi lỗi API thành thông báo tiếng Việt thân thiện
+ * @param error - Lỗi từ API (có thể là InventoryAdjustmentApiError hoặc Error thông thường)
+ * @returns Chuỗi thông báo lỗi tiếng Việt tương ứng với mã trạng thái HTTP
+ */
 function toAdjustmentErrorMessage(error: unknown): string {
   const statusCode =
     error instanceof InventoryAdjustmentApiError ? error.statusCode : undefined;
@@ -64,27 +81,39 @@ function toAdjustmentErrorMessage(error: unknown): string {
   return "Không thể điều chỉnh tồn kho. Vui lòng thử lại.";
 }
 
+/** Component trang quản lý lô hàng chính */
 export default function InventoryLot() {
+  // Lấy thông tin route hiện tại để xác định có hiển thị phần điều chỉnh kho hay không
   const location = useLocation();
   const isStockRoute = location.pathname.startsWith("/manager/stock");
+  
+  // Lấy thông tin người dùng hiện tại để kiểm tra quyền Manager
   const currentUser = getCurrentUser();
   const isManager = currentUser?.role === "Manager";
 
+  // State cho tìm kiếm lô hàng
   const [searchTerm, setSearchTerm] = useState("");
+  // State cho lô hàng đang được chọn để xem/sửa
   const [selectedInventoryLot, setSelectedInventoryLot] =
     useState<InventoryLot | null>(null);
+  // State điều khiển các modal
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  // State danh sách lô hàng và trạng thái tải
   const [inventoryLots, setInventoryLots] = useState<InventoryLot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // State lỗi khi submit form thêm/sửa
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // State phân trang
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
+  // State cho phần điều chỉnh tồn kho
   const [isAdjustmentSubmitting, setIsAdjustmentSubmitting] = useState(false);
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
+  // State lịch sử điều chỉnh
   const [adjustmentHistory, setAdjustmentHistory] = useState<
     InventoryAdjustmentItem[]
   >([]);
@@ -93,8 +122,14 @@ export default function InventoryLot() {
   const [adjustmentHistoryError, setAdjustmentHistoryError] = useState<
     string | null
   >(null);
+  // State thông báo toast
   const [toast, setToast] = useState<ToastState | null>(null);
 
+  /**
+   * Hàm tải danh sách lô hàng từ API
+   * @param query - Từ khóa tìm kiếm (nếu rỗng sẽ lấy tất cả)
+   * @param pageToFetch - Số trang cần tải
+   */
   const fetchInventoryLots = async (query: string, pageToFetch: number = 1) => {
     setError(null);
 
@@ -122,11 +157,16 @@ export default function InventoryLot() {
     setLoading(false);
   };
 
+  // Tải lại danh sách lô hàng mỗi khi từ khóa tìm kiếm thay đổi
   useEffect(() => {
     setPage(1);
     fetchInventoryLots(searchTerm, 1);
   }, [searchTerm]);
 
+  /**
+   * Hàm tải lịch sử điều chỉnh kho gần đây
+   * Chỉ tải 10 bản ghi mới nhất để hiển thị trong bảng lịch sử
+   */
   const fetchRecentAdjustments = async () => {
     setAdjustmentHistoryError(null);
     setIsAdjustmentHistoryLoading(true);
@@ -149,6 +189,7 @@ export default function InventoryLot() {
     }
   };
 
+  // Tải lịch sử điều chỉnh khi ở route /manager/stock
   useEffect(() => {
     if (!isStockRoute) {
       return;
@@ -157,24 +198,32 @@ export default function InventoryLot() {
     void fetchRecentAdjustments();
   }, [isStockRoute]);
 
+  /** Mở modal xem chi tiết lô hàng */
   const handleViewDetail = (inventoryLot: InventoryLot) => {
     setSelectedInventoryLot(inventoryLot);
     setShowDetailModal(true);
   };
 
+  /** Mở modal chỉnh sửa lô hàng (chỉ Manager) */
   const handleEditClick = (lot: InventoryLot) => {
     setSubmitError(null);
     setSelectedInventoryLot(lot);
     setShowEditModal(true);
   };
 
+  /** Mở modal thêm mới lô hàng */
   const handleAddClick = () => {
     setSubmitError(null);
     setShowAddModal(true);
   };
 
+  /**
+   * Xử lý submit form chỉnh sửa lô hàng
+   * Cập nhật thông tin lô hàng qua API và cập nhật state cục bộ
+   */
   const handleEditSubmit = async (values: EditFormValues) => {
     setSubmitError(null);
+    // Tạo đối tượng lô hàng đã cập nhật từ form values
     const updated: InventoryLot = {
       lot_id: values.lot_id,
       material_id: values.material_id,
@@ -212,8 +261,13 @@ export default function InventoryLot() {
     setShowEditModal(false);
   };
 
+  /**
+   * Xử lý submit form thêm mới lô hàng
+   * Tạo lô hàng mới qua API và thêm vào danh sách hiển thị
+   */
   const handleAddSubmit = async (values: EditFormValues) => {
     setSubmitError(null);
+    // Tạo đối tượng lô hàng mới từ form values
     const newLot: InventoryLot = {
       lot_id: values.lot_id,
       material_id: values.material_id,
@@ -246,6 +300,10 @@ export default function InventoryLot() {
     setShowAddModal(false);
   };
 
+  /**
+   * Xử lý tạo phiếu điều chỉnh tồn kho
+   * Gọi API tạo adjustment, hiển thị toast kết quả và tải lại dữ liệu
+   */
   const handleCreateAdjustment = async (
     payload: CreateInventoryAdjustmentRequest,
   ) => {

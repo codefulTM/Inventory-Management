@@ -1,3 +1,14 @@
+/**
+ * QC Services
+ * Service xử lý các tác vụ Quality Control:
+ * - Dashboard KPI: thống kê lô chờ, đạt, từ chối, tỷ lệ lỗi
+ * - Inventory Lots: danh sách lô hàng (phân trang, lọc theo trạng thái)
+ * - QC Tests: tạo, cập nhật, xóa bài kiểm tra chất lượng
+ * - Lot Decision: quyết định approve/reject lô hàng
+ * - Supplier Performance: phân tích hiệu suất nhà cung cấp
+ * - AI Supplier Analysis: phân tích nhà cung cấp bằng AI
+ */
+
 import type {
   DashboardKPI,
   InventoryLot,
@@ -13,6 +24,10 @@ import { apiClient } from './apiClient';
 import { safeApiCall } from './errorLogger';
 import { fetchMaterials } from './materialService';
 
+/**
+ * Type RawInventoryLot - Dữ liệu lô hàng thô từ API
+ * material_name có thể nằm trực tiếp hoặc trong object material
+ */
 type RawInventoryLot = Omit<InventoryLot, 'material_name'> & {
   material_name?: string;
   material_id?: string;
@@ -22,6 +37,9 @@ type RawInventoryLot = Omit<InventoryLot, 'material_name'> & {
   };
 };
 
+/**
+ * Type RawInventoryLotsPayload - Response API có thể là array hoặc object có pagination
+ */
 type RawInventoryLotsPayload =
   | RawInventoryLot[]
   | {
@@ -31,12 +49,18 @@ type RawInventoryLotsPayload =
       limit?: number;
     };
 
+/**
+ * Options khi gọi API lấy danh sách lô hàng
+ */
 interface GetInventoryLotsOptions {
-  status?: string;
+  status?: string;  // Lọc theo trạng thái
   page?: number;
   limit?: number;
 }
 
+/**
+ * Helper: unwrap data hoặc throw error
+ */
 function requireData<T>(
   data: T | null,
   error: { message?: string } | null,
@@ -53,6 +77,12 @@ function requireData<T>(
   return data;
 }
 
+/**
+ * Chuẩn hóa payload lô hàng: xử lý cả trường hợp array hoặc object có pagination
+ * @param payload - Dữ liệu thô từ API
+ * @param fallbackPage - Trang mặc định nếu không có
+ * @param fallbackLimit - Limit mặc định nếu không có
+ */
 function normalizeInventoryLotsPayload(
   payload: RawInventoryLotsPayload,
   fallbackPage: number,
@@ -80,6 +110,10 @@ function normalizeInventoryLotsPayload(
   };
 }
 
+/**
+ * Xây dựng map material_id -> material_name
+ * Dùng để enrich dữ liệu lô hàng với tên nguyên liệu
+ */
 async function buildMaterialNameMap(): Promise<Map<string, string>> {
   let materialNameById = new Map<string, string>();
   try {
@@ -90,12 +124,16 @@ async function buildMaterialNameMap(): Promise<Map<string, string>> {
         .map((material) => [material.material_id, material.material_name]),
     );
   } catch {
-    // Do not block lot listing when material catalog cannot be loaded.
+    // Không block việc lấy danh sách lô nếu không load được catalog nguyên liệu
   }
 
   return materialNameById;
 }
 
+/**
+ * Enrich lô hàng với material_name đã giải quyết
+ * Ưu tiên: material_name trực tiếp > material.material_name > lookup từ map
+ */
 function enrichInventoryLots(
   lots: RawInventoryLot[],
   materialNameById: Map<string, string>,
@@ -115,6 +153,9 @@ function enrichInventoryLots(
   });
 }
 
+/**
+ * Lấy 1 trang danh sách lô hàng với phân trang
+ */
 async function fetchInventoryLotsPage(
   options: GetInventoryLotsOptions,
   materialNameById: Map<string, string>,
@@ -147,6 +188,11 @@ async function fetchInventoryLotsPage(
   };
 }
 
+// ===== PUBLIC API =====
+
+/**
+ * Lấy KPI dashboard QC: pending, approved, rejected, error_rate
+ */
 export async function getDashboardKPI(): Promise<DashboardKPI> {
   return safeApiCall('qcServices.getDashboardKPI', async () => {
     const { data, error } = await apiClient.get<DashboardKPI>('/qc-tests/dashboard');
@@ -154,6 +200,9 @@ export async function getDashboardKPI(): Promise<DashboardKPI> {
   });
 }
 
+/**
+ * Lấy danh sách lô hàng phân trang (có filter theo status)
+ */
 export async function getInventoryLotsPaginated(
   options: GetInventoryLotsOptions = {},
 ): Promise<PaginatedInventoryLots> {
@@ -163,6 +212,10 @@ export async function getInventoryLotsPaginated(
   });
 }
 
+/**
+ * Lấy TẤT CẢ lô hàng (tự động fetch nhiều trang nếu cần)
+ * @param status - Lọc theo trạng thái (optional)
+ */
 export async function getInventoryLots(status?: string): Promise<InventoryLot[]> {
   return safeApiCall('qcServices.getInventoryLots', async () => {
     const materialNameById = await buildMaterialNameMap();
@@ -172,10 +225,12 @@ export async function getInventoryLots(status?: string): Promise<InventoryLot[]>
       materialNameById,
     );
 
+    // Nếu chỉ có 1 trang, trả về luôn
     if (firstPage.pagination.totalPages <= 1) {
       return firstPage.data;
     }
 
+    // Fetch các trang còn lại
     const allLots = [...firstPage.data];
     for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
       const nextPage = await fetchInventoryLotsPage(
@@ -189,6 +244,9 @@ export async function getInventoryLots(status?: string): Promise<InventoryLot[]>
   });
 }
 
+/**
+ * Lấy danh sách QC tests của một lô hàng cụ thể
+ */
 export async function getQCTestsByLot(lot_id: string): Promise<QCTest[]> {
   return safeApiCall('qcServices.getQCTestsByLot', async () => {
     const { data, error } = await apiClient.get<QCTest[]>(
@@ -199,6 +257,9 @@ export async function getQCTestsByLot(lot_id: string): Promise<QCTest[]> {
   });
 }
 
+/**
+ * Lấy tất cả QC tests
+ */
 export async function getAllQCTests(): Promise<QCTest[]> {
   return safeApiCall('qcServices.getAllQCTests', async () => {
     const { data, error } = await apiClient.get<QCTest[]>('/qc-tests');
@@ -206,6 +267,9 @@ export async function getAllQCTests(): Promise<QCTest[]> {
   });
 }
 
+/**
+ * Tạo bài kiểm tra QC mới
+ */
 export async function createQCTest(payload: CreateQCTestDto): Promise<QCTest> {
   return safeApiCall('qcServices.createQCTest', async () => {
     const { data, error } = await apiClient.post<QCTest>('/qc-tests', payload);
@@ -213,6 +277,9 @@ export async function createQCTest(payload: CreateQCTestDto): Promise<QCTest> {
   });
 }
 
+/**
+ * Cập nhật bài kiểm tra QC
+ */
 export async function updateQCTest(
   test_id: string,
   payload: Partial<QCTest>,
@@ -227,6 +294,9 @@ export async function updateQCTest(
   });
 }
 
+/**
+ * Xóa bài kiểm tra QC
+ */
 export async function deleteQCTest(test_id: string): Promise<void> {
   return safeApiCall('qcServices.deleteQCTest', async () => {
     const { error } = await apiClient.delete(`/qc-tests/${encodeURIComponent(test_id)}`);
@@ -236,6 +306,9 @@ export async function deleteQCTest(test_id: string): Promise<void> {
   });
 }
 
+/**
+ * Gửi quyết định cho lô hàng (approve/reject)
+ */
 export async function submitLotDecision(
   lot_id: string,
   payload: LotDecisionDto,
@@ -250,6 +323,9 @@ export async function submitLotDecision(
   });
 }
 
+/**
+ * Gửi yêu cầu kiểm tra lại (retest) cho lô hàng
+ */
 export async function submitRetest(
   lot_id: string,
   payload: RetestDto,
@@ -264,6 +340,9 @@ export async function submitRetest(
   });
 }
 
+/**
+ * Đưa nhiều lô hàng vào trạng thái quarantine
+ */
 export async function bulkQuarantine(lot_ids: string[]): Promise<{ updated: number }> {
   return safeApiCall('qcServices.bulkQuarantine', async () => {
     const { data, error } = await apiClient.post<{ updated: number }>(
@@ -275,6 +354,11 @@ export async function bulkQuarantine(lot_ids: string[]): Promise<{ updated: numb
   });
 }
 
+/**
+ * Lấy hiệu suất nhà cung cấp (số lô đạt, không đạt, tỷ lệ)
+ * @param from - Ngày bắt đầu
+ * @param to - Ngày kết thúc
+ */
 export async function getSupplierPerformance(
   from?: string,
   to?: string,
@@ -293,6 +377,10 @@ export async function getSupplierPerformance(
   });
 }
 
+/**
+ * Phân tích TẤT CẢ nhà cung cấp bằng AI
+ * Timeout: 90s (lâu hơn default vì AI cần thời gian xử lý)
+ */
 export async function analyzeAllSuppliers(
   from?: string,
   to?: string,
@@ -315,6 +403,9 @@ export async function analyzeAllSuppliers(
   });
 }
 
+/**
+ * Phân tích MỘT nhà cung cấp cụ thể bằng AI
+ */
 export async function analyzeOneSupplier(
   supplierName: string,
   from?: string,

@@ -1,11 +1,18 @@
+/**
+ * SearchAndFilters - Thanh tìm kiếm và nút thêm mới lô hàng
+ * Chức năng: Tìm kiếm lô hàng theo mã hoặc tên nhà sản xuất
+ * Nút "Thêm" để mở modal tạo lô hàng mới
+ */
 import { Search, Edit } from "lucide-react";
 
+/** Props cho component SearchAndFilters */
 interface SearchAndFiltersProps {
-  searchTerm: string;
-  onSearchChange: (term: string) => void;
-  onAdd?: () => void;
+  searchTerm: string;                    // Từ khóa tìm kiếm hiện tại
+  onSearchChange: (term: string) => void; // Hàm xử lý khi từ khóa thay đổi
+  onAdd?: () => void;                     // Hàm mở modal thêm mới (tùy chọn)
 }
 
+/** Component chính: Thanh tìm kiếm và bộ lọc */
 export function SearchAndFilters({
   searchTerm,
   onSearchChange,

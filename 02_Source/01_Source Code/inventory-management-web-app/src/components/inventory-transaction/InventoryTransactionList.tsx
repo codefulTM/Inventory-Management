@@ -1,3 +1,8 @@
+// File: components/inventory-transaction/InventoryTransactionList.tsx
+// Component hiển thị danh sách giao dịch kho (Inventory Transactions)
+// Hỗ trợ 2 chế độ: "all" (tất cả giao dịch) và "my-history" (lịch sử cá nhân)
+// Tính năng: phân trang, tìm kiếm, lọc theo ngày/loại giao dịch, xem chi tiết
+
 import React, { useEffect, useRef, useState } from "react";
 import { Filter, Download, Eye } from "lucide-react";
 import type {
@@ -12,9 +17,10 @@ import {
   InventoryTransactionApiError,
 } from "../../services/inventoryTransactionService";
 
+// Props cho component InventoryTransactionList
 interface Props {
-  title?: string;
-  mode?: "all" | "my-history";
+  title?: string;          // Tiêu đề danh sách
+  mode?: "all" | "my-history";  // Chế độ hiển thị
 }
 
 const TRANSACTION_TYPES: InventoryTransactionType[] = [

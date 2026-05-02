@@ -1,11 +1,16 @@
+// File: components/ui/Layout.tsx
+// Các component layout tái sử dụng: PageWrapper, PageContainer, TwoColumn, StatsGrid, StatCard, FormField, FormRow
+// Giúp cấu trúc hóa giao diện nhất quán across toàn bộ ứng dụng
+
 import type { ReactNode } from 'react';
 
+// Props cho PageWrapper - Bọc toàn bộ page với animation
 interface PageWrapperProps {
   children: ReactNode;
   className?: string;
 }
 
-/* Page wrapper with animation */
+// Component bọc page với hiệu ứng fade-in-up animation
 export function PageWrapper({ children, className = '' }: PageWrapperProps) {
   return (
     <div className={`animate-fadeInUp ${className}`}>
@@ -14,7 +19,7 @@ export function PageWrapper({ children, className = '' }: PageWrapperProps) {
   );
 }
 
-/* Container with consistent padding */
+// Component container có padding nhất quán
 export function PageContainer({
   children,
   className = '',
@@ -29,7 +34,7 @@ export function PageContainer({
   );
 }
 
-/* Two column layout */
+// Component layout 2 cột (trái phải) - Responsive: 1 cột trên mobile, 3 cột trên desktop
 export function TwoColumn({
   left,
   right,
@@ -49,13 +54,13 @@ export function TwoColumn({
   );
 }
 
-/* Stats grid */
+// Component grid hiển thị thống kê (stats)
 export function StatsGrid({
   children,
   cols = 4,
 }: {
   children: ReactNode;
-  cols?: 2 | 3 | 4;
+  cols?: 2 | 3 | 4; // Số cột: 2, 3, hoặc 4
 }) {
   const colsClass = {
     2: 'grid-cols-1 sm:grid-cols-2',
@@ -70,7 +75,7 @@ export function StatsGrid({
   );
 }
 
-/* Stat card */
+// Component thẻ thống kê (Stat Card) - Hiển thị chỉ số, giá trị, và icon
 export function StatCard({
   label,
   value,
@@ -78,11 +83,11 @@ export function StatCard({
   icon,
   variant = 'default',
 }: {
-  label: string;
-  value: string | number;
-  change?: string;
-  icon?: ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
+  label: string; // Nhãn (ví dụ: "Tổng hàng tồn")
+  value: string | number; // Giá trị hiển thị
+  change?: string; // Thay đổi (ví dụ: "+12% so với tháng trước")
+  icon?: ReactNode; // Icon biểu tượng
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info'; // Màu sắc
 }) {
   const variants = {
     default: 'border-gray-100',
@@ -126,17 +131,17 @@ export function StatCard({
   );
 }
 
-/* Form field */
+// Component FormField - Bọc label, input, và error message
 export function FormField({
   label,
   error,
   required,
   children,
 }: {
-  label: string;
-  error?: string;
-  required?: boolean;
-  children: ReactNode;
+  label: string; // Nhãn trường
+  error?: string; // Thông báo lỗi
+  required?: boolean; // Có bắt buộc không
+  children: ReactNode; // Input element
 }) {
   return (
     <div className="mb-4">
@@ -152,7 +157,7 @@ export function FormField({
   );
 }
 
-/* Inline form fields (grid) */
+// Component FormRow - Layout grid cho form (2 cột)
 export function FormRow({
   children,
 }: {

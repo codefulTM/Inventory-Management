@@ -1,9 +1,20 @@
+/**
+ * File: sync/collections/base-collection-sync.spec.ts
+ * Mục đích: Unit tests cho BaseCollectionSync (class cơ sở đồng bộ)
+ * 
+ * Tạo class TestCollectionSync (concrete subclass) để test logic đồng bộ chung:
+ * - Query MongoDB theo khoảng thời gian (from/to)
+ * - Phân loại docs: live (index) vs soft-deleted (delete)
+ * - Gom nhóm theo index tháng (monthly buckets)
+ * - Phân trang (pagination) với skip/limit
+ * - Tích lũy errors từ bulk operations
+ */
 import { BaseCollectionSync, SyncResult } from './base-collection-sync';
 import { IndexNamingService } from '../../elasticsearch/index-naming.service';
 import { ElasticsearchBulkService } from '../../elasticsearch/elasticsearch-bulk.service';
 import { Model } from 'mongoose';
 
-// Concrete subclass to test the abstract base
+// Concrete subclass để test abstract base class
 class TestCollectionSync extends BaseCollectionSync {
   readonly collectionName = 'test_collection';
   readonly model: Model<any>;

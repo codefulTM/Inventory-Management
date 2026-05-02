@@ -9,41 +9,68 @@ import {
   InventoryTransactionDocument,
 } from '../schemas/inventory-transaction.schema';
 
+/**
+ * FilterOptions - Các tùy chọn lọc giao dịch
+ */
+export interface FilterOptions {
+  lot_id?: string; // Lọc theo lô hàng
+  transaction_type?: string; // Lọc theo loại giao dịch
+  search?: string; // Tìm kiếm theo transaction_id, performed_by
+  from?: Date; // Từ ngày (transaction_date)
+  to?: Date; // Đến ngày (transaction_date)
+}
+
+/**
+ * PaginationOptions - Tùy chọn phân trang
+ */
 export interface PaginationOptions {
   page?: number;
   limit?: number;
 }
 
-export interface FilterOptions {
-  lot_id?: string;
-  transaction_type?: string;
-  search?: string;
-  from?: Date;
-  to?: Date;
-}
-
+/**
+ * MyHistoryFilterOptions - Các tùy chọn lọc lịch sử giao dịch cá nhân
+ */
 export interface MyHistoryFilterOptions {
   transaction_type?: string;
   from?: Date;
   to?: Date;
-  keyword?: string;
+  keyword?: string; // Từ khóa tìm kiếm nâng cao (dùng aggregate)
 }
 
+/**
+ * Escape regex special characters để tránh ReDoS attacks
+ */
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * InventoryTransactionRepository - Lớp thao tác với MongoDB
+ * 
+ * Chức năng chính:
+ * - Thực hiện CRUD với collection "inventory_transactions"
+ * - Hỗ trợ phân trang, lọc theo nhiều tiêu chí
+ * - Tìm kiếm theo transaction_id (không dùng _id)
+ * - Lấy lịch sử giao dịch theo người thực hiện (performed_by)
+ * - Hỗ trợ aggregate queries cho tìm kiếm nâng cao (kết hợp với inventory_lots)
+ * - Xóa hàng loạt theo lot_id
+ */
 @Injectable()
 export class InventoryTransactionRepository {
   constructor(
     @InjectModel(InventoryTransaction.name)
     private readonly model: Model<InventoryTransactionDocument>,
   ) {}
+
+  /**
+   * Lấy danh sách giao dịch có phân trang và lọc
+   * Sắp xếp theo transaction_date giảm dần
+   */
   async findAll(
     filters: FilterOptions = {},
     pagination: PaginationOptions = { page: 1, limit: 20 },
   ) {
-    // Dùng thuần Mongo query object
     const mongoQuery: any = {};
 
     if (filters.lot_id) {
@@ -65,7 +92,6 @@ export class InventoryTransactionRepository {
       if (filters.to) mongoQuery.transaction_date.$lte = filters.to;
     }
 
-    // pagination
     const page = pagination.page && pagination.page > 0 ? pagination.page : 1;
     const limit =
       pagination.limit && pagination.limit > 0 ? pagination.limit : 20;
@@ -78,7 +104,7 @@ export class InventoryTransactionRepository {
         .skip(skip)
         .limit(limit)
         .exec(),
-      // count filtered documents without pagination
+      // Đếm số bản ghi đã lọc (không phân trang)
       this.model.countDocuments(mongoQuery).exec(),
     ]);
 
@@ -86,14 +112,18 @@ export class InventoryTransactionRepository {
   }
 
   /**
-   * Find a transaction by its external `transaction_id` (e.g. "TXN-023").
-   * Repository MUST NOT operate on MongoDB `_id`.
+   * Tìm giao dịch theo transaction_id (Ví dụ: "TXN-023")
+   * Repository KHÔNG thao tác với MongoDB _id
    */
   async findOne(transactionId: string) {
     if (!transactionId) return null;
     return this.model.findOne({ transaction_id: transactionId }).exec();
   }
 
+  /**
+   * Lấy lịch sử giao dịch của một người dùng (performed_by)
+   * Hỗ trợ tìm kiếm nâng cao bằng aggregate khi có keyword
+   */
   async findMyHistory(
     actor: string,
     filters: MyHistoryFilterOptions = {},
@@ -120,6 +150,7 @@ export class InventoryTransactionRepository {
       pagination.limit && pagination.limit > 0 ? pagination.limit : 20;
     const skip = (page - 1) * limit;
 
+    // Nếu có keyword → dùng aggregate để tìm kiếm cả material_id (thông qua lot_id)
     if (keyword) {
       const keywordRegex = new RegExp(escapeRegex(keyword), 'i');
 
@@ -172,6 +203,7 @@ export class InventoryTransactionRepository {
       };
     }
 
+    // Không có keyword → truy vấn thông thường
     const [items, total] = await Promise.all([
       this.model
         .find(mongoQuery)
@@ -185,6 +217,10 @@ export class InventoryTransactionRepository {
     return { items, total };
   }
 
+  /**
+   * Tìm giao dịch theo transaction_id và actor (performed_by)
+   * Dùng để kiểm tra quyền xem lịch sử cá nhân
+   */
   async findOneByTransactionIdAndActor(transactionId: string, actor: string) {
     return this.model
       .findOne({
@@ -194,6 +230,9 @@ export class InventoryTransactionRepository {
       .exec();
   }
 
+  /**
+   * Tìm theo transaction_id (không cần actor)
+   */
   async findOneByTransactionId(transactionId: string) {
     return this.model
       .findOne({
@@ -202,16 +241,24 @@ export class InventoryTransactionRepository {
       .exec();
   }
 
+  /**
+   * Tạo mới một giao dịch
+   */
   async create(dto: any) {
     const doc = new this.model(dto);
     return doc.save();
   }
 
+  /**
+   * Tạo hàng loạt giao dịch
+   */
   async createMany(dtos: any[]) {
     return this.model.insertMany(dtos);
   }
 
-  /** Update by `transaction_id` (no _id). */
+  /**
+   * Cập nhật theo transaction_id (không dùng _id)
+   */
   async update(transactionId: string, dto: any) {
     if (!transactionId) return null;
     return this.model
@@ -219,7 +266,9 @@ export class InventoryTransactionRepository {
       .exec();
   }
 
-  /** Remove by `transaction_id` (no _id). */
+  /**
+   * Xóa theo transaction_id (không dùng _id)
+   */
   async remove(transactionId: string) {
     if (!transactionId) return null;
     return this.model
@@ -227,13 +276,16 @@ export class InventoryTransactionRepository {
       .exec();
   }
 
+  /**
+   * Xóa tất cả giao dịch theo lot_id
+   */
   async deleteByLotId(lot_id: string): Promise<DeleteResult> {
     return this.model.deleteMany({ lot_id }).exec();
   }
 
   /**
-   * Chạy aggregation pipeline trực tiếp trên collection inventory_transactions.
-   * Dùng khi cần các báo cáo/thống kê phức tạp không thể tách ra bằng các phương thức repository hiện có.
+   * Chạy aggregate pipeline trực tiếp
+   * Dùng cho các báo cáo/thống kê phức tạp
    */
   async aggregate<T = any>(pipeline: any[]): Promise<T[]> {
     return this.model.aggregate<T>(pipeline).exec();

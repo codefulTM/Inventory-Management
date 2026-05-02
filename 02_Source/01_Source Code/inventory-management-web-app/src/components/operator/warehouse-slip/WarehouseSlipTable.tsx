@@ -1,3 +1,8 @@
+// File: components/operator/warehouse-slip/WarehouseSlipTable.tsx
+// Component hiển thị danh sách phiếu nhập/xuất kho (Warehouse Slip)
+// Hiển thị dạng bảng: mã phiếu, loại, kho, trạng thái, ngày tạo
+// Hỗ trợ xem chi tiết, xem trước (preview) và in phiếu
+
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Eye, Printer } from "lucide-react";

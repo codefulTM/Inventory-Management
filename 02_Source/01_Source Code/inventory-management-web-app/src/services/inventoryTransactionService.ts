@@ -27,6 +27,11 @@ function toApiError(
   );
 }
 
+/**
+ * Chuyển đổi giá trị ngày sang định dạng ISO string
+ * @param value - Ngày dạng string hoặc Date object
+ * @returns ISO string hoặc undefined
+ */
 function toIso(value?: string | Date): string | undefined {
   if (!value) {
     return undefined;
@@ -39,6 +44,10 @@ function toIso(value?: string | Date): string | undefined {
   return value;
 }
 
+/**
+ * Chuẩn hóa dữ liệu giao dịch tồn kho
+ * Chuyển đổi các trường số (quantity) và ngày tháng sang định dạng chuẩn
+ */
 function normalize(t: any): InventoryTransaction {
   return {
     ...t,
@@ -61,11 +70,16 @@ function normalize(t: any): InventoryTransaction {
   };
 }
 
+/** Kết quả trả về khi lấy danh sách giao dịch */
 export interface FetchTransactionsResult {
   items: InventoryTransaction[];
   total: number;
 }
 
+/**
+ * Xây dựng tham số tìm kiếm cho lịch sử giao dịch cá nhân
+ * Tự động chuyển đổi ngày (from/to) sang ISO string (đầu ngày/ cuối ngày)
+ */
 function buildMyHistoryParams(
   params: MyHistoryQuery = {},
 ): Record<string, unknown> {
@@ -111,6 +125,11 @@ function buildMyHistoryParams(
   };
 }
 
+/**
+ * Lấy danh sách giao dịch tồn kho (có phân trang, lọc)
+ * @param params - Tham số lọc (page, limit, transaction_type, từ ngày đến ngày, v.v.)
+ * @returns Danh sách giao dịch đã chuẩn hóa và tổng số bản ghi
+ */
 export async function fetchTransactions(
   params: Record<string, any> = {},
 ): Promise<FetchTransactionsResult> {
@@ -137,6 +156,11 @@ export async function fetchTransactions(
   };
 }
 
+/**
+ * Lấy chi tiết một giao dịch tồn kho theo ID
+ * @param id - ID của giao dịch
+ * @returns Thông tin chi tiết giao dịch (đã chuẩn hóa)
+ */
 export async function fetchTransaction(
   id: string,
 ): Promise<InventoryTransaction> {
@@ -155,6 +179,11 @@ export async function fetchTransaction(
   return normalize(data);
 }
 
+/**
+ * Tạo mới một giao dịch tồn kho
+ * @param payload - Dữ liệu giao dịch (material_id, lot_id, quantity, transaction_type, v.v.)
+ * @returns Giao dịch đã tạo (đã chuẩn hóa)
+ */
 export async function createTransaction(
   payload: Partial<InventoryTransaction>,
 ) {
@@ -174,6 +203,11 @@ export async function createTransaction(
   return normalize(data);
 }
 
+/**
+ * Tạo nhiều giao dịch tồn kho cùng lúc (bulk create)
+ * @param payloads - Mảng dữ liệu các giao dịch cần tạo
+ * @returns Danh sách giao dịch đã tạo (đã chuẩn hóa)
+ */
 export async function createTransactionsBulk(
   payloads: Partial<InventoryTransaction>[],
 ) {
@@ -189,6 +223,12 @@ export async function createTransactionsBulk(
   return Array.isArray(data) ? data.map(normalize) : [];
 }
 
+/**
+ * Cập nhật thông tin giao dịch tồn kho
+ * @param id - ID của giao dịch cần cập nhật
+ * @param payload - Dữ liệu cần cập nhật
+ * @returns Giao dịch sau khi cập nhật (đã chuẩn hóa)
+ */
 export async function updateTransaction(
   id: string,
   payload: Partial<InventoryTransaction>,
@@ -209,6 +249,11 @@ export async function updateTransaction(
   return normalize(data);
 }
 
+/**
+ * Xóa một giao dịch tồn kho
+ * @param id - ID của giao dịch cần xóa
+ * @returns Thông báo kết quả
+ */
 export async function removeTransaction(id: string) {
   const { data, error } = await apiClient.delete<void>(
     API_ENDPOINTS.TRANSACTIONS_DETAIL(id),
@@ -221,6 +266,11 @@ export async function removeTransaction(id: string) {
   return data;
 }
 
+/**
+ * Lấy lịch sử giao dịch cá nhân (phân trang, lọc theo ngày loại giao dịch)
+ * @param params - Tham số tìm kiếm (page, limit, from, to, transaction_type, keyword)
+ * @returns Danh sách giao dịch cá nhân và tổng số bản ghi
+ */
 export async function fetchMyHistory(
   params: MyHistoryQuery = {},
 ): Promise<MyHistoryListResponse> {
@@ -250,6 +300,11 @@ export async function fetchMyHistory(
   };
 }
 
+/**
+ * Lấy chi tiết một giao dịch trong lịch sử cá nhân
+ * @param transactionId - ID của giao dịch
+ * @returns Thông tin chi tiết giao dịch (đã chuẩn hóa)
+ */
 export async function fetchMyHistoryDetail(
   transactionId: string,
 ): Promise<MyHistoryItem> {

@@ -1,3 +1,19 @@
+/**
+ * WarehouseSlipModule - Module quản lý phiếu nhập/xuất kho
+ *
+ * Chức năng:
+ * - Quản lý phiếu nhập kho (receiving slip) và xuất kho (issuing slip)
+ * - Workflow: Draft → Pending → Approved/Rejected → Completed
+ * - Gắn đính kèm tài liệu (attachments) cho phiếu
+ * - Từ chối phiếu với lý do (reject with reason)
+ * - Tự động tạo giao dịch tồn kho khi phê duyệt phiếu
+ * - Ghi log kiểm toán cho mọi thay đổi phiếu
+ *
+ * Phụ thuộc:
+ * - MaterialModule, InventoryTransactionModule, InventoryLotModule
+ * - AuditLogModule (ghi log)
+ * - forwardRef(InventoryLotModule) để tránh circular dependency
+ */
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {

@@ -1,3 +1,8 @@
+// File: components/operator/import-export-order/OrderWorklistTable.tsx
+// Bảng danh sách công việc phiếu nhập/xuất kho (Warehouse Slip)
+// Hiển thị dạng bảng có phân trang, menu hành động (xác nhận, từ chối, xem chi tiết)
+// Sử dụng Portal cho dropdown menu để tránh overflow
+
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, XCircle, MoreHorizontal } from "lucide-react";

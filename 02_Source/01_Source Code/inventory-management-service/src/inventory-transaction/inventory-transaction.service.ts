@@ -18,6 +18,28 @@ import {
 import { UpdateInventoryTransactionDto } from './dto/update-inventory-transaction.dto';
 import { RedisIdService } from '../redis-id/redis-id.service';
 
+/**
+ * InventoryTransactionService - Service xử lý nghiệp vụ giao dịch tồn kho
+ * 
+ * Chức năng chính:
+ * - Tạo mới giao dịch tồn kho (phân loại theo transaction_type)
+ * - Xử lý từng loại giao dịch: Receipt, Usage, Split, Adjustment, Transfer, Disposal
+ * - Lấy danh sách giao dịch có phân trang và lọc
+ * - Lấy lịch sử giao dịch theo người thực hiện (performed_by)
+ * - Cập nhật và xóa giao dịch
+ * - Tạo hàng loạt giao dịch (bulk create)
+ * 
+ * Quy tắc nghiệp vụ theo loại giao dịch:
+ * - Receipt: quantity > 0 (nhập kho)
+ * - Usage: quantity < 0 (xuất kho/sử dụng)
+ * - Split: quantity != 0 (tách lô - có thể dương hoặc âm tùy vào logic)
+ * - Adjustment: quantity != 0 (điều chỉnh +/-)
+ * - Transfer: quantity != 0 (chuyển kho)
+ * - Disposal: quantity < 0 (hủy bỏ)
+ * 
+ * Tự động sinh transaction_id bằng Redis (format: TXN-XXX)
+ * Tự động gán transaction_date nếu không cung cấp
+ */
 @Injectable()
 export class InventoryTransactionService {
   constructor(
@@ -25,14 +47,23 @@ export class InventoryTransactionService {
     private readonly redisIdService: RedisIdService,
   ) {}
 
+  /**
+   * Tạo mới một giao dịch tồn kho
+   * Phân loại theo transaction_type để xử lý nghiệp vụ tương ứng
+   * 
+   * @param transactionDto - Dữ liệu giao dịch
+   * @returns Giao dịch đã tạo
+   * @throws BadRequestException nếu loại giao dịch không hợp lệ hoặc số lượng sai quy tắc
+   */
   async create(transactionDto: CreateInventoryTransactionDto) {
-    // tiền xử lý chung: gán ngày giao dịch nếu chưa có, tạo transaction_id
+    // Tiền xử lý chung: gán ngày giao dịch nếu chưa có, tạo transaction_id
     if (!transactionDto.transaction_date) {
       transactionDto.transaction_date = new Date().toISOString();
     }
     transactionDto.transaction_id = await this.redisIdService.nextId('TXN');
 
-    // các kiểm tra validation được thực hiện bên trong mỗi hàm xử lý; quy tắc dấu theo loại đã ghi chú ở đó
+    // Các kiểm tra validation được thực hiện bên trong mỗi hàm xử lý
+    // Quy tắc dấu theo loại đã ghi chú ở đó
     // (receipt>0, usage<0, disposal<0; split/adjustment/transfer !=0)
 
     switch (transactionDto.transaction_type) {
@@ -53,9 +84,25 @@ export class InventoryTransactionService {
     }
   }
 
+  /**
+   * Lấy danh sách tất cả giao dịch có phân trang và lọc
+   * 
+   * @param filters - Các tiêu chí lọc (lot_id, transaction_type, search, date range)
+   * @param paging - Phân trang (page, limit)
+   * @returns Danh sách giao dịch và tổng số
+   */
   async getAll(filters: FilterOptions, paging: PaginationOptions) {
     return this.repo.findAll(filters, paging);
   }
+
+  /**
+   * Lấy một giao dịch theo ID
+   * Tìm theo cả MongoDB _id và transaction_id
+   * 
+   * @param id - MongoDB _id hoặc transaction_id (TXN-XXX)
+   * @returns Giao dịch tìm thấy
+   * @throws NotFoundException nếu không tìm thấy
+   */
   async getOne(id: string) {
     const byId = await this.repo.findOne(id);
     if (byId) return byId;
@@ -66,6 +113,15 @@ export class InventoryTransactionService {
     throw new NotFoundException('Inventory transaction not found');
   }
 
+  /**
+   * Lấy lịch sử giao dịch của một người dùng (performed_by)
+   * Chỉ trả về giao dịch do người đó thực hiện
+   * 
+   * @param filters - Các tiêu chí lọc
+   * @param paging - Phân trang
+   * @param actor - Tên người thực hiện
+   * @returns Lịch sử giao dịch của người dùng
+   */
   async getMyHistory(
     filters: MyHistoryFilterOptions,
     paging: PaginationOptions,
@@ -74,6 +130,16 @@ export class InventoryTransactionService {
     return this.repo.findMyHistory(actor, filters, paging);
   }
 
+  /**
+   * Lấy chi tiết giao dịch của người dùng
+   * Kiểm tra quyền: chỉ người thực hiện mới được xem
+   * 
+   * @param transactionId - transaction_id
+   * @param actor - Tên người thực hiện
+   * @returns Chi tiết giao dịch
+   * @throws NotFoundException nếu không tìm thấy
+   * @throws ForbiddenException nếu không có quyền xem
+   */
   async getMyHistoryDetail(transactionId: string, actor: string) {
     const actorTransaction = await this.repo.findOneByTransactionIdAndActor(
       transactionId,
@@ -84,6 +150,7 @@ export class InventoryTransactionService {
       return actorTransaction;
     }
 
+    // Kiểm tra giao dịch có tồn tại không (để trả về lỗi phù hợp)
     const existingTransaction =
       await this.repo.findOneByTransactionId(transactionId);
     if (!existingTransaction) {
@@ -95,91 +162,158 @@ export class InventoryTransactionService {
     );
   }
 
+  /**
+   * Cập nhật giao dịch
+   * @param id - transaction_id (không phải MongoDB _id)
+   * @param dto - Dữ liệu cập nhật
+   * @returns Giao dịch sau khi cập nhật
+   */
   async update(id: string, dto: UpdateInventoryTransactionDto) {
-    // có thể giới hạn trường được phép sửa, ghi log thay đổi, v.v.
     return this.repo.update(id, dto);
   }
+
+  /**
+   * Xóa giao dịch
+   * @param id - transaction_id (không phải MongoDB _id)
+   * @returns Kết quả xóa
+   */
   async remove(id: string) {
     return this.repo.remove(id);
   }
 
+  /**
+   * Xóa tất cả giao dịch theo lot_id
+   * Dùng khi xóa lô hàng
+   * 
+   * @param lot_id - ID của lô hàng
+   * @returns Kết quả xóa (DeleteResult)
+   */
   async deleteByLotId(lot_id: string): Promise<DeleteResult> {
     return this.repo.deleteByLotId(lot_id);
   }
 
   /**
-   * Tạo hàng loạt transactions. Các DTO sẽ được xử lý theo cùng quy trình
-   * như `create()` để đảm bảo validation & publication.
+   * Tạo hàng loạt giao dịch
+   * Tái sử dụng hàm create() để đảm bảo validation & publication
+   * 
+   * @param dtos - Danh sách DTO giao dịch
+   * @returns Danh sách giao dịch đã tạo
    */
   async createMany(dtos: CreateInventoryTransactionDto[]) {
-    // mảng kết quả cần kiểu rõ ràng vì TypeScript không thể suy ra từ []
     const results: unknown[] = [];
     for (const dto of dtos) {
-      // tái sử dụng hàm create chứa toàn bộ logic nghiệp vụ
       const created = await this.create(dto);
       results.push(created);
     }
     return results;
   }
 
-  // các hàm hỗ trợ theo loại
+  // =================== Các hàm hỗ trợ theo loại ===================
+
+  /**
+   * Xử lý giao dịch Receipt (nhập kho)
+   * Số lượng phải dương (> 0)
+   * 
+   * @param dto - Dữ liệu giao dịch
+   * @returns Giao dịch đã tạo
+   */
   protected async handleReceipt(dto: CreateInventoryTransactionDto) {
-    // số lượng (receipt) phải dương
+    // Số lượng (receipt) phải dương
     if (dto.quantity <= 0) {
       throw new BadRequestException('receipt quantity must be positive');
     }
-    // tăng số lượng của lô được chỉ định
+    // Tăng số lượng của lô được chỉ định
     const created = await this.repo.create(dto);
     return created;
   }
 
+  /**
+   * Xử lý giao dịch Usage (xuất kho/sử dụng)
+   * Số lượng phải âm (< 0)
+   * Kiểm tra tồn kho và giảm, áp dụng FIFO/FEFO
+   * 
+   * @param dto - Dữ liệu giao dịch
+   * @returns Giao dịch đã tạo
+   */
   protected async handleUsage(dto: CreateInventoryTransactionDto) {
-    // số lượng (usage) phải âm
+    // Số lượng (usage) phải âm
     if (dto.quantity >= 0) {
       throw new BadRequestException('usage quantity must be negative');
     }
-    // kiểm tra tồn kho và giảm, áp dụng FIFO/FEFO
-    // nếu thiếu lot_id thì chọn lô tự động
-    // đảm bảo không âm tồn
-    // đơn giản: chỉ lưu bản ghi
+    // Kiểm tra tồn kho và giảm, áp dụng FIFO/FEFO
+    // Nếu thiếu lot_id thì chọn lô tự động
+    // Đảm bảo không âm tồn
+    // Đơn giản: chỉ lưu bản ghi
     const created = await this.repo.create(dto);
     return created;
   }
 
+  /**
+   * Xử lý giao dịch Split (tách lô)
+   * Số lượng không được bằng 0
+   * Tạo giao dịch split và lô con mới
+   * 
+   * @param dto - Dữ liệu giao dịch
+   * @returns Giao dịch đã tạo
+   */
   protected async handleSplit(dto: CreateInventoryTransactionDto) {
-    // số lượng (split) không được bằng 0; dấu chỉ hướng chuyển
+    // Số lượng (split) không được bằng 0; dấu chỉ hướng chuyển
     if (dto.quantity === 0) {
       throw new BadRequestException('split quantity cannot be zero');
     }
-    // tạo giao dịch split và lô con mới
+    // Tạo giao dịch split và lô con mới
     const created = await this.repo.create(dto);
-    // bỏ qua phần tạo lô bổ sung
+    // Bỏ qua phần tạo lô bổ sung
     return created;
   }
 
+  /**
+   * Xử lý giao dịch Adjustment (điều chỉnh)
+   * Số lượng không được bằng 0
+   * Điều chỉnh +/- số lượng kèm lý do
+   * 
+   * @param dto - Dữ liệu giao dịch
+   * @returns Giao dịch đã tạo
+   */
   protected async handleAdjustment(dto: CreateInventoryTransactionDto) {
-    // số lượng (adjustment) không được bằng 0; dấu chỉ hướng điều chỉnh
+    // Số lượng (adjustment) không được bằng 0; dấu chỉ hướng điều chỉnh
     if (dto.quantity === 0) {
       throw new BadRequestException('adjustment quantity cannot be zero');
     }
-    // điều chỉnh +/- số lượng kèm lý do
+    // Điều chỉnh +/- số lượng kèm lý do
     const created = await this.repo.create(dto);
     return created;
   }
 
+  /**
+   * Xử lý giao dịch Transfer (chuyển kho)
+   * Số lượng không được bằng 0
+   * Có thể gọi handleUsage + handleReceipt hoặc dùng một bản ghi transfer
+   * 
+   * @param dto - Dữ liệu giao dịch
+   * @returns Giao dịch đã tạo
+   */
   protected async handleTransfer(dto: CreateInventoryTransactionDto) {
-    // số lượng (transfer) không được bằng 0; dấu chỉ hướng chuyển
+    // Số lượng (transfer) không được bằng 0; dấu chỉ hướng chuyển
     if (dto.quantity === 0) {
       throw new BadRequestException('transfer quantity cannot be zero');
     }
-    // có thể gọi handleUsage + handleReceipt hoặc dùng một bản ghi transfer
+    // Có thể gọi handleUsage + handleReceipt hoặc dùng một bản ghi transfer
     const created = await this.repo.create(dto);
     return created;
   }
 
+  /**
+   * Xử lý giao dịch Disposal (hủy bỏ)
+   * Giống usage nhưng đánh dấu là hủy
+   * Số lượng phải âm (< 0)
+   * 
+   * @param dto - Dữ liệu giao dịch
+   * @returns Giao dịch đã tạo
+   */
   protected async handleDisposal(dto: CreateInventoryTransactionDto) {
-    // giống usage nhưng đánh dấu là hủy
-    // số lượng (disposal) phải âm
+    // Giống usage nhưng đánh dấu là hủy
+    // Số lượng (disposal) phải âm
     if (dto.quantity >= 0) {
       throw new BadRequestException('disposal quantity must be negative');
     }

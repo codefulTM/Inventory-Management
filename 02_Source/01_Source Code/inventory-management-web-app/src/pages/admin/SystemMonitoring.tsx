@@ -1,28 +1,45 @@
+/**
+ * SystemMonitoring - Trang giám sát hệ thống thời gian thực dành cho IT Administrator
+ * 
+ * Chức năng chính:
+ * - Hiển thị trạng thái hoạt động của các dịch vụ (backend, frontend, database, etc.)
+ * - Giám sát tài nguyên hệ thống: CPU, RAM, Ổ đĩa (Disk) với thanh tiến trình trực quan
+ * - Hiển thị cảnh báo (alerts) gần đây từ hệ thống
+ * - Tự động làm mới dữ liệu mỗi 30 giây
+ * - Nút "Làm mới" thủ công để cập nhật ngay lập tức
+ * 
+ * Quyền truy cập: Chỉ IT Administrator (/admin/*)
+ */
 import { useState, useEffect } from 'react';
 import { Alert, Table, Tag, Badge } from 'antd';
 import { RefreshCw, Cpu, HardDrive, Server, AlertTriangle, CheckCircle } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';
 import { PageWrapper, StatsGrid, StatCard, LoadingSkeleton } from '../../components/ui';
 
+// Kiểu dữ liệu trạng thái của một dịch vụ hệ thống
 interface ServiceStatus {
-  name: string;
-  status: 'running' | 'stopped' | 'unknown';
+  name: string;                                    // Tên dịch vụ (ví dụ: backend, frontend, mongodb)
+  status: 'running' | 'stopped' | 'unknown';       // Trạng thái: đang chạy, đã dừng, không rõ
 }
 
+// Kiểu dữ liệu chứa các chỉ số tài nguyên hệ thống
 interface SystemMetrics {
-  cpu: { usage: number; cores: number; model: string };
-  memory: { total_gb: number; used_gb: number; available_gb: number; usage_percent: number };
-  disk: { total_gb: number; used_gb: number; available_gb: number; usage_percent: number };
-  services: ServiceStatus[];
-  timestamp: string;
+  cpu: { usage: number; cores: number; model: string };           // Thông tin CPU: % sử dụng, số nhân, model
+  memory: { total_gb: number; used_gb: number; available_gb: number; usage_percent: number }; // RAM
+  disk: { total_gb: number; used_gb: number; available_gb: number; usage_percent: number };   // Ổ đĩa
+  services: ServiceStatus[];                                         // Danh sách dịch vụ
+  timestamp: string;                                                  // Thời điểm lấy số liệu
 }
 
+// Kiểu dữ liệu cho một cảnh báo (alert) từ hệ thống
 interface SystemAlert {
-  timestamp: string;
-  type: string;
-  message: string;
+  timestamp: string;   // Thời gian cảnh báo
+  type: string;         // Loại cảnh báo
+  message: string;      // Nội dung cảnh báo
 }
 
+// Component hiển thị thanh tiến trình (progress bar) cho CPU/RAM/Disk
+// Màu sắc: Xanh lá (<70%), Vàng (70-80%), Đỏ (>80%)
 function UsageBar({ value, threshold = 80 }: { value: number; threshold?: number }) {
   const color = value >= threshold ? '#ef4444' : value >= 70 ? '#f59e0b' : '#22c55e';
   return (
@@ -35,6 +52,8 @@ function UsageBar({ value, threshold = 80 }: { value: number; threshold?: number
   );
 }
 
+// Component hiển thị thẻ thông số tài nguyên (CPU/RAM/Disk)
+// Bao gồm: Tiêu đề, icon, % sử dụng (màu theo mức độ), chi tiết, thanh tiến trình
 function MetricCard({ title, icon, usage, detail, threshold = 80 }: {
   title: string; icon: React.ReactNode; usage: number; detail: string; threshold?: number;
 }) {
@@ -52,25 +71,33 @@ function MetricCard({ title, icon, usage, detail, threshold = 80 }: {
 }
 
 export default function SystemMonitoring() {
+  // State lưu chỉ số tài nguyên hệ thống (CPU, RAM, Disk, Services)
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+  // State lưu danh sách cảnh báo gần đây
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
+  // Trạng thái đang tải dữ liệu
   const [loading, setLoading] = useState(false);
+  // Thông báo lỗi (nếu có)
   const [error, setError] = useState('');
+  // Thời điểm cập nhật dữ liệu gần nhất
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // useEffect: Tự động gọi API lấy dữ liệu khi mount + thiết lập interval 30s để tự động làm mới
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchMetrics, 30000); // Làm mới mỗi 30 giây
+    return () => clearInterval(interval); // Cleanup khi component unmount
   }, []);
 
+  // Hàm lấy dữ liệu giám sát từ backend API
+  // Gọi song song 2 endpoint: /system-monitoring/metrics và /system-monitoring/alerts
   const fetchMetrics = async () => {
     setLoading(true);
     setError('');
     try {
       const [metricsRes, alertsRes] = await Promise.all([
-        apiClient.get<SystemMetrics>('/system-monitoring/metrics'),
-        apiClient.get<{ alerts: SystemAlert[] }>('/system-monitoring/alerts', { params: { limit: 10 } }),
+        apiClient.get<SystemMetrics>('/system-monitoring/metrics'),           // Chỉ số tài nguyên
+        apiClient.get<{ alerts: SystemAlert[] }>('/system-monitoring/alerts', { params: { limit: 10 } }), // Cảnh báo
       ]);
 
       if (metricsRes.error) throw new Error(metricsRes.error.message || 'Không thể tải metrics');
@@ -78,7 +105,7 @@ export default function SystemMonitoring() {
 
       setMetrics(metricsRes.data);
       setAlerts(alertsRes.data?.alerts || []);
-      setLastUpdated(new Date());
+      setLastUpdated(new Date()); // Cập nhật thời gian
     } catch (err: any) {
       setError(err.message || 'Lỗi khi tải dữ liệu hệ thống');
     } finally {
@@ -86,6 +113,7 @@ export default function SystemMonitoring() {
     }
   };
 
+  // Cấu hình cột cho bảng trạng thái dịch vụ (Service Status Table)
   const serviceColumns = [
     {
       title: 'Tên dịch vụ',
@@ -97,6 +125,7 @@ export default function SystemMonitoring() {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
+      // Hiển thị badge màu: Xanh (running), Đỏ (stopped), Xám (unknown)
       render: (status: string) => {
         if (status === 'running') return <Badge status="success" text="Đang chạy" />;
         if (status === 'stopped') return <Badge status="error" text="Dừng" />;
@@ -105,6 +134,7 @@ export default function SystemMonitoring() {
     },
   ];
 
+  // Cấu hình cột cho bảng cảnh báo hệ thống (Alerts Table)
   const alertColumns = [
     {
       title: 'Thời gian',
@@ -116,11 +146,12 @@ export default function SystemMonitoring() {
       title: 'Loại',
       dataIndex: 'type',
       key: 'type',
-      render: (type: string) => <Tag color="red">{type}</Tag>,
+      render: (type: string) => <Tag color="red">{type}</Tag>, // Tag đỏ cho loại cảnh báo
     },
     { title: 'Nội dung', dataIndex: 'message', key: 'message' },
   ];
 
+  // Hiển thị skeleton loading khi mới mount và chưa có dữ liệu
   if (loading && !metrics) {
     return (
       <PageWrapper>
@@ -133,12 +164,14 @@ export default function SystemMonitoring() {
     );
   }
 
+  // Đếm số dịch vụ đang chạy và tổng số dịch vụ để hiển thị KPI
   const runningCount = metrics?.services.filter(s => s.status === 'running').length ?? 0;
   const totalServices = metrics?.services.length ?? 0;
 
   return (
     <PageWrapper>
       <div className="p-6 space-y-6">
+        {/* Header: Tiêu đề trang và nút làm mới thủ công */}
         <div className="flex items-center justify-between animate-fadeInUp">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Giám sát hệ thống</h1>
@@ -156,10 +189,12 @@ export default function SystemMonitoring() {
           </button>
         </div>
 
+        {/* Hiển thị lỗi nếu có */}
         {error && <Alert type="error" showIcon message={error} />}
 
         {metrics && (
           <>
+            {/* 4 thẻ KPI: Dịch vụ, CPU, RAM, Disk */}
             <StatsGrid cols={4}>
               <StatCard label="Dịch vụ đang chạy" value={`${runningCount}/${totalServices}`} icon={<Server className="w-5 h-5" />} />
               <StatCard label="CPU" value={`${Math.round(metrics.cpu.usage)}%`} icon={<Cpu className="w-5 h-5" />} variant={metrics.cpu.usage >= 80 ? 'error' : 'default'} />
@@ -167,19 +202,23 @@ export default function SystemMonitoring() {
               <StatCard label="Disk" value={`${Math.round(metrics.disk.usage_percent)}%`} icon={<HardDrive className="w-5 h-5" />} variant={metrics.disk.usage_percent >= 90 ? 'error' : 'default'} />
             </StatsGrid>
 
+            {/* 3 thẻ chi tiết tài nguyên: CPU, RAM, Ổ đĩa */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <MetricCard title="CPU" icon={<Cpu size={16} />} usage={metrics.cpu.usage} detail={`${metrics.cpu.cores} nhân — ${metrics.cpu.model}`} threshold={80} />
               <MetricCard title="RAM" icon={<Server size={16} />} usage={metrics.memory.usage_percent} detail={`${metrics.memory.used_gb.toFixed(1)} / ${metrics.memory.total_gb} GB`} threshold={85} />
               <MetricCard title="Ổ đĩa" icon={<HardDrive size={16} />} usage={metrics.disk.usage_percent} detail={`${metrics.disk.used_gb.toFixed(1)} / ${metrics.disk.total_gb} GB`} threshold={90} />
             </div>
 
+            {/* 2 bảng: Trạng thái dịch vụ và Cảnh báo gần đây */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bảng trạng thái dịch vụ */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <Server size={18} className="text-primary-600" />Trạng thái dịch vụ
                 </h2>
                 <Table dataSource={metrics.services} columns={serviceColumns} rowKey="name" pagination={false} size="small" />
               </div>
+              {/* Bảng cảnh báo gần đây */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <AlertTriangle size={18} className="text-amber-500" />Cảnh báo gần đây
@@ -196,6 +235,7 @@ export default function SystemMonitoring() {
           </>
         )}
 
+        {/* Hiển thị khi không có dữ liệu */}
         {!metrics && !loading && !error && (
           <div className="text-center py-12 text-gray-400">Không có dữ liệu</div>
         )}

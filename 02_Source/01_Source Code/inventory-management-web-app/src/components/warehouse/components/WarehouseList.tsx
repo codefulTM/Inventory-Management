@@ -1,25 +1,31 @@
+// File: components/warehouse/components/WarehouseList.tsx
+// Component hiển thị danh sách kho dạng bảng với phân trang
+// Hỗ trợ xem chi tiết, chỉnh sửa, xóa (nếu có callback)
+// Hiển thị thông tin: mã kho, tên, trạng thái, ngày tạo
+
 import React, { useMemo, useEffect, useState } from "react";
 import type { Warehouse } from "../../../types/warehouse";
 import Toast from "../../Toast";
 import SelectMenu from "../../SelectMenu";
 
+// Props cho WarehouseList
 interface WarehouseListProps {
-  onSelect?: (w: Warehouse) => void;
-  onView?: (w: Warehouse) => void;
-  onEdit?: (w: Warehouse) => void;
-  onDelete?: (w: Warehouse) => void;
-  warehouses?: Warehouse[];
-  total?: number;
-  page?: number;
-  limit?: number;
-  loading?: boolean;
-  error?: Error | null;
-  hasNextPage?: boolean;
-  hasPreviousPage?: boolean;
-  nextPage?: () => void;
-  previousPage?: () => void;
-  setLimit?: (n: number) => void;
-  refetch?: () => void;
+  onSelect?: (w: Warehouse) => void; // Chọn một kho
+  onView?: (w: Warehouse) => void; // Xem chi tiết
+  onEdit?: (w: Warehouse) => void; // Chỉnh sửa
+  onDelete?: (w: Warehouse) => void; // Xóa
+  warehouses?: Warehouse[]; // Danh sách kho
+  total?: number; // Tổng số kho
+  page?: number; // Trang hiện tại
+  limit?: number; // Số lượng mục/trang
+  loading?: boolean; // Đang tải
+  error?: Error | null; // Lỗi
+  hasNextPage?: boolean; // Có trang sau
+  hasPreviousPage?: boolean; // Có trang trước
+  nextPage?: () => void; // Chuyển trang sau
+  previousPage?: () => void; // Chuyển trang trước
+  setLimit?: (n: number) => void; // Đổi số lượng mục/trang
+  refetch?: () => void; // Tải lại dữ liệu
 }
 
 export const WarehouseList: React.FC<WarehouseListProps> = ({
@@ -40,6 +46,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
   setLimit: propSetLimit,
   refetch: propRefetch,
 }) => {
+  // Giá trị mặc định
   const warehouses = propWarehouses ?? [];
   const total = propTotal ?? 0;
   const page = propPage ?? 1;
@@ -53,18 +60,22 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
   const setLimit = propSetLimit ?? (() => {});
   const refetch = propRefetch ?? (() => {});
 
+  // Xử lý xem (dùng onView hoặc onSelect)
   const handleView = onView ?? onSelect;
 
+  // Tính tổng số trang
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / limit)),
     [total, limit],
   );
 
+  // State cho toast thông báo
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
+  // Hiển thị lỗi qua toast
   useEffect(() => {
     if (error) {
       const msg =
@@ -73,6 +84,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
     }
   }, [error]);
 
+  // Hiển thị trạng thái lỗi
   if (error) {
     return (
       <div className="w-full bg-white rounded-lg overflow-hidden shadow-md p-5">
@@ -92,6 +104,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
 
   return (
     <div className="w-full bg-white rounded-lg overflow-hidden shadow-md">
+      {/* HEADER: Tiêu đề và thống kê */}
       <div className="px-5 py-5 border-b border-gray-200 flex justify-between items-center">
         <h2 className="m-0 text-2xl text-gray-800">Danh sách kho</h2>
         <div className="text-sm text-gray-600">
@@ -101,6 +114,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
         </div>
       </div>
 
+      {/* NỘI DUNG: Bảng danh sách hoặc thông báo */}
       {loading && warehouses.length === 0 ? (
         <div className="p-10 text-center text-gray-400">
           Đang tải danh sách kho...
@@ -162,6 +176,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
                     </td>
                     <td className="px-4 py-3 border-b border-gray-200">
                       <div className="flex items-center gap-2">
+                        {/* Nút xem chi tiết */}
                         {handleView && (
                           <button
                             className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium cursor-pointer transition-colors hover:bg-blue-700"
@@ -172,6 +187,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
                           </button>
                         )}
 
+                        {/* Nút chỉnh sửa */}
                         {onEdit && (
                           <button
                             className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded text-xs font-medium cursor-pointer transition-colors hover:bg-gray-200"
@@ -182,6 +198,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
                           </button>
                         )}
 
+                        {/* Nút xóa */}
                         {onDelete && (
                           <button
                             className="px-3 py-1.5 bg-rose-600 text-white rounded text-xs font-medium cursor-pointer transition-colors hover:bg-rose-700"
@@ -199,7 +216,9 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
             </table>
           </div>
 
+          {/* PHÂN PHÂN TRANG */}
           <div className="px-5 py-5 border-t border-gray-200 flex justify-between items-center flex-wrap gap-5">
+            {/* Chọn số mục/trang */}
             <div className="flex items-center gap-2.5">
               <label
                 htmlFor="limit-select"
@@ -220,6 +239,7 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
               />
             </div>
 
+            {/* Điều hướng trang */}
             <div className="flex items-center gap-4">
               <button
                 onClick={previousPage}
@@ -241,6 +261,15 @@ export const WarehouseList: React.FC<WarehouseListProps> = ({
             </div>
           </div>
         </>
+      )}
+
+      {/* TOAST THÔNG BÁO */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

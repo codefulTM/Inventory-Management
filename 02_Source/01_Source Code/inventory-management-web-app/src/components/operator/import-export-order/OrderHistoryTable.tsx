@@ -1,6 +1,24 @@
+// File: components/operator/import-export-order/OrderHistoryTable.tsx
+// Bảng lịch sử các phiếu nhập/xuất kho đã tạo
+// Hiển thị phân trang, xem chi tiết và chỉnh sửa (nếu đang Pending)
+
 import { Eye, PencilLine } from "lucide-react";
 import type { ImportExportOrder } from "../../../types/importExportOrder";
 import OrderStatusBadge from "./OrderStatusBadge";
+
+// Format ngày tháng sang định dạng vi-VN
+function formatDate(value?: string): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString("vi-VN");
+}
 
 interface OrderHistoryTableProps {
   orders: ImportExportOrder[];

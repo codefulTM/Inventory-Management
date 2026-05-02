@@ -1,3 +1,7 @@
+// File: components/Header.tsx
+// Component Header hiển thị ở đầu trang (cũ - không còn dùng chính, thay bằng MainLayout)
+// Chứa thông tin user, nút đăng xuất, tìm kiếm và thông báo
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Bell, Search, User } from 'lucide-react';
@@ -5,8 +9,10 @@ import { AuthService } from '../services/auth.service';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
+  // Lấy thông tin user từ localStorage
   const user = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
 
+  // Xử lý đăng xuất: gọi API logout, xóa localStorage và redirect về login
   const handleLogout = async () => {
     const refresh_token = localStorage.getItem('refresh_token');
     console.log('[Header] Logging out with refresh_token:', refresh_token ? 'YES' : 'NO');
@@ -26,6 +32,7 @@ const Header: React.FC = () => {
     navigate('/auth/login');
   };
 
+  // Chuyển đổi role key sang tên hiển thị tiếng Việt
   const getRoleLabel = (role: string) => {
     const roleMap: Record<string, string> = {
       manager: 'Quản lý',
@@ -43,18 +50,18 @@ const Header: React.FC = () => {
       </div>
       
       <nav className="flex items-center gap-4">
-        {/* Search (hidden for now) */}
+        {/* Nút tìm kiếm (ẩn, chưa triển khai) */}
         <button className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors duration-200">
           <Search className="w-5 h-5" />
         </button>
         
-        {/* Notifications */}
+        {/* Nút thông báo với chỉ báo (badge) */}
         <button className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors duration-200 relative">
           <Bell className="w-5 h-5" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-error-500 rounded-full" />
         </button>
         
-        {/* User info */}
+        {/* Thông tin user và nút đăng xuất */}
         {user && (
           <div className="flex items-center gap-3 pl-4 border-l border-slate-600">
             <div className="flex items-center gap-2">

@@ -1,3 +1,14 @@
+/**
+ * SampleDataSeeder - Script seed dữ liệu mẫu vào MongoDB
+ *
+ * Chức năng:
+ * - Kết nối trực tiếp đến MongoDB qua MongoClient (native driver)
+ * - Reset (xóa) các collections được chỉ định
+ * - Seed dữ liệu mẫu sinh từ sample-data.generator.ts
+ * - Hỗ trợ dry run mode (chỉ đếm số lượng, không ghi dữ liệu)
+ *
+ * Sử dụng: Chạy độc lập (không qua NestJS) để tạo dữ liệu test/development
+ */
 import { MongoClient, Db } from 'mongodb';
 import {
   generateSampleDataset,
@@ -5,6 +16,7 @@ import {
   type SampleDataProfile,
 } from './sample-data.generator';
 
+/** Danh sách collections được seed dữ liệu */
 export const SAMPLE_COLLECTIONS: SampleCollectionName[] = [
   'users',
   'materials',
@@ -24,6 +36,9 @@ export type SeedOptions = {
   collections?: SampleCollectionName[];
 };
 
+/**
+ * SampleDataSeeder - Class thực hiện seed dữ liệu mẫu vào MongoDB
+ */
 export class SampleDataSeeder {
   private readonly client: MongoClient;
   private db: Db | null = null;
@@ -35,6 +50,7 @@ export class SampleDataSeeder {
     this.client = new MongoClient(mongoUri);
   }
 
+  /** Kết nối đến MongoDB (lazy connection - chỉ tạo khi cần) */
   async connect(): Promise<Db> {
     if (this.db) {
       return this.db;
@@ -45,11 +61,18 @@ export class SampleDataSeeder {
     return this.db;
   }
 
+  /** Đóng kết nối MongoDB */
   async close(): Promise<void> {
     await this.client.close();
     this.db = null;
   }
 
+  /**
+   * Xóa toàn bộ dữ liệu trong các collections được chỉ định
+   * @param collections - Danh sách tên collections cần reset
+   * @param dryRun - Nếu true, chỉ đếm số lượng record, không xóa
+   * @returns Số lượng record đã tồn tại trong mỗi collection
+   */
   async resetCollections(
     collections: SampleCollectionName[],
     dryRun = false,
@@ -68,6 +91,12 @@ export class SampleDataSeeder {
     return result;
   }
 
+  /**
+   * Seed dữ liệu mẫu vào các collections
+   * Sinh dữ liệu từ generateSampleDataset() và insert vào MongoDB
+   * @param options - Profile (small/medium/large), seed string, dryRun flag
+   * @returns Số lượng record đã insert vào mỗi collection
+   */
   async seed(options: SeedOptions): Promise<Record<string, number>> {
     const { profile, seed, dryRun = false } = options;
     const selectedCollections = options.collections ?? SAMPLE_COLLECTIONS;
@@ -87,6 +116,7 @@ export class SampleDataSeeder {
     return insertedCounts;
   }
 
+  /** Tự động xác định tên database từ MongoDB URI */
   private resolveDbName(): string {
     if (this.dbName && this.dbName.trim().length > 0) {
       return this.dbName.trim();

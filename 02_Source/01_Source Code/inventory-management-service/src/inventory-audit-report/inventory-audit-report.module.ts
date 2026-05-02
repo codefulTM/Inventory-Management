@@ -1,3 +1,23 @@
+/**
+ * InventoryAuditReportModule - Module báo cáo kiểm kê tồn kho
+ *
+ * Chức năng:
+ * - Tạo báo cáo kiểm kê định kỳ cho kho (periodic stocktake reports)
+ * - Theo dõi trạng thái báo cáo: PENDING → PROCESSING → READY / FAILED
+ * - Render báo cáo ra định dạng PDF với chữ ký số
+ * - Lưu trữ báo cáo (file storage)
+ * - Ký điện tử (signature) cho báo cáo
+ *
+ * Components:
+ * - InventoryAuditReportService: Xử lý nghiệp vụ
+ * - InventoryAuditReportRenderer: Render báo cáo PDF
+ * - SignatureService: Ký điện tử báo cáo
+ * - InventoryAuditReportStorageService: Lưu trữ file báo cáo
+ *
+ * Schema đăng ký:
+ * - InventoryAuditReport: Bản ghi báo cáo
+ * - InventoryLot, Material, Warehouse: Dữ liệu tham chiếu
+ */
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {

@@ -1,3 +1,15 @@
+/**
+ * File: mail.service.ts
+ * Mô tả: Service xử lý việc gửi email trong hệ thống.
+ *
+ * Chức năng chính:
+ * - Cấu hình transport sử dụng Gmail SMTP với thông tin từ env (MAIL_USER, MAIL_PASS)
+ * - Sinh mật khẩu tạm thời ngẫu nhiên cho user mới
+ * - Gửi email đặt lại mật khẩu (forgot password flow)
+ * - Gửi email thông báo tài khoản mới được tạo (kèm mật khẩu tạm)
+ *
+ * Lưu ý: Email template sử dụng HTML với inline CSS để hiển thị đẹp trên mọi trình duyệt
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
@@ -7,15 +19,21 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    // Cấu hình Gmail SMTP transporter
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
+        user: process.env.MAIL_USER,   // Email Gmail dùng để gửi
+        pass: process.env.MAIL_PASS,   // App password (không phải mật khẩu Gmail thường)
       },
     });
   }
 
+  /**
+   * Sinh mật khẩu tạm thời ngẫu nhiên
+   * Format: [1 chữ hoa] + [1 chữ số] + [1 ký tự đặc biệt] + [6 ký tự ngẫu nhiên]
+   * Ví dụ: A7@xK9pQ
+   */
   generateTempPassword(): string {
     const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lower = 'abcdefghijklmnopqrstuvwxyz';
@@ -27,12 +45,19 @@ export class MailService {
     return rand(upper) + rand(digits) + rand(special) + base;
   }
 
+  /**
+   * Gửi email đặt lại mật khẩu (forgot password)
+   * @param to - Địa chỉ email người nhận
+   * @param username - Tên đăng nhập để hiển thị trong email
+   * @param resetLink - Link đặt lại mật khẩu (có chứa token)
+   */
   async sendResetPasswordEmail(to: string, username: string, resetLink: string): Promise<void> {
     try {
       await this.transporter.sendMail({
         from: `"PharmaWMS System" <${process.env.MAIL_USER}>`,
         to,
         subject: '[PharmaWMS] Đặt lại mật khẩu',
+        // HTML template với thiết kế responsive, màu sắc thương hiệu (blue #2563eb)
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #2563eb; padding: 32px; text-align: center;">
@@ -57,8 +82,15 @@ export class MailService {
     }
   }
 
+  /**
+   * Gửi email thông báo tài khoản mới được tạo (dành cho Manager/IT Admin tạo user)
+   * @param to - Email người nhận
+   * @param username - Tên đăng nhập
+   * @param role - Vai trò được gán
+   * @param tempPassword - Mật khẩu tạm thời (user cần đổi sau lần đăng nhập đầu)
+   */
   async sendNewAccountEmail(to: string, username: string, role: string, tempPassword: string): Promise<void> {
-    const loginUrl = 'https://inventory-system.cloud';
+    const loginUrl = 'https://inventory-system.cloud'; // URL frontend để đăng nhập
 
     try {
       await this.transporter.sendMail({

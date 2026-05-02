@@ -1,13 +1,31 @@
+/**
+ * MailService - Dịch vụ gửi email qua Gmail SMTP
+ *
+ * Chức năng chính:
+ * - Sử dụng nodemailer để kết nối Gmail SMTP
+ * - Gửi email đặt lại mật khẩu (reset password)
+ * - Gửi email thông báo tài khoản mới (new account)
+ * - Gửi email cảnh báo bin bị flag (bin flag notification)
+ *
+ * Cấu hình:
+ * - MAIL_USER: Địa chỉ Gmail gửi email
+ * - MAIL_PASS: App password của Gmail (không phải password thường)
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
+/**
+ * MailService - Service xử lý gửi email trong hệ thống
+ * Sử dụng Gmail SMTP thông qua thư viện nodemailer
+ */
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter;
 
   constructor(private readonly configService: ConfigService) {
+    // Cấu hình transporter kết nối Gmail SMTP
     const mailUser = this.configService.get<string>('MAIL_USER');
     const mailPass = this.configService.get<string>('MAIL_PASS');
     this.transporter = nodemailer.createTransport({
@@ -19,6 +37,11 @@ export class MailService {
     });
   }
 
+  /**
+   * Tạo mật khẩu tạm thời ngẫu nhiên
+   * Đảm bảo có ít nhất 1 chữ hoa, 1 số, 1 ký tự đặc biệt và 6 ký tự ngẫu nhiên
+   * @returns Mật khẩu tạm thời 9 ký tự
+   */
   generateTempPassword(): string {
     const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lower = 'abcdefghijklmnopqrstuvwxyz';
@@ -30,6 +53,13 @@ export class MailService {
     return rand(upper) + rand(digits) + rand(special) + base;
   }
 
+  /**
+   * Gửi email đặt lại mật khẩu
+   * Chứa link reset password có hiệu lực trong 15 phút
+   * @param to - Địa chỉ email người nhận
+   * @param username - Tên đăng nhập của user
+   * @param resetLink - Link đặt lại mật khẩu
+   */
   async sendResetPasswordEmail(to: string, username: string, resetLink: string): Promise<void> {
     try {
       await this.transporter.sendMail({
@@ -61,6 +91,14 @@ export class MailService {
     }
   }
 
+  /**
+   * Gửi email thông báo tài khoản mới được tạo
+   * Chứa thông tin đăng nhập và mật khẩu tạm thời
+   * @param to - Địa chỉ email người nhận
+   * @param username - Tên đăng nhập
+   * @param role - Vai trò của user trong hệ thống
+   * @param tempPassword - Mật khẩu tạm thời
+   */
   async sendNewAccountEmail(to: string, username: string, role: string, tempPassword: string): Promise<void> {
     const loginUrl = 'https://inventory-system.cloud';
 
@@ -110,6 +148,16 @@ export class MailService {
     }
   }
 
+  /**
+   * Gửi email cảnh báo khi một bin (vị trí lưu trữ) bị flag cần xem xét
+   * Được gửi khi có sai lệch giữa số lượng kiểm kê thực tế và số lượng hệ thống
+   * @param to - Địa chỉ email người nhận (thường là Manager)
+   * @param binCode - Mã bin bị flag
+   * @param deltaPct - Phần trăm sai lệch
+   * @param recordId - ID bản ghi kiểm kê (optional)
+   * @param countedTotal - Tổng số lượng kiểm kê thực tế (optional)
+   * @param expectedTotal - Tổng số lượng hệ thống mong đợi (optional)
+   */
   async sendBinFlagEmail(
     to: string,
     binCode: string,

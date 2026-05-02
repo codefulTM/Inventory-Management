@@ -1,3 +1,10 @@
+/**
+ * DetailModal - Modal xem chi tiết lô hàng (Inventory Lot) dành cho Manager
+ * Chức năng: Hiển thị đầy đủ thông tin của một lô hàng
+ * Bao gồm: thông tin lô, nhà sản xuất, số lượng, vị trí lưu trữ
+ * Thời hạn, trạng thái và nhật ký tạo/cập nhật
+ * Manager có thể xem chi tiết và chuyển sang chế độ chỉnh sửa
+ */
 import {
   X,
   Edit,
@@ -11,10 +18,10 @@ import { type InventoryLot } from "../../../../services/inventory-lot.service";
 import { getStatusColor, getStatusText } from "../utils";
 
 interface DetailModalProps {
-  isOpen: boolean;
-  selectedLot: InventoryLot | null;
-  onClose: () => void;
-  onEdit?: (lot: InventoryLot) => void;
+  isOpen: boolean;              // Modal có đang mở không
+  selectedLot: InventoryLot | null;  // Lô hàng đang được chọn
+  onClose: () => void;            // Hàm đóng modal
+  onEdit?: (lot: InventoryLot) => void; // Hàm chuyển sang chỉnh sửa
 }
 
 export function DetailModal({

@@ -1,3 +1,14 @@
+/**
+ * File: rag/rag-phase1.mapper.spec.ts
+ * Mục đích: Tests cho Phase 1 RAG scope, schema và mapper functions
+ * 
+ * Kiểm tra:
+ * - Scope Phase 1: Giới hạn 3 collection Mongo + Markdown root
+ * - Chunking rules: Markdown có overlap, Mongo docs không overlap
+ * - Mapper functions: Map đúng Mongo docs và Markdown chunks sang RetrievedDocument
+ * - ACL rules: Tags phân quyền đúng theo collection
+ * - ID format: {collection}:{sourceId}
+ */
 import {
   mapInventoryLotToRetrievedDocument,
   mapInventoryTransactionToRetrievedDocument,

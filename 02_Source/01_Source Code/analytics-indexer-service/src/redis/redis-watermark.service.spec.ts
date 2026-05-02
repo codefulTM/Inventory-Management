@@ -1,3 +1,12 @@
+/**
+ * File: redis/redis-watermark.service.spec.ts
+ * Mục đích: Unit tests cho RedisWatermarkService
+ * 
+ * Kiểm tra các thao tác watermark trên Redis:
+ * - getWatermark: Trả về null khi không có key, Date khi có ISO string hợp lệ
+ * - setWatermark: Lưu ISO string cho collection tương ứng
+ * - Xử lý giá trị không phải ngày hợp lệ
+ */
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisWatermarkService } from './redis-watermark.service';
 import { REDIS_CLIENT } from './redis.constants';

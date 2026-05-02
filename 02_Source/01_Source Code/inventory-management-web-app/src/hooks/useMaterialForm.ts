@@ -1,6 +1,8 @@
 /**
  * useMaterialForm Hook
- * Manages form state for creating and updating materials
+ * Custom hook quản lý form tạo/cập nhật nguyên liệu
+ * Xử lý: validation, submit (create/update), reset, error handling
+ * Hiển thị thông báo lỗi qua antd message
  */
 
 import { useState, useCallback } from "react";
@@ -13,28 +15,34 @@ import type {
 } from "../types/material";
 import { materialService } from "../services/material.service";
 
+/**
+ * Map lỗi theo field name
+ */
 interface FormErrors {
   [key: string]: string;
 }
 
+/**
+ * Interface trả về từ useMaterialForm hook
+ */
 interface UseMaterialFormReturn {
-  formData: CreateMaterialRequest;
-  errors: FormErrors;
-  loading: boolean;
-  error: Error | null;
-  success: boolean;
-  setFormData: (data: Partial<CreateMaterialRequest>) => void;
-  setFieldValue: (
-    field: keyof CreateMaterialRequest,
-    value: string | MaterialType,
-  ) => void;
-  resetForm: () => void;
-  submit: () => Promise<Material | null>;
-  submitUpdate: (id: string) => Promise<Material | null>;
-  validateForm: () => boolean;
-  clearSuccess: () => void;
+  formData: CreateMaterialRequest;      // Dữ liệu form hiện tại
+  errors: FormErrors;                   // Lỗi validation theo field
+  loading: boolean;                     // Đang xử lý
+  error: Error | null;                  // Lỗi API
+  success: boolean;                     // Thành công
+  setFormData: (data: Partial<CreateMaterialRequest>) => void; // Đặt dữ liệu form
+  setFieldValue: (field: keyof CreateMaterialRequest, value: string | MaterialType) => void; // Đặt giá trị 1 field
+  resetForm: () => void;                // Reset form về trạng thái ban đầu
+  submit: () => Promise<Material | null>;    // Tạo nguyên liệu mới
+  submitUpdate: (id: string) => Promise<Material | null>; // Cập nhật nguyên liệu
+  validateForm: () => boolean;          // Validate form, trả true nếu hợp lệ
+  clearSuccess: () => void;             // Xóa trạng thái success
 }
 
+/**
+ * Dữ liệu form ban đầu
+ */
 const initialFormData: CreateMaterialRequest = {
   material_id: "",
   part_number: "",
@@ -44,6 +52,10 @@ const initialFormData: CreateMaterialRequest = {
   specification_document: "",
 };
 
+/**
+ * Validate form data
+ * @returns Map lỗi theo field name (rỗng nếu hợp lệ)
+ */
 const validateForm = (data: CreateMaterialRequest): FormErrors => {
   const errors: FormErrors = {};
 

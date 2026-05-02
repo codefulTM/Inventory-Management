@@ -1,3 +1,23 @@
+/**
+ * File: user.service.ts
+ * Mô tả: Service xử lý business logic liên quan đến quản lý user.
+ *
+ * Chức năng chính:
+ * - Tạo user mới (bởi Manager/IT Admin hoặc tự đăng ký)
+ * - Đọc thông tin user (tìm kiếm, lọc theo role, phân trang)
+ * - Cập nhật thông tin user (đồng bộ với Keycloak)
+ * - Khóa/Mở khóa tài khoản (đồng bộ với Keycloak)
+ * - Đặt lại mật khẩu user
+ * - Xóa user (xóa cả trong Keycloak và MongoDB)
+ * - Thống kê số lượng user
+ *
+ * Luồng tạo user bởi Admin:
+ * 1. Validate username/email không trùng (MongoDB)
+ * 2. Tạo user trong Keycloak (nếu khả dụng)
+ * 3. Lưu thông tin vào MongoDB
+ * 4. Gửi email thông báo tài khoản (kèm mật khẩu tạm)
+ * 5. Ghi audit log USER_CREATED
+ */
 import {
   Injectable,
   Logger,

@@ -1,6 +1,11 @@
+// File: services/aiAgent.service.ts
+// Service gọi AI Agent API để định tuyến câu hỏi của người dùng
+// Xử lý chuẩn hóa query và action trước khi gửi đến backend
+
 import { apiClient } from "./apiClient";
 import type { AgentRouteResult, RouteAgentRequest } from "../types/aiAgent";
 
+// Chuẩn hóa payload: loại bỏ dấu tiếng Việt, trim khoảng trắng
 function sanitizeRoutePayload(payload: RouteAgentRequest): RouteAgentRequest {
   const normalizedQuery = (payload.query || "").normalize("NFC").trim();
   const normalizedAction = payload.action?.normalize("NFC").trim();
@@ -12,6 +17,8 @@ function sanitizeRoutePayload(payload: RouteAgentRequest): RouteAgentRequest {
   };
 }
 
+// Gửi yêu cầu đến AI Agent để định tuyến câu hỏi
+// Trả về intent, kết quả và thông tin chi tiết từ AI
 export async function routeAgent(
   payload: RouteAgentRequest,
 ): Promise<AgentRouteResult> {

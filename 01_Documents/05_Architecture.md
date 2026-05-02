@@ -37,17 +37,18 @@ Hệ thống sử dụng mô hình nhiều service, với `api-gateway` làm ent
 
 ### 2.3 Mô hình dữ liệu phân tầng (OLTP + Read Model)
 
-- **OLTP**: MongoDB cho dữ liệu nghiệp vụ giao dịch.
-- **Read model analytics**: Elasticsearch cho truy vấn báo cáo.
-- **Đồng bộ**: analytics-indexer-service chạy scheduler, dùng Redis lưu watermark đồng bộ.
+Tách biệt hai luồng dữ liệu: ghi (OLTP) và đọc (Analytics).
+
+- OLTP (MongoDB): Lưu dữ liệu gốc, tối ưu cho giao dịch nhanh (thêm/sửa/xóa).
+- Read Model (Elasticsearch): Lưu bản sao đã được tối ưu hóa để tìm kiếm và lập báo cáo phức tạp.
+- Đồng bộ: analytics-indexer-service định kỳ quét dữ liệu mới từ MongoDB (dựa vào watermark trong Redis) để đẩy sang Elasticsearch.
 
 ### 2.4 Mô hình giao tiếp
 
-- HTTP/REST: frontend <-> gateway, gateway -> inventory-management-service và ai-service (proxy).
-- gRPC nội bộ:
-  - gateway <-> keycloak-service (auth proto)
-  - gateway <-> metrics-service (metrics proto)
-  - ai-service <-> inventory-management-service (inventory proto, AiDataService)
+Quy định cách các dịch vụ nói chuyện với nhau.
+
+- HTTP/REST: Dùng cho giao tiếp bên ngoài (Frontend) và các proxy đơn giản vì tính phổ biến, dễ debug.
+- gRPC: Dùng cho giao tiếp nội bộ giữa các microservices (Gateway -> Keycloak/Metrics) vì nhanh hơn (binary protocol), có schema rõ ràng (.proto) và hỗ trợ streaming.
 
 ---
 
@@ -192,7 +193,7 @@ MET --> ES : query reports
 
 ## 3.3 Process View (góc nhìn luồng xử lý)
 
-## Process A - Inbound + QC decision 
+## Process A - Inbound + QC decision
 
 ### PlantUML - Sequence Inbound/QC
 
@@ -437,31 +438,31 @@ GW --> FE : JSON report
 ### Diễn giải chi tiết theo service
 
 1. `api-gateway`
-Lớp biên HTTP duy nhất cho frontend, chạy guard JWT + role guard toàn cục, proxy request sang backend/ai-service, đồng thời gọi gRPC sang keycloak-service và metrics-service.
+   Lớp biên HTTP duy nhất cho frontend, chạy guard JWT + role guard toàn cục, proxy request sang backend/ai-service, đồng thời gọi gRPC sang keycloak-service và metrics-service.
 
 2. `inventory-management-service`
-Service nghiệp vụ lõi, chứa đầy đủ module domain kho và QC. Service này chạy dạng hybrid: HTTP REST cho nghiệp vụ chính và gRPC để cung cấp dữ liệu cho AI.
+   Service nghiệp vụ lõi, chứa đầy đủ module domain kho và QC. Service này chạy dạng hybrid: HTTP REST cho nghiệp vụ chính và gRPC để cung cấp dữ liệu cho AI.
 
 3. `keycloak-service`
-Service định danh/tài khoản, bridge giữa hệ IMS và Keycloak IdP, hỗ trợ login/refresh/logout/forgot-reset password qua cả HTTP và gRPC.
+   Dịch vụ trung gian quản lý xác thực. Service này thay mặt hệ thống kho (IMS) làm việc với Keycloak (nơi quản lý tài khoản tập trung), giúp thực hiện các tác vụ như đăng nhập, đăng xuất, gia hạn phiên hay quên mật khẩu. Service này hỗ trợ tiếp nhận yêu cầu từ cả phía Web (HTTP) và các dịch vụ nội bộ (gRPC).
 
 4. `metrics-service`
-Service báo cáo tách biệt, chỉ expose gRPC; truy vấn dữ liệu đã index trong Elasticsearch để trả các báo cáo inventory, QC, audit.
+   Service báo cáo tách biệt, chỉ expose gRPC; truy vấn dữ liệu đã index trong Elasticsearch để trả các báo cáo inventory, QC, audit.
 
 5. `analytics-indexer-service`
-Worker nền không mở HTTP port, chạy scheduler đồng bộ dữ liệu từ MongoDB sang Elasticsearch và dùng Redis để lưu watermark đồng bộ.
+   Worker nền không mở HTTP port, chạy scheduler đồng bộ dữ liệu từ MongoDB sang Elasticsearch và dùng Redis để lưu watermark đồng bộ.
 
 6. `ai-service`
-Service AI gồm 2 nhánh: endpoint AI thông thường và AI agents. Dữ liệu nghiệp vụ được lấy qua gRPC client từ `inventory-management-service`.
+   Service AI gồm 2 nhánh: endpoint AI thông thường và AI agents. Dữ liệu nghiệp vụ được lấy qua gRPC client từ `inventory-management-service`.
 
 7. `inventory-management-web-app`
-Frontend React/Vite tổ chức theo role pages (`admin`, `manager`, `operator`, `qc`) và route guard phía client để điều hướng theo quyền.
+   Frontend React/Vite tổ chức theo role pages (`admin`, `manager`, `operator`, `qc`) và route guard phía client để điều hướng theo quyền.
 
 8. Thành phần hạ tầng dùng chung
-`docker-compose.yml` điều phối toàn bộ stack local; `proto/` định nghĩa contract gRPC liên service; `database/` chứa script seed MongoDB và realm export cho Keycloak.
+   `docker-compose.yml` điều phối toàn bộ stack local; `proto/` định nghĩa contract gRPC liên service; `database/` chứa script seed MongoDB và realm export cho Keycloak.
 
 9. Ghi chú tương thích
-Trong repository vẫn còn các thư mục `backend/` và `frontend/`, nhưng luồng triển khai chính hiện tại sử dụng `inventory-management-service/` và `inventory-management-web-app/`.
+   Trong repository vẫn còn các thư mục `backend/` và `frontend/`, nhưng luồng triển khai chính hiện tại sử dụng `inventory-management-service/` và `inventory-management-web-app/`.
 
 ### PlantUML - Module Dependency (simplified)
 
@@ -505,6 +506,98 @@ skinparam componentStyle rectangle
 - `inventoryauditreports`
 - `users`
 - `auditlogs`
+
+### Diễn giải chi tiết sơ đồ ER
+
+Sơ đồ ER dưới đây thể hiện mô hình **quản lý kho theo lô (Lot-centric inventory)**, trong đó `InventoryLot` đóng vai trò trung tâm kết nối các nghiệp vụ nhập/xuất, kiểm định chất lượng và sản xuất.
+
+#### 1. Các thực thể (Entity) và thuộc tính
+
+| Bảng | Ý nghĩa nghiệp vụ |
+|------|-------------------|
+| **Material** | Danh mục nguyên vật liệu (thuốc thành phẩm, hoạt chất, tá dược, bao bì...) |
+| **InventoryLot** | Lô hàng tồn kho — đại diện cho từng lô vật lý có số lượng và hạn sử dụng riêng |
+| **InventoryTransaction** | Giao dịch kho — phiếu nhập (IN), xuất (OUT) hoặc điều chỉnh (ADJUSTMENT) |
+| **QCTest** | Kiểm tra chất lượng (QC) — gắn với từng lô để ra quyết định pass/fail/pending |
+| **ProductionBatch** | Lô sản xuất — đại diện cho một đợt sản xuất cụ thể |
+| **BatchComponent** | Thành phần/định mức nguyên liệu của lô sản xuất — liên kết lô sản xuất với lô nguyên liệu tiêu thụ |
+
+**Material (Nguyên vật liệu)**
+- `id` (`ObjectId`): Khóa chính duy nhất.
+- `material_code`: Mã định danh nguyên vật liệu (ví dụ: `PARA-001`).
+- `name`: Tên nguyên vật liệu (ví dụ: Paracetamol).
+- `type`: Phân loại (API, Excipient, Packaging...).
+- `status`: Trạng thái hoạt động (`active`/`inactive`).
+
+**InventoryLot (Lô tồn kho)**
+- `id` (`ObjectId`): Khóa chính.
+- `lot_number`: Số lô vật lý (ví dụ: `LOT-2024-001`).
+- `quantity`: Số lượng tồn kho hiện tại của lô.
+- `status`: Trạng thái lô (`available`, `quarantine`, `expired`...).
+- `expiration_date`: Ngày hết hạn — dùng để áp dụng phương pháp FEFO/FIFO khi xuất kho.
+
+**InventoryTransaction (Giao dịch kho)**
+- `id` (`ObjectId`): Khóa chính.
+- `type`: Loại giao dịch (`IN` — nhập, `OUT` — xuất, `ADJUSTMENT` — điều chỉnh).
+- `quantity`: Số lượng giao dịch.
+- `transaction_date`: Thời điểm xảy ra giao dịch.
+
+**QCTest (Kiểm tra chất lượng)**
+- `id` (`ObjectId`): Khóa chính.
+- `test_type`: Loại kiểm tra (độ ẩm, độ tinh khiết, vi sinh...).
+- `status`: Kết quả kiểm tra (`pass`, `fail`, `pending`).
+- `tested_at`: Thời điểm thực hiện kiểm tra.
+
+**ProductionBatch (Lô sản xuất)**
+- `id` (`ObjectId`): Khóa chính.
+- `batch_number`: Số lô sản xuất.
+- `status`: Trạng thái (`planned`, `in_progress`, `completed`...).
+
+**BatchComponent (Thành phần lô)**
+- `id` (`ObjectId`): Khóa chính.
+- `planned_qty`: Số lượng nguyên liệu **dự kiến** dùng (định mức).
+- `actual_qty`: Số lượng nguyên liệu **thực tế** dùng (có thể chênh lệch so với định mức).
+
+#### 2. Mối quan hệ (Relationships)
+
+**Material → InventoryLot (1 : N)**
+- **Ý nghĩa:** Một nguyên vật liệu có thể có nhiều lô hàng tồn kho (nhập về nhiều đợt khác nhau).
+- **Khóa ngoại:** `material_id` nằm trong `InventoryLot`.
+- **Ví dụ:** Paracetamol có thể có lô nhập tháng 1, tháng 2, tháng 3... mỗi lô có số lượng và hạn sử dụng riêng.
+
+**InventoryLot → InventoryTransaction (1 : N)**
+- **Ý nghĩa:** Một lô hàng có thể có nhiều giao dịch nhập/xuất trong suốt vòng đời.
+- **Khóa ngoại:** `lot_id` nằm trong `InventoryTransaction`.
+- **Ví dụ:** Lô thuốc A được nhập 1.000 viên, sau đó xuất 200 viên, rồi xuất tiếp 300 viên... mỗi lần xuất/nhập đều sinh một `InventoryTransaction`.
+
+**InventoryLot → QCTest (1 : N)**
+- **Ý nghĩa:** Một lô hàng có thể được kiểm tra chất lượng nhiều lần (mỗi lần một loại test khác nhau).
+- **Khóa ngoại:** `lot_id` nằm trong `QCTest`.
+- **Ví dụ:** Một lô có thể test độ ẩm lần 1, test vi sinh lần 2, test độ hòa tan lần 3...
+
+**InventoryLot → ProductionBatch (1 : N)**
+- **Ý nghĩa:** Một lô nguyên liệu có thể được cấp phát cho nhiều lô sản xuất khác nhau.
+- **Khóa ngoại:** `lot_id` nằm trong `ProductionBatch`.
+- **Ví dụ:** Lô Paracetamol 1.000 kg có thể chia cho lô sản xuất thuốc A (dùng 300 kg) và lô sản xuất thuốc B (dùng 500 kg).
+
+**ProductionBatch → BatchComponent (1 : N)**
+- **Ý nghĩa:** Một lô sản xuất cần nhiều thành phần/nguyên liệu khác nhau.
+- **Khóa ngoại:** `batch_id` nằm trong `BatchComponent`.
+- **Ví dụ:** Lô sản xuất thuốc hạ sốt cần Paracetamol (thành phần 1), Tá dược A (thành phần 2), Tá dược B (thành phần 3)...
+
+**InventoryLot → BatchComponent (1 : N)**
+- **Ý nghĩa:** Một lô nguyên liệu cụ thể có thể được dùng trong nhiều thành phần của các lô sản xuất khác nhau.
+- **Khóa ngoại:** `lot_id` nằm trong `BatchComponent`.
+- **Ví dụ:** Lô Paracetamol `LOT-2024-001` có thể là nguyên liệu cho cả `BatchComponent` của lô sản xuất thuốc A và thuốc B.
+
+#### 3. Luồng nghiệp vụ dữ liệu tổng thể
+
+1. **Nhập kho:** Tạo `Material` (nếu chưa có) → Tạo `InventoryLot` (gán `material_id`) → Tạo `InventoryTransaction` (`type = IN`).
+2. **Kiểm định:** Tạo `QCTest` cho `InventoryLot` → Nếu `status = pass` thì lô chuyển sang `available`; nếu `fail` thì chuyển `quarantine` hoặc `rejected`.
+3. **Lên kế hoạch sản xuất:** Tạo `ProductionBatch` → Tạo các `BatchComponent` (gán `batch_id`) để liệt kê nguyên liệu cần dùng với `planned_qty`.
+4. **Xuất kho sản xuất:** Khi thực hiện sản xuất, tạo `InventoryTransaction` (`type = OUT`) cho các `InventoryLot` được cấp phát, đồng thời cập nhật `actual_qty` vào `BatchComponent` để theo dõi định mức so với thực tế.
+
+> **Lưu ý thiết kế:** Mọi giao dịch kho đều gắn với `InventoryLot` thay vì gắn trực tiếp với `Material`. Điều này đảm bảo truy xuất nguồn gốc (traceability) theo từng lô và hỗ trợ quản lý hạn sử dụng chặt chẽ.
 
 ### PlantUML - ER Overview
 
@@ -575,7 +668,7 @@ Lot ||--o{ BC : lot_id
 
 ## 3.6 Deployment View (góc nhìn triển khai)
 
-### Môi trường local/dev 
+### Môi trường local/dev
 
 Triển khai bằng Docker Compose với bridge network `inventory_net`, các cổng chính:
 
@@ -714,13 +807,16 @@ JEN --> BE : deploy pipeline
 ```
 
 ---
+
 ### 🌐 Hosted Environment Information
-* **Hosted frontend url:** `https://inventory-system.cloud/`
-* **API Gateway url:** `https://api.inventory-system.cloud/`
-* **Keycloak (SSO/Auth) url:** `https://keycloak.inventory-system.cloud`
-* **Grafana:** `https://grafana.inventory-system.cloud`
-* **Jenkins CI/CD:** `https://jenkins.inventory-system.cloud`
-* **Kibana:** `https://kibana.inventory-system.cloud/`
+
+- **Hosted frontend url:** `https://inventory-system.cloud/`
+- **API Gateway url:** `https://api.inventory-system.cloud/`
+- **Keycloak (SSO/Auth) url:** `https://keycloak.inventory-system.cloud`
+- **Grafana:** `https://grafana.inventory-system.cloud`
+- **Jenkins CI/CD:** `https://jenkins.inventory-system.cloud`
+- **Kibana:** `https://kibana.inventory-system.cloud/`
+
 ---
 
 ## 3.7 CI/CD View (góc nhìn pipeline vận hành)
@@ -730,23 +826,38 @@ Hệ thống hiện dùng Jenkins Pipeline (declarative) với các stage chuẩ
 ### Luồng CI/CD hiện tại (theo Jenkinsfile)
 
 1. **Prepare ENV**
-  - Copy file `.env` từ đường dẫn chuẩn trên Jenkins host vào gói deploy.
+
+- Copy file `.env` từ đường dẫn chuẩn trên Jenkins host vào gói deploy.
+
 2. **Unit Test**
-  - Chạy trong container `node:20-alpine`.
-  - Thực thi test unit cho `inventory-management-service` (`src/unit-test`).
+
+- Chạy trong container `node:20-alpine`.
+- Thực thi test unit cho `inventory-management-service` (`src/unit-test`).
+
 3. **Integration Test**
-  - Chạy trong container `node:20`.
-  - Thực thi test tích hợp (loại trừ unit test).
+
+- Chạy trong container `node:20`.
+- Thực thi test tích hợp (loại trừ unit test).
+
 4. **Stop Old Containers**
-  - Dừng stack cũ qua `docker compose --env-file .env down`.
+
+- Dừng stack cũ qua `docker compose --env-file .env down`.
+
 5. **Build**
-  - Build image/services bằng `docker compose --env-file .env build`.
+
+- Build image/services bằng `docker compose --env-file .env build`.
+
 6. **Deploy**
-  - Khởi chạy stack mới bằng `docker compose --env-file .env up -d`.
+
+- Khởi chạy stack mới bằng `docker compose --env-file .env up -d`.
+
 7. **E2E Test**
-  - Chạy test end-to-end bằng Jest config `test/jest-e2e.json`.
+
+- Chạy test end-to-end bằng Jest config `test/jest-e2e.json`.
+
 8. **Post-failure rollback**
-  - Nếu pipeline fail, Jenkins thực hiện `down` rồi `up -d` để khôi phục trạng thái chạy gần nhất.
+
+- Nếu pipeline fail, Jenkins thực hiện `down` rồi `up -d` để khôi phục trạng thái chạy gần nhất.
 
 ### Đặc điểm kiến trúc CI/CD
 
@@ -756,6 +867,7 @@ Hệ thống hiện dùng Jenkins Pipeline (declarative) với các stage chuẩ
 - **Rollback strategy:** rollback mức hạ tầng container (compose-level), phù hợp môi trường hiện tại.
 
 ### PlantUML - CI/CD Pipeline Flow
+
 ![CI/CD pipeline](Images/Architecture/cicd.png)
 
 ```plantuml
@@ -809,10 +921,12 @@ Hệ thống giám sát hiện tại dùng stack Prometheus + Grafana, kết h�
 - **mongodb-exporter** (`9216`): metrics MongoDB.
 
 Stack observability chạy bằng compose tại:
+
 - `03_Deployment/01_Deployment_Package/observability/docker-compose-grafana.yml`
 - `03_Deployment/01_Deployment_Package/observability/prometheus.yml`
 
 Cấu hình provisioning và script tiện ích nằm tại:
+
 - `02_Source/01_Source Code/infra/monitoring/grafana/provisioning/datasources/prometheus.yml`
 - `02_Source/01_Source Code/infra/monitoring/scripts/import-dashboards.sh`
 - `02_Source/01_Source Code/infra/monitoring/scripts/check-grafana.sh`
@@ -820,6 +934,7 @@ Cấu hình provisioning và script tiện ích nằm tại:
 ### Monitoring scope (theo prometheus.yml)
 
 Prometheus đang scrape các nhóm target chính:
+
 - Hạ tầng host (`node-exporter`).
 - Runtime container (`cadvisor`).
 - MongoDB (`mongodb-exporter`).
@@ -833,6 +948,7 @@ Prometheus đang scrape các nhóm target chính:
 - Có script health-check để kiểm tra trạng thái Grafana/auth datasource/dashboard/targets.
 
 ### PlantUML - Monitoring Data Flow
+
 ![Monitoring](Images/Architecture/monitoring-view.png)
 
 ```plantuml
@@ -873,23 +989,23 @@ PROM --> GRA : datasource queries
 
 ## 4. Công nghệ và công cụ được lựa chọn
 
-| Nhóm | Công nghệ/Công cụ | Vai trò trong hệ thống |
-| :-- | :-- | :-- |
-| Frontend | React, TypeScript, Vite, React Router | UI theo role, điều hướng và gọi API |
-| API Layer | NestJS (api-gateway) | Entry HTTP, guard auth/role, reverse proxy, gRPC client |
-| Core Domain | NestJS (inventory-management-service) | Xử lý nghiệp vụ kho, QC, batch, audit |
-| Auth Service | NestJS (keycloak-service) + Keycloak | Đăng nhập, token lifecycle, quản trị user/role |
-| AI Service | NestJS (ai-service) | AI endpoints + agents, đọc dữ liệu nội bộ qua gRPC |
-| Reporting | metrics-service (NestJS + gRPC) | Truy vấn dữ liệu báo cáo từ Elasticsearch |
-| Analytics ETL | analytics-indexer-service (NestJS worker) | Đồng bộ MongoDB -> Elasticsearch theo lịch |
-| OLTP Database | MongoDB | Lưu dữ liệu nghiệp vụ chính |
-| Cache/State | Redis | Lưu watermark đồng bộ cho indexer |
-| Search/Analytics | Elasticsearch | Read model cho báo cáo và phân tích |
-| Monitoring | Prometheus, Grafana, node-exporter, cAdvisor, mongodb-exporter | Thu thập metrics hạ tầng + ứng dụng, cảnh báo và trực quan hóa |
-| Logging/Observability | ELK Stack (Elasticsearch, Logstash, Kibana) | Thu thập, lưu trữ và truy vấn log phục vụ audit/vận hành |
-| Service Communication | HTTP/REST, gRPC | Giao tiếp giữa các lớp/services |
-| Containerization | Docker, Docker Compose | Đóng gói và chạy toàn bộ stack local |
-| CI | Jenkinsfile | Pipeline CI/CD (theo repo) |
+| Nhóm                  | Công nghệ/Công cụ                                              | Vai trò trong hệ thống                                         |
+| :-------------------- | :------------------------------------------------------------- | :------------------------------------------------------------- |
+| Frontend              | React, TypeScript, Vite, React Router                          | UI theo role, điều hướng và gọi API                            |
+| API Layer             | NestJS (api-gateway)                                           | Entry HTTP, guard auth/role, reverse proxy, gRPC client        |
+| Core Domain           | NestJS (inventory-management-service)                          | Xử lý nghiệp vụ kho, QC, batch, audit                          |
+| Auth Service          | NestJS (keycloak-service) + Keycloak                           | Đăng nhập, token lifecycle, quản trị user/role                 |
+| AI Service            | NestJS (ai-service)                                            | AI endpoints + agents, đọc dữ liệu nội bộ qua gRPC             |
+| Reporting             | metrics-service (NestJS + gRPC)                                | Truy vấn dữ liệu báo cáo từ Elasticsearch                      |
+| Analytics ETL         | analytics-indexer-service (NestJS worker)                      | Đồng bộ MongoDB -> Elasticsearch theo lịch                     |
+| OLTP Database         | MongoDB                                                        | Lưu dữ liệu nghiệp vụ chính                                    |
+| Cache/State           | Redis                                                          | Lưu watermark đồng bộ cho indexer                              |
+| Search/Analytics      | Elasticsearch                                                  | Read model cho báo cáo và phân tích                            |
+| Monitoring            | Prometheus, Grafana, node-exporter, cAdvisor, mongodb-exporter | Thu thập metrics hạ tầng + ứng dụng, cảnh báo và trực quan hóa |
+| Logging/Observability | ELK Stack (Elasticsearch, Logstash, Kibana)                    | Thu thập, lưu trữ và truy vấn log phục vụ audit/vận hành       |
+| Service Communication | HTTP/REST, gRPC                                                | Giao tiếp giữa các lớp/services                                |
+| Containerization      | Docker, Docker Compose                                         | Đóng gói và chạy toàn bộ stack local                           |
+| CI                    | Jenkinsfile                                                    | Pipeline CI/CD (theo repo)                                     |
 
 ---
 
@@ -897,107 +1013,43 @@ PROM --> GRA : datasource queries
 
 Hệ thống Inventory Management System (IMS) sử dụng **Keycloak** làm nền tảng quản trị định danh và truy cập (IAM) tập trung, tuân thủ các tiêu chuẩn bảo mật **OpenID Connect (OIDC)** và **OAuth 2.0**.
 
-### 5.1 Thành phần bảo mật (Components)
+### 5.1 Các thành phần bảo mật (Security Components)
 
-#### 5.1.1 Keycloak Identity Provider (IdP)
+Hệ thống sử dụng **Keycloak** làm trung tâm quản lý tài khoản (Identity Provider), tuân thủ chuẩn **OpenID Connect (OIDC)** và **OAuth 2.0**.
 
-- **Vai trò:** Quản lý tập trung Realm, Clients, Roles và Users. Lưu trữ thông tin định danh và thực hiện cấp phát Token.
-- **Technology Stack:**
-  - Keycloak v23+ (Latest LTS)
-  - Quarkus runtime
-  - PostgreSQL Database (cho Keycloak production) hoặc H2 (development)
-  - Java 17+ JRE
-- **Container:** `quay.io/keycloak/keycloak:23.0`
-- **Deployment:**
-  - Development: Docker Compose (port 8080)
-  - Production: Kubernetes StatefulSet với 2+ replicas
-- **Access Points:**
+#### 5.1.1 Keycloak (Identity Provider)
+- **Vai trò:** Quản lý tập trung User, Roles và cấp phát Token (JWT).
+- **Truy cập:**
   - Admin Console: `https://keycloak.inventory-system.cloud/admin`
-  - Realm Endpoint: `https://keycloak.inventory-system.cloud/realms/inventory-management`
   - Token Endpoint: `https://keycloak.inventory-system.cloud/realms/inventory-management/protocol/openid-connect/token`
   - JWKS Endpoint: `https://keycloak.inventory-system.cloud/realms/inventory-management/protocol/openid-connect/certs`
 
-#### 5.1.2 React Frontend (Client Application)
+#### 5.1.2 React Frontend (Giao diện người dùng)
+- **Vai trò:** Đưa người dùng đến trang đăng nhập của Keycloak và lưu lại Token (Access/Refresh) sau khi đăng nhập.
+- **Cấu hình:** Dùng `@react-keycloak/web` để tự động gắn Bearer Token vào các request gọi về Backend.
 
-- **Vai trò:** Chịu trách nhiệm chuyển hướng đăng nhập, quản lý Access Token và Refresh Token trong phiên làm việc của người dùng.
-- **Technology Stack:**
-  - `@react-keycloak/web` v3.4+ hoặc `keycloak-js` v23+
-  - React 18+, TypeScript
-  - Axios Interceptor (tự động gắn Bearer token)
-  - LocalStorage/SessionStorage (lưu trữ token tạm thời)
-- **Client Configuration:**
-  - Client ID: `inventory-management-frontend`
-  - Client Type: Public
-  - Valid Redirect URIs: `http://localhost:5173/*`, `https://inventory-system.cloud/*`
-  - Web Origins: `http://localhost:5173`, `https://inventory-system.cloud`
-  - PKCE: Enabled (S256)
-- **Access Flow:** Authorization Code Flow with PKCE
+#### 5.1.3 NestJS Backend (Máy chủ xử lý)
+- **Vai trò:** Kiểm tra chữ ký JWT từ Keycloak và thực thi phân quyền (Roles) tại các API.
+- **Cơ chế:** Dùng `nest-keycloak-connect` và Redis để cache thông tin xác thực, giúp kiểm tra nhanh chóng.
 
-#### 5.1.3 NestJS Backend (Resource Server)
+---
 
-- **Vai trò:** Xác thực chữ ký JWT từ Keycloak và thực thi phân quyền ở mức API (Method-level Security).
-- **Technology Stack:**
-  - `nest-keycloak-connect` v1.10+
-  - `@nestjs/passport` + `passport-jwt`
-  - NestJS Guards (AuthGuard, RoleGuard, ResourceGuard)
-  - Redis Cache (lưu JWKS và Blacklist tokens)
-- **Client Configuration:**
-  - Client ID: `inventory-management-backend`
-  - Client Type: Confidential
-  - Service Account Enabled: Yes
-  - Client Authenticator: Client Secret
-- **Validation:**
-  - JWT Signature Verification (RS256 algorithm)
-  - Token Expiration Check
-  - Issuer Validation
-  - Audience Validation
-- **Access Points:**
-  - Protected APIs: `https://api.inventory-system.cloud/api/*`
-  - Health Check: `https://api.inventory-system.cloud/health` (public)
-  - Swagger UI: `https://api.inventory-system.cloud/api/docs` (authenticated)
+### 5.2 Ghi log và Audit Trail (Logging & Audit)
 
-### 5.2 Logging và Audit Trail
+Hệ thống ghi lại lịch sử hoạt động để phục vụ kiểm tra an ninh và vận hành.
 
-#### 5.2.1 Keycloak Event Logging
-
-- **Event Types:**
-  - Login Events: LOGIN, LOGOUT, LOGIN_ERROR, REFRESH_TOKEN
-  - Admin Events: CREATE_USER, UPDATE_USER, DELETE_ROLE, GRANT_CONSENT
-- **Storage:**
-  - Development: Keycloak Database (7 days retention)
-  - Production: Forward to ELK Stack via Filebeat
-- **Log Format:** JSON structured logs
-- **Access:** Admin Console -> Events -> Login Events / Admin Events
+#### 5.2.1 Log sự kiện Keycloak
+- **Ghi nhận:** Đăng nhập (LOGIN), Đăng xuất (LOGOUT), Tạo user (CREATE_USER)...
+- **Lưu trữ:** Database Keycloak (Local) hoặc đẩy về ELK Stack (Production).
 
 #### 5.2.2 Backend Audit Logs
+- **Ghi nhận:** *Ai* (User), *Làm gì* (API Path), *Khi nào* (Timestamp), *Từ đâu* (IP Address).
+- **Lưu trữ:** File log cục bộ (Dev) hoặc Elasticsearch (Prod) để tìm kiếm qua Kibana.
+- **Thời gian lưu:** 90 ngày (yêu cầu tuân thủ).
 
-- **Captured Information:**
-  - Timestamp (ISO 8601)
-  - User ID & Username (từ JWT claims)
-  - HTTP Method & Path
-  - Request Payload (sanitized, exclude passwords)
-  - Response Status Code
-  - IP Address & User Agent
-  - Session ID
-- **Implementation:** NestJS Interceptor + Winston Logger
-- **Storage:**
-  - File: `logs/audit-{date}.log` (local development)
-  - ELK: Elasticsearch Index `audit-logs-*` (production)
-- **Retention:** 90 days (compliance requirement)
-- **Query Access:** Kibana Dashboard (IT Administrator role only)
-
-#### 5.2.3 Security Event Monitoring
-
-- **Critical Events:**
-  - Multiple failed login attempts (> 5 in 5 minutes)
-  - Privilege escalation attempts
-  - Access to Quarantine/Rejected lots
-  - Session termination by Manager
-  - Backup/Restore operations
-- **Alerting:**
-  - Slack/Email notifications for critical events
-  - Prometheus AlertManager integration
-- **Dashboard:** Grafana Security Overview (realtime metrics)
+#### 5.2.3 Giám sát sự kiện an ninh
+- **Theo dõi:** Đăng nhập sai quá 5 lần, truy cập lô hàng Quarantine, thay đổi cấu hình hệ thống.
+- **Cảnh báo:** Gửi thông báo qua Slack/Email cho IT Admin khi có sự kiện nghiêm trọng.
 
 ### 5.3 Luồng xác thực & Ủy quyền
 
@@ -1050,10 +1102,10 @@ Hệ thống định nghĩa 4 vai trò chính với các quyền hạn đặc th
 
 | Vai trò (Role)       | Phạm vi quyền hạn (Permissions)                                                                                | Ghi chú nghiệp vụ      | Keycloak Roles            |
 | :------------------- | :------------------------------------------------------------------------------------------------------------- | :--------------------- | :------------------------ |
-| **Manager**          | Tra cứu tập trung, phê duyệt phiếu nhập/xuất, điều chỉnh tồn kho, quản lý người dùng và xem Dashboard.       | US01 - US15 (Manager)  | `manager`, `user`         |
+| **Manager**          | Tra cứu tập trung, phê duyệt phiếu nhập/xuất, điều chỉnh tồn kho, quản lý người dùng và xem Dashboard.         | US01 - US15 (Manager)  | `manager`, `user`         |
 | **Quality Control**  | Đánh giá lô hàng (QC), xử lý hàng Rejected, cách ly hàng hóa (Quarantine), truy xuất nguồn gốc (Traceability). | US01 - US06 (QC)       | `quality_control`, `user` |
-| **Operator**         | Tạo phiếu nhập/xuất điện tử, xác thực kiểm đếm thực tế (Blind count), thực hiện kiểm kê tại hiện trường.     | US01 - US05 (Operator) | `operator`, `user`        |
-| **IT Administrator** | Giám sát sức khỏe hệ thống, quản lý Log tập trung, thiết lập sao lưu và phục hồi dữ liệu (Restore).          | US01 - US06 (IT Admin) | `it_admin`, `user`        |
+| **Operator**         | Tạo phiếu nhập/xuất điện tử, xác thực kiểm đếm thực tế (Blind count), thực hiện kiểm kê tại hiện trường.       | US01 - US05 (Operator) | `operator`, `user`        |
+| **IT Administrator** | Giám sát sức khỏe hệ thống, quản lý Log tập trung, thiết lập sao lưu và phục hồi dữ liệu (Restore).            | US01 - US06 (IT Admin) | `it_admin`, `user`        |
 
 #### 5.4.1 Role Mapping Strategy
 

@@ -1,11 +1,18 @@
+// File: components/ui/Card.tsx
+// Component Card và các thành phần con (CardHeader, CardTitle, CardContent, CardFooter)
+// Dùng để tạo các khối nội dung có viền, bóng đổ, và tùy chọn hover effect
+// Hỗ trợ các mức padding khác nhau: none, sm, md, lg
+
 import type { ReactNode, HTMLAttributes } from 'react';
 
+// Props cho component Card chính
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
-  hover?: boolean;
-  padding?: 'none' | 'sm' | 'md' | 'lg';
+  hover?: boolean; // Có hiệu ứng hover không
+  padding?: 'none' | 'sm' | 'md' | 'lg'; // Mức độ padding
 }
 
+// Cấu hình padding
 const paddingStyles = {
   none: '',
   sm: 'p-4',
@@ -13,6 +20,7 @@ const paddingStyles = {
   lg: 'p-8',
 };
 
+// Component Card chính
 export function Card({
   children,
   hover = false,
@@ -36,6 +44,7 @@ export function Card({
   );
 }
 
+// Component CardHeader - Phần tiêu đề của Card, có thể chứa action button
 export function CardHeader({
   children,
   className = '',
@@ -43,7 +52,7 @@ export function CardHeader({
 }: {
   children: ReactNode;
   className?: string;
-  action?: ReactNode;
+  action?: ReactNode; // Nút hành động (ví dụ: nút Add, Filter)
 }) {
   return (
     <div className={`flex items-center justify-between mb-4 ${className}`}>
@@ -53,6 +62,7 @@ export function CardHeader({
   );
 }
 
+// Component CardTitle - Tiêu đề đơn giản
 export function CardTitle({
   children,
   className = '',
@@ -67,6 +77,7 @@ export function CardTitle({
   );
 }
 
+// Component CardContent - Phần nội dung chính của Card
 export function CardContent({
   children,
   className = '',
@@ -77,6 +88,7 @@ export function CardContent({
   return <div className={className}>{children}</div>;
 }
 
+// Component CardFooter - Phần chân của Card, thường chứa các nút hành động
 export function CardFooter({
   children,
   className = '',

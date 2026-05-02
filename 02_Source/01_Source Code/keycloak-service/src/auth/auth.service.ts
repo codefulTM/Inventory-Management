@@ -1,3 +1,23 @@
+/**
+ * File: auth.service.ts
+ * Mô tả: Service xử lý logic nghiệp vụ xác thực (Authentication & Authorization).
+ *
+ * Chức năng chính:
+ * - Đăng nhập: Xác thực qua Keycloak, đồng bộ user với MongoDB local
+ * - Đăng xuất: Thu hồi refresh_token tại Keycloak, ghi audit log
+ * - Làm mới token: Sử dụng refresh_token để lấy access_token mới
+ * - Đăng ký: Tự đăng ký tài khoản (chỉ role Operator)
+ * - Quên mật khẩu: Tạo token đặt lại, gửi email, xử lý đặt lại mật khẩu
+ * - Lấy thông tin user: Trả về thông tin từ MongoDB dựa trên keycloak_id
+ *
+ * Luồng đăng nhập:
+ * 1. Kiểm tra trạng thái user trong MongoDB (bị khóa hay không)
+ * 2. Xác thực credentials qua Keycloak (loginUser)
+ * 3. Tìm hoặc tạo user trong MongoDB local
+ * 4. Cập nhật last_login
+ * 5. Ghi audit log LOGIN_SUCCESS
+ * 6. Trả về tokens + thông tin user
+ */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
@@ -43,6 +63,8 @@ export class AuthService {
 
   /**
    * Đăng nhập: xác thực qua Keycloak, cập nhật last_login trong MongoDB.
+   * @param dto - Thông tin đăng nhập (username, password)
+   * @param ctx - Thông tin ngữ cảnh (IP, User Agent) để ghi audit log
    */
   async login(dto: LoginDto, ctx: LogContext = {}) {
     try {
@@ -166,7 +188,8 @@ export class AuthService {
   }
 
   /**
-   * Refresh token
+   * Refresh token - Làm mới access_token bằng refresh_token
+   * @param refreshToken - Refresh token từ client
    */
   async refreshToken(refreshToken: string) {
     const tokenSet = await this.keycloakService.refreshToken(refreshToken);
@@ -179,7 +202,11 @@ export class AuthService {
   }
 
   /**
-   * Logout — revoke token tại Keycloak
+   * Logout — thu hồi token tại Keycloak và ghi audit log
+   * @param refreshToken - Refresh token cần thu hồi
+   * @param username - Tên đăng nhập (để ghi log)
+   * @param userId - ID user (để ghi log)
+   * @param ctx - Thông tin ngữ cảnh
    */
   async logout(
     refreshToken: string,
@@ -288,6 +315,8 @@ export class AuthService {
 
   /**
    * Gửi link đặt lại mật khẩu về email
+   * @param email - Email của user yêu cầu đặt lại mật khẩu
+   * @param ctx - Thông tin ngữ cảnh
    */
   async forgotPassword(email: string, ctx: LogContext = {}): Promise<{ message: string }> {
     const user = await this.userService.findByEmail(email);
@@ -323,6 +352,9 @@ export class AuthService {
 
   /**
    * Đặt lại mật khẩu bằng token
+   * @param token - Token đặt lại mật khẩu
+   * @param newPassword - Mật khẩu mới
+   * @param ctx - Thông tin ngữ cảnh
    */
   async resetPassword(token: string, newPassword: string, ctx: LogContext = {}): Promise<{ message: string }> {
     const record = await this.resetTokenModel.findOne({ token });

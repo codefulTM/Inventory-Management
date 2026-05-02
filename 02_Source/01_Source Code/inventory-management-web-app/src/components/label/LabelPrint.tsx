@@ -1,7 +1,7 @@
-/**
- * LabelPrint component
- * Generate and print a label by populating a template with lot/batch data.
- */
+// File: components/label/LabelPrint.tsx
+// Component in nhãn từ mẫu (Label Template) với dữ liệu từ Lot hoặc Batch
+// Cho phép chọn mẫu, chọn Lot/Batch, sinh nội dung và in trực tiếp
+// Hỗ trợ xem trước (preview), sao chép nội dung, và in ra máy in
 
 import React, { useState, useEffect } from "react";
 import { Printer, X, RefreshCw, Tag, Copy } from "lucide-react";
@@ -12,12 +12,11 @@ import { fetchInventoryLotOptions } from "../../services/inventoryLotService";
 import { fetchProductionBatches } from "../../services/productionBatchService";
 import SelectMenu, { type SelectItem } from "../SelectMenu";
 
+// Props cho component LabelPrint
 interface LabelPrintProps {
-  /** Pre-selected template (optional; user can pick from select) */
-  initialTemplate?: LabelTemplate;
-  /** Available templates for the select dropdown */
-  templates: LabelTemplate[];
-  onClose: () => void;
+  initialTemplate?: LabelTemplate;  // Mẫu nhãn được chọn sẵn (tùy chọn)
+  templates: LabelTemplate[];          // Danh sách các mẫu nhãn có sẵn
+  onClose: () => void;                 // Hàm đóng component
 }
 
 const LABEL_TYPE_COLORS: Record<LabelType, string> = {

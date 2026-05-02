@@ -1,3 +1,14 @@
+/**
+ * WarehouseHierarchy - Trang giám sát cây thư mục kho hàng dành cho Manager
+ * Chức năng: Hiển thị cấu trúc phân cấp kho (Kho -> Zone -> Rack -> Bin)
+ * Theo dõi lượng tồn kho theo từng vị trí với màu sắc cảnh báo:
+ * - Xanh lá: 0-50% công suất (Tốt)
+ * - Vàng: 50-70% (Chú ý)
+ * - Cam: 70-90% (Cảnh báo)
+ * - Đỏ: 90%+ (Nguy hiểm)
+ * Tự động làm mới mỗi 30 giây để cập nhật số liệu thực tế
+ * Manager có thể chỉnh sửa ghi chú cho từng vị trí kho
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
@@ -18,15 +29,16 @@ import TreeItem from '@mui/lab/TreeItem';
 import EditIcon from '@mui/icons-material/Edit';
 import axios from 'axios';
 
+// Định nghĩa kiểu dữ liệu cho node vị trí kho trong cây phân cấp
 interface LocationNode {
-  location_code: string;
-  location_name: string;
-  level: string;
-  quantity: number;
-  capacity?: number;
-  is_active: boolean;
-  children: LocationNode[];
-  notes?: string;
+  location_code: string;    // Mã vị trí
+  location_name: string;    // Tên vị trí
+  level: string;           // Cấp độ (warehouse/zone/rack/bin)
+  quantity: number;         // Số lượng tồn
+  capacity?: number;        // Sức chứa tối đa
+  is_active: boolean;       // Trạng thái hoạt động
+  children: LocationNode[]; // Các node con
+  notes?: string;           // Ghi chú
 }
 
 const WarehouseHierarchy: React.FC = () => {

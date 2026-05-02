@@ -1,14 +1,18 @@
+// File: components/Sparkline.tsx
+// Component vẽ biểu đồ đường đơn giản (sparkline) dùng SVG
+// Hiển thị trend theo thời gian với tooltip khi hover
+// Dùng để hiển thị xu hướng tồn kho, giao dịch trong StatCard
+
 import React, { useState, useRef } from "react";
 
+// Props cho Sparkline
 type Props = {
-  points: Array<{ x: string; y: number }>; // x label, y value
-  // width can be a number (px) or '100%'
-  width?: number | string;
-  height?: number;
-  dotRadius?: number;
-  // optional fixed spacing between points in px
-  spacing?: number;
-  onPointClick?: (index: number, point: { x: string; y: number }) => void;
+  points: Array<{ x: string; y: number }>; // Dữ liệu: x là nhãn (ngày/tháng), y là giá trị
+  width?: number | string; // Chiều rộng SVG (number px hoặc '100%')
+  height?: number; // Chiều cao SVG (px)
+  dotRadius?: number; // Bán kính các điểm trên biểu đồ
+  spacing?: number; // Khoảng cách cố định giữa các điểm (px)
+  onPointClick?: (index: number, point: { x: string; y: number }) => void; // Callback khi click vào điểm
 };
 
 export default function Sparkline({
@@ -19,35 +23,38 @@ export default function Sparkline({
   dotRadius = 3,
   onPointClick,
 }: Props) {
+  // Trả về thông báo nếu không có dữ liệu
   if (!points || points.length === 0)
     return <div className="text-xs text-gray-500">Không có dữ liệu</div>;
 
   const padding = 4;
   const h = height - padding * 2;
 
+  // Tính toán min/max của trục y
   const ys = points.map((p) => p.y);
   let maxY = Math.max(...ys, 1);
   let minY = Math.min(...ys, 0);
 
-  // If all points are equal (flat line) expand range a bit so line/area is visible
+  // Nếu tất cả các điểm bằng nhau (đường thẳng), mở rộng range để hiển thị
   if (maxY === minY) {
     if (maxY === 0) {
-      maxY = 1; // show something instead of flat at 0
+      maxY = 1; // Hiển thị something thay vì đường flat tại 0
     } else {
       maxY = maxY + Math.abs(maxY) * 0.05 + 1;
       minY = minY - Math.abs(minY) * 0.05 - 1;
     }
   }
 
-  // Fixed spacing between points. SVG width grows with number of points.
+  // Khoảng cách cố định giữa các điểm, SVG width tăng theo số lượng points
   const fixedStep = Math.max(4, spacing);
   const svgContentWidth =
     padding * 2 + fixedStep * Math.max(points.length - 1, 0) + 2;
 
-  // If caller passed a numeric width, ensure svg is at least that wide; otherwise svgWidth is content width.
+  // Đảm bảoo SVG rộng ít nhất bằng width nếu là number
   const numericMinWidth = typeof width === "number" ? width : 0;
   const svgWidth = Math.max(numericMinWidth, svgContentWidth);
 
+  // Chuyển đổi dữ liệu thành tọa độ SVG
   const coords = points.map((p, i) => {
     const x = padding + i * fixedStep;
     const ratio = (p.y - minY) / (maxY - minY);
@@ -55,7 +62,7 @@ export default function Sparkline({
     return { x, y };
   });
 
-  // Build path and area (filled) for better visual
+  // Tạo path cho đường line và area (filled)
   const pathD = coords
     .map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`)
     .join(" ");
@@ -63,7 +70,7 @@ export default function Sparkline({
     pathD +
     ` L ${coords[coords.length - 1].x} ${padding + h} L ${coords[0].x} ${padding + h} Z`;
 
-  // Tooltip state
+  // State cho tooltip
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
     left: number;
@@ -73,6 +80,7 @@ export default function Sparkline({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  // Xử lý mouse enter vào điểm
   const handleMouseEnter = (
     e: React.MouseEvent,
     point: { x: string; y: number },
@@ -88,6 +96,7 @@ export default function Sparkline({
     setTooltip({ visible: true, left, top, text: `${point.x} — ${point.y}` });
   };
 
+  // Xử lý mouse move trên điểm
   const handleMouseMove = (
     e: React.MouseEvent,
     point: { x: string; y: number },
@@ -108,6 +117,7 @@ export default function Sparkline({
     }));
   };
 
+  // Xử lý mouse leave - ẩn tooltip
   const handleMouseLeave = () => {
     setTooltip((t) => ({ ...t, visible: false }));
   };
@@ -129,8 +139,9 @@ export default function Sparkline({
         preserveAspectRatio="xMinYMin meet"
         style={{ display: "block" }}
       >
-        {/* subtle filled area */}
+        {/* Vùng filled area dưới đường line */}
         <path d={areaD} fill="rgba(24,144,255,0.06)" stroke="none" />
+        {/* Đường line chính */}
         <path
           d={pathD}
           fill="none"
@@ -139,6 +150,7 @@ export default function Sparkline({
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {/* Các điểm dữ liệu */}
         {coords.map((c, i) => (
           <circle
             key={i}
@@ -157,6 +169,7 @@ export default function Sparkline({
         ))}
       </svg>
 
+      {/* Tooltip hiển thị thông tin điểm */}
       {tooltip.visible && (
         <div
           style={{

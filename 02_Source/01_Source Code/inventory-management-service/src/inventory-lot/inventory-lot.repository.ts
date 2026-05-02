@@ -12,6 +12,16 @@ import type {
   UpdateInventoryLotDto,
 } from './inventory-lot.dto';
 
+/**
+ * InventoryLotRepository - Lớp thao tác trực tiếp với MongoDB
+ * 
+ * Chức năng chính:
+ * - Thực hiện các truy vấn CRUD với collection "inventory_lots"
+ * - Hỗ trợ phân trang, tìm kiếm, lọc theo nhiều tiêu chí
+ * - Quản lý tìm kiếm theo ngày (hết hạn, sắp hết hạn)
+ * - Hỗ trợ aggregate queries cho thống kê
+ * - Quản lý cập nhật hàng loạt (updateMany)
+ */
 @Injectable()
 export class InventoryLotRepository {
   constructor(
@@ -19,16 +29,25 @@ export class InventoryLotRepository {
     private inventoryLotModel: Model<InventoryLotDocument>,
   ) {}
 
+  /**
+   * Tạo mới một lô hàng trong database
+   * @param createDto - Dữ liệu tạo lô hàng
+   * @returns InventoryLotDocument - Document lô hàng đã lưu
+   */
   async create(
     createDto: CreateInventoryLotDto,
   ): Promise<InventoryLotDocument> {
-    // Dynamic import to avoid Jest issues with uuid ESM module
+    // Dynamic import để tránh Jest issues với uuid ESM module
     const newLot = new this.inventoryLotModel({
       ...createDto,
     });
     return newLot.save();
   }
 
+  /**
+   * Lấy tất cả lô hàng có phân trang
+   * Sắp xếp theo created_date giảm dần
+   */
   async findAll(
     page: number = 1,
     limit: number = 10,
@@ -44,10 +63,18 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  /**
+   * Tìm lô hàng theo lot_id
+   * @param lot_id - Business ID (LOT-XXX)
+   * @returns InventoryLotDocument hoặc null
+   */
   async findById(lot_id: string): Promise<InventoryLotDocument | null> {
     return this.inventoryLotModel.findOne({ lot_id }).exec();
   }
 
+  /**
+   * Tìm lô hàng theo material_id (tất cả lô của một vật tư)
+   */
   async findByMaterialId(
     material_id: string,
     page: number = 1,
@@ -66,6 +93,9 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  /**
+   * Tìm lô hàng theo trạng thái
+   */
   async findByStatus(
     status: string,
     page: number = 1,
@@ -84,6 +114,9 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  /**
+   * Tìm lô hàng theo is_sample flag
+   */
   async findBySampleStatus(
     is_sample: boolean,
     page: number = 1,
@@ -102,6 +135,11 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  /**
+   * Tìm các lô mẫu của một lô cha
+   * @param parent_lot_id - ID lô cha
+   * @returns Danh sách lô mẫu
+   */
   async findSamplesByParentLot(
     parent_lot_id: string,
   ): Promise<InventoryLotDocument[]> {
@@ -111,6 +149,10 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Tìm kiếm lô hàng theo từ khóa
+   * Tìm trong: manufacturer_name, manufacturer_lot, supplier_name, lot_id
+   */
   async search(
     query: string,
     page: number = 1,
@@ -143,6 +185,10 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  /**
+   * Lọc lô hàng theo nhiều tiêu chí
+   * @param filter - Các tiêu chí lọc
+   */
   async findByFilter(
     filter: {
       material_id?: string;
@@ -172,6 +218,9 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  /**
+   * Lấy danh sách lô hàng dạng options (cho dropdown)
+   */
   async findOptions(
     options: {
       q?: string;
@@ -223,6 +272,9 @@ export class InventoryLotRepository {
     return { data, total };
   }
 
+  /**
+   * Cập nhật lô hàng theo lot_id
+   */
   async update(
     lot_id: string,
     updateDto: Partial<UpdateInventoryLotDto>,
@@ -232,6 +284,9 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Cập nhật trạng thái theo lot_id
+   */
   async updateStatus(
     lot_id: string,
     status: string,
@@ -241,6 +296,10 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Cập nhật số lượng theo lot_id (tăng/giảm)
+   * @param quantityDelta - Lượng thay đổi (dương: tăng, âm: giảm)
+   */
   async updateQuantity(
     lot_id: string,
     quantityDelta: number | string,
@@ -255,10 +314,17 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Xóa lô hàng theo lot_id
+   */
   async delete(lot_id: string): Promise<InventoryLotDocument | null> {
     return this.inventoryLotModel.findOneAndDelete({ lot_id }).exec();
   }
 
+  /**
+   * Lấy lô hàng theo material_id và status
+   * Sắp xếp theo received_date tăng dần (FIFO)
+   */
   async getLotsByMaterialAndStatus(
     material_id: string,
     status: string,
@@ -269,15 +335,24 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Đếm số lô theo trạng thái
+   */
   async countByStatus(status: string): Promise<number> {
     return this.inventoryLotModel.countDocuments({ status }).exec();
   }
 
+  /**
+   * Kiểm tra lô có tồn tại theo lot_id
+   */
   async checkLotExists(lot_id: string): Promise<boolean> {
     const lot = await this.inventoryLotModel.findOne({ lot_id }).exec();
     return !!lot;
   }
 
+  /**
+   * Tìm các lô sắp hết hạn (trong vòng X ngày)
+   */
   async findExpiringSoon(days: number = 30): Promise<InventoryLotDocument[]> {
     const currentDate = new Date();
     const futureDate = new Date();
@@ -295,6 +370,9 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Tìm các lô đã hết hạn
+   */
   async findExpiredLots(): Promise<InventoryLotDocument[]> {
     const currentDate = new Date();
     return this.inventoryLotModel
@@ -306,6 +384,9 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Tìm lô hàng theo danh sách lot_id
+   */
   async findByLotIds(lot_ids: string[]): Promise<InventoryLotDocument[]> {
     return this.inventoryLotModel
       .find({ lot_id: { $in: lot_ids } })
@@ -313,10 +394,16 @@ export class InventoryLotRepository {
       .exec();
   }
 
+  /**
+   * Aggregate query - hỗ trợ các truy vấn phức tạp
+   */
   async aggregate<T = any>(pipeline: any[]): Promise<T[]> {
     return this.inventoryLotModel.aggregate<T>(pipeline).exec();
   }
 
+  /**
+   * Cập nhật hàng loạt theo danh sách lot_id
+   */
   async updateStatusByIds(
     lot_ids: string[],
     status: string,

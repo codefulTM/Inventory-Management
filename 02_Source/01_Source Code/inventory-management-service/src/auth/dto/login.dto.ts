@@ -1,5 +1,10 @@
+/**
+ * LoginDto - DTO cho request đăng nhập
+ * Chứa username và password để xác thực qua Keycloak
+ */
 import { IsString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
 
+/** DTO dùng khi user đăng nhập vào hệ thống */
 export class LoginDto {
   @IsString()
   @IsNotEmpty({ message: 'Username không được để trống' })

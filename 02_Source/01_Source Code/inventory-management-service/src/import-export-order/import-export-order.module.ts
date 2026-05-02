@@ -1,3 +1,20 @@
+/**
+ * ImportExportOrderModule - Module quản lý đơn đặt hàng nhập/xuất
+ *
+ * Chức năng:
+ * - Quản lý đơn đặt hàng nhập kho (Inbound) từ nhà cung cấp
+ * - Quản lý đơn đặt hàng xuất kho (Outbound) cho khách hàng
+ * - Workflow: PendingConfirmation → Confirmed → Rejected
+ * - Hỗ trợ đính kèm tài liệu (attachments) cho đơn hàng
+ * - Blind count requirement - yêu cầu đếm mù khi nhận hàng
+ * - Tự động tạo giao dịch tồn kho khi xác nhận đơn hàng
+ *
+ * Schema đăng ký:
+ * - ImportExportOrder: Đơn đặt hàng
+ * - Counter: Tạo số đơn tự động
+ * - Warehouse, StorageLocation: Validate vị trí kho
+ * - Material, InventoryLot, InventoryTransaction: Thao tác tồn kho
+ */
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ImportExportOrderController } from './import-export-order.controller';

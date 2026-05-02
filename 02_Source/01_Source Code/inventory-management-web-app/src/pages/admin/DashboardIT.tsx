@@ -1,3 +1,14 @@
+/**
+ * DashboardIT - Trang tổng quan dành cho Quản trị viên hệ thống (IT Administrator)
+ * 
+ * Chức năng chính:
+ * - Hiển thị thống kê nhanh: số lượng lô hàng đang theo dõi, số sự kiện audit gần đây, trạng thái dịch vụ
+ * - Bảng hiển thị 100 sự kiện audit gần nhất (đăng nhập, tạo user, cập nhật lô hàng, etc.)
+ * - Sử dụng dữ liệu từ inventory status report và audit report
+ * 
+ * Quyền truy cập: Chỉ IT Administrator (/admin/*)
+ */
+
 import { useEffect, useState } from 'react';
 import { Alert, Card, Table } from 'antd';
 import { Package, Server, Shield } from 'lucide-react';
@@ -5,6 +16,10 @@ import { getAuditReport, getInventoryStatusReport } from '../../services/reports
 import type { AuditReport } from '../../types/reports';
 import { PageWrapper, StatsGrid, StatCard, LoadingSkeleton } from '../../components/ui';
 
+/**
+ * Bảng ánh xạ mã action (từ backend) sang tiếng Việt để hiển thị thân thiện trong bảng audit
+ * Các action bao gồm: đăng nhập, đăng xuất, tạo/cập nhật/khóa user, đặt lại mật khẩu, cập nhật lô hàng
+ */
 const ACTION_LABELS: Record<string, string> = {
   LOGIN_SUCCESS: 'Đăng nhập thành công',
   LOGIN_FAILED: 'Đăng nhập thất bại',
@@ -19,6 +34,10 @@ const ACTION_LABELS: Record<string, string> = {
   INVENTORY_LOT_UPDATED: 'Cập nhật lô hàng',
 };
 
+/**
+ * Hàm định dạng ngày giờ từ ISO string sang định dạng ngắn gọn: DD-MM-YY, HH:MM
+ * Dùng cho cột "Thời gian" trong bảng audit để tiết kiệm không gian hiển thị
+ */
 function formatDateShort(iso?: string): string {
   if (!iso) return '-';
   const d = new Date(iso);
@@ -31,17 +50,38 @@ function formatDateShort(iso?: string): string {
   return `${dd}-${mm}-${yy}, ${hours}:${mins}`;
 }
 
+/**
+ * Component DashboardIT - Trang chủ của IT Administrator
+ * 
+ * State管理:
+ * - loading: trạng thái đang tải dữ liệu
+ * - error: lưu thông báo lỗi (nếu có)
+ * - lots: tổng số lô hàng đang được theo dõi
+ * - auditReport: dữ liệu báo cáo audit từ backend
+ * 
+ * useEffect: Tự động tải dữ liệu khi component mount (gọi song song 2 API)
+ */
 export default function DashboardIT() {
+  // State quản lý trạng thái loading và lỗi
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // Số lượng lô hàng tồn kho đang theo dõi
+  const [lots, setLots] = useState(0);
+  // Dữ liệu báo cáo audit hệ thống
+  const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lots, setLots] = useState(0);
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
 
+  // useEffect: Tự động gọi API lấy dữ liệu khi component được mount
+  // Sử dụng Promise.all để gọi song song 2 API: inventory status và audit report (tối ưu thời gian tải)
   useEffect(() => {
+    // Hàm bất đồng bộ tải dữ liệu từ backend
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
+        // Gọi song song 2 API: báo cáo tồn kho và báo cáo audit để tăng tốc độ tải
         const [inventory, audit] = await Promise.all([
           getInventoryStatusReport(),
           getAuditReport(),
@@ -76,18 +116,20 @@ export default function DashboardIT() {
     );
   }
 
+  // Giao diện: Hiển thị skeleton loading khi đang tải, sau đó hiển thị dashboard hoàn chỉnh
   return (
     <PageWrapper>
       <div className="p-6 space-y-6">
-        {/* Header */}
+        {/* Phần tiêu đề trang */}
         <div className="animate-fadeInUp">
           <h1 className="text-2xl font-bold text-gray-900">IT Admin Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">System health and operational overview</p>
         </div>
 
+        {/* Hiển thị thông báo lỗi nếu có */}
         {error ? <Alert type="error" showIcon message={error} /> : null}
 
-        {/* Stats Grid */}
+        {/* Khu vực hiển thị 3 thẻ KPI: Tracked Lots, Audit Events, Core Services */}
         <StatsGrid cols={3}>
           <div className="stagger-item" style={{ animationDelay: '0ms' }}>
             <StatCard
@@ -114,7 +156,7 @@ export default function DashboardIT() {
           </div>
         </StatsGrid>
 
-        {/* Audit Activity Table */}
+        {/* Bảng hiển thị 100 sự kiện audit gần nhất (đăng nhập, thay đổi user, cập nhật lô hàng...) */}
         <Card
           title="Hoạt Động Hệ Thống Gần Đây"
           className="hover:shadow-md transition-shadow duration-200"

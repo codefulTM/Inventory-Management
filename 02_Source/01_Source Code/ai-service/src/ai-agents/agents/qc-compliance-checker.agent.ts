@@ -1,3 +1,6 @@
+// QC Compliance Checker Agent - Agent kiểm tra chất lượng và tuân thủ
+// Chức năng: Submit quyết định QC (Accepted/Rejected/Hold), xem dashboard KPI,
+// phân tích hiệu suất nhà cung cấp
 import { Injectable } from "@nestjs/common";
 import { BackendDataService } from "../../backend-client/backend-data.service";
 import { AgentLlmService } from "../services/agent-llm.service";
@@ -9,6 +12,7 @@ import type {
 
 @Injectable()
 export class QcComplianceCheckerAgent {
+  // Hồ sơ agent: định nghĩa tên, mô tả, instructions và tools
   private readonly profile: AgentProfile = {
     name: "QC Compliance Checker",
     description:
@@ -20,21 +24,27 @@ export class QcComplianceCheckerAgent {
     ],
     model: "gemini-2.5-flash",
     tools: [
-      "BackendDataService.submitQCDecision",
-      "BackendDataService.getDashboardKPI",
-      "BackendDataService.getSupplierPerformance",
+      // Các công cụ agent có thể sử dụng
+      "BackendDataService.submitQCDecision", // Submit quyết định QC
+      "BackendDataService.getDashboardKPI", // Lấy chỉ số KPI dashboard
+      "BackendDataService.getSupplierPerformance", // Lấy hiệu suất NCC
     ],
   };
 
   constructor(
+    // Service gọi backend qua gRPC
     private readonly backendDataService: BackendDataService,
+    // Service gọi Gemini để sinh phản hồi tự nhiên
     private readonly agentLlmService: AgentLlmService,
   ) {}
 
+  // Phương thức chính xử lý yêu cầu QC và tuân thủ
+  // Hỗ trợ: submit_decision (submit quyết định QC) và xem dashboard KPI
   async handle(input: AgentHandlerInput): Promise<AgentHandlerOutput> {
     try {
       const action = (input.action || "").toLowerCase();
 
+      // Kiểm tra xem có thuộc miền QC không
       if (!this.isQcDomainQuery(input.query, action)) {
         return {
           status: "needs_input",
@@ -51,6 +61,7 @@ export class QcComplianceCheckerAgent {
         };
       }
 
+      // Xử lý submit quyết định QC (Accepted/Rejected/Hold)
       if (action === "submit_decision") {
         const lotId = String(input.payload?.lot_id ?? "");
         const decision = String(input.payload?.decision ?? "") as
@@ -63,6 +74,7 @@ export class QcComplianceCheckerAgent {
             ? input.payload.reject_reason
             : undefined;
 
+        // Kiểm tra tham số bắt buộc
         if (!lotId || !decision || !verifiedBy) {
           return {
             status: "needs_input",
@@ -73,18 +85,20 @@ export class QcComplianceCheckerAgent {
                 "lot_id",
                 "decision",
                 "verified_by",
-                "reject_reason?",
+                "reject_reason?", // Tùy chọn
               ],
             },
           };
         }
 
+        // Gọi backend để submit quyết định
         const result = await this.backendDataService.submitQCDecision(lotId, {
           decision,
           verified_by: verifiedBy,
           reject_reason: rejectReason,
         });
 
+        // Trả về kết quả và sinh phản hồi từ LLM
         return {
           status: "ok",
           message: "QC decision submitted successfully.",
@@ -99,11 +113,13 @@ export class QcComplianceCheckerAgent {
         };
       }
 
+      // Xử lý xem dashboard KPI và hiệu suất NCC
       const [dashboard, supplierPerformance] = await Promise.all([
         this.backendDataService.getDashboardKPI(),
         this.backendDataService.getSupplierPerformance(),
       ]);
 
+      // Tạo cảnh báo dựa trên dữ liệu
       const alerts: string[] = [];
       if ((dashboard as any).error_rate >= 10) {
         alerts.push(
@@ -116,6 +132,7 @@ export class QcComplianceCheckerAgent {
         );
       }
 
+      // Tổng hợp dữ liệu ngữ cảnh
       const contextData = {
         query: input.query,
         dashboard,
@@ -123,6 +140,7 @@ export class QcComplianceCheckerAgent {
         alerts,
       };
 
+      // Sinh phản hồi từ LLM hoặc dùng fallback
       const generatedReply = await this.agentLlmService.generateReply(
         this.profile,
         input.query,
@@ -151,7 +169,9 @@ export class QcComplianceCheckerAgent {
     }
   }
 
+  // Kiểm tra xem query có thuộc miền QC/compliance không
   private isQcDomainQuery(query: string, action: string): boolean {
+    // Nếu action là submit_decision thì chấp nhận luôn
     if (action === "submit_decision") return true;
     const normalized = (query || "")
       .toLowerCase()
@@ -159,32 +179,26 @@ export class QcComplianceCheckerAgent {
       .replace(/\s+/g, " ")
       .trim();
     if (!normalized) return false;
+    // Danh sách từ khóa miền QC
     const keywords = [
-      "qc",
-      "quality",
-      "compliance",
-      "kiem tra",
-      "kiểm tra",
-      "chat luong",
-      "chất lượng",
-      "reject",
-      "accepted",
-      "hold",
+      "qc", "quality", "compliance",
+      "kiem tra", "kiểm tra", "chat luong", "chất lượng",
+      "reject", "accepted", "hold",
     ];
     return keywords.some((k) => normalized.includes(k));
   }
 
+  // Làm sạch phản hồi QC: Lọc bỏ các câu chung chung
   private sanitizeQcReply(reply?: string): string {
     if (!reply) return "";
 
     const normalized = reply.toLowerCase();
+    // Các từ khóa chỉ báo phản hồi quá chung chung
     const genericTokens = [
-      "xem chi tiết",
-      "dữ liệu đi kèm",
-      "du lieu di kem",
-      "đính kèm",
+      "xem chi tiết", "dữ liệu đi kèm", "du lieu di kem", "đính kèm",
     ];
 
+    // Nếu chứa từ khóa này thì bỏ qua, dùng fallback
     if (genericTokens.some((token) => normalized.includes(token))) {
       return "";
     }
@@ -192,6 +206,7 @@ export class QcComplianceCheckerAgent {
     return reply.trim();
   }
 
+  // Tạo phản hồi dự phòng cho QC từ dữ liệu dashboard
   private buildQcFallbackReply(contextData: {
     dashboard: {
       pending_count: number;
@@ -203,6 +218,7 @@ export class QcComplianceCheckerAgent {
     alerts: string[];
   }): string {
     const dashboard = contextData.dashboard;
+    // Xử lý danh sách nhà cung cấp
     const suppliers = (contextData.supplier_performance || []).map((item) => {
       const row = (item ?? {}) as Record<string, unknown>;
       return {
@@ -211,31 +227,37 @@ export class QcComplianceCheckerAgent {
       };
     });
 
+    // Tìm NCC có tỷ lệ đạt thấp nhất
     const lowestSupplier = [...suppliers].sort(
       (a, b) => (a.quality_rate ?? 100) - (b.quality_rate ?? 100),
     )[0];
 
     const parts: string[] = [];
+    // Thông tin tổng quan dashboard
     parts.push(
       `QC hiện có ${dashboard.pending_count} lô chờ duyệt, ${dashboard.rejected_count} lô bị từ chối và ${dashboard.approved_count} lô đã đạt.`,
     );
 
+    // Tỷ lệ lỗi
     if ((dashboard.error_rate ?? 0) > 0) {
       parts.push(
         `Tỷ lệ lỗi QC hiện tại khoảng ${dashboard.error_rate.toFixed(1)}%.`,
       );
     }
 
+    // NCC cần theo dõi
     if (lowestSupplier?.supplier_name) {
       parts.push(
         `Nhà cung cấp cần theo dõi ưu tiên là ${lowestSupplier.supplier_name} với tỷ lệ đạt ${Number(lowestSupplier.quality_rate ?? 0).toFixed(1)}%.`,
       );
     }
 
+    // Cảnh báo chính
     if (contextData.alerts.length > 0) {
       parts.push(`Cảnh báo chính: ${contextData.alerts[0]}`);
     }
 
+    // Đề xuất hành động
     parts.push(
       "Đề xuất: xử lý các lô pending trước, sau đó tập trung kiểm tra nguyên nhân tại nhóm có tỷ lệ đạt thấp.",
     );

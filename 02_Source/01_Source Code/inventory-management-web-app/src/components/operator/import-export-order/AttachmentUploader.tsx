@@ -1,8 +1,14 @@
+// File: components/operator/import-export-order/AttachmentUploader.tsx
+// Component quản lý chứng từ đính kèm cho phiếu nhập/xuất kho
+// Hiển thị file chờ tải lên (pending) và file đã lưu (uploaded)
+// Hỗ trợ chọn nguồn file: tải lên (upload) hoặc camera
+
 import type {
   ImportExportAttachmentSource,
   ImportExportOrderAttachment,
 } from "../../../types/importExportOrder";
 
+// File chờ tải lên (chưa được lưu vào server)
 export interface PendingAttachment {
   id: string;
   file: File;
@@ -19,6 +25,7 @@ interface AttachmentUploaderProps {
   onRemovePending: (id: string) => void;
 }
 
+// Format kích thước file sang B/KB/MB
 function formatSize(size: number): string {
   if (size < 1024) {
     return `${size} B`;
@@ -32,7 +39,8 @@ function formatSize(size: number): string {
   return `${(kb / 1024).toFixed(2)} MB`;
 }
 
-export default function AttachmentUploader({
+// Props cho AttachmentUploader
+interface AttachmentUploaderProps {
   disabled = false,
   source,
   onSourceChange,

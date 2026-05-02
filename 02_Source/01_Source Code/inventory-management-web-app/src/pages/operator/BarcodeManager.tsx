@@ -1,9 +1,24 @@
 /**
- * BarcodeManager — Operator page
- * Tạo barcode gắn với Inventory Lot đã được Accepted
- * Hỗ trợ: in ảnh barcode, copy mã, tra cứu mã
+ * BarcodeManager Page (Operator)
+ * Trang quản lý và in barcode dành cho Operator
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách các Inventory Lot đã được QC Accepted
+ * - Tạo barcode (mã vạch) chuẩn CODE128 cho từng lô hàng
+ * - Hỗ trợ: xem trước, in barcode, copy mã lô
+ * - Tra cứu lô hàng theo Lot ID hoặc Manufacturer Lot
+ * 
+ * Các tính năng:
+ * 1. Tab "Duyệt Lots": Xem danh sách, in từng barcode
+ * 2. Tab "Tra cứu mã": Tìm kiếm nhanh lô hàng bằng mã
+ * 
+ * Kỹ thuật:
+ * - Sử dụng thư viện jsbarcode để tạo barcode chuẩn CODE128
+ * - Barcode value là lot_id (UUID)
+ * - In barcode qua iframe ẩn để tránh bị chặn popup
+ * 
+ * Lưu ý: Chỉ hiển thị các lô có trạng thái "Accepted" (đã QC duyệt)
  */
-
 import React, { useEffect, useRef, useState } from "react";
 import JsBarcode from "jsbarcode";
 import {
@@ -22,17 +37,19 @@ import { fetchMaterials } from "../../services/materialService";
 import type { InventoryLot } from "../../types/inventory";
 import type { Material } from "../../types/material";
 
-// ─── Barcode SVG component ────────────────────────────────────────────
+// ─── Component hiển thị Barcode dạng SVG ──────────────────────────────
+// Sử dụng thư viện JsBarcode để tạo barcode chuẩn CODE128
 
 function BarcodeSVG({ value, label }: { value: string; label?: string }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Tạo barcode khi value thay đổi
   useEffect(() => {
     if (!svgRef.current || !value) return;
     try {
       JsBarcode(svgRef.current, value, {
-        format: "CODE128",
-        displayValue: true,
+        format: "CODE128",  // Chuẩn barcode
+        displayValue: true,  // Hiển thị mã dưới barcode
         fontSize: 12,
         margin: 10,
         width: 2,
@@ -54,24 +71,38 @@ function BarcodeSVG({ value, label }: { value: string; label?: string }) {
     </div>
   );
 }
+  }, [value]);
 
-// ─── Print Modal ──────────────────────────────────────────────────────
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg ref={svgRef} className="max-w-full" />
+      {label && (
+        <p className="text-xs text-gray-500 font-medium text-center">{label}</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Modal In Barcode ─────────────────────────────────────────────────
+// Cho phép xem trước và in barcode của lô hàng
 
 interface PrintModalProps {
-  lot: InventoryLot;
-  material: Material | undefined;
-  barcodeValue: string;
-  onClose: () => void;
+  lot: InventoryLot;  // Thông tin lô hàng
+  material: Material | undefined;  // Thông tin vật tư
+  barcodeValue: string;  // Mã barcode (lot_id)
+  onClose: () => void;  // Đóng modal
 }
 
 function PrintModal({ lot, material, barcodeValue, onClose }: PrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
+  // Xử lý in barcode - mở cửa sổ mới và tự động in
   const handlePrint = () => {
     if (!printRef.current) return;
     const content = printRef.current.innerHTML;
     const printWindow = window.open("", "_blank", "width=600,height=500");
     if (!printWindow) return;
+    // Tạo HTML cho trang in với CSS riêng
     printWindow.document.write(`
       <html>
         <head>
@@ -106,20 +137,21 @@ function PrintModal({ lot, material, barcodeValue, onClose }: PrintModalProps) {
           </button>
         </div>
 
-        {/* Preview */}
+        {/* Vùng xem trước barcode - sẽ được in */}
         <div ref={printRef} className="label border-2 border-gray-300 rounded-lg p-4">
           <p className="text-center font-black text-sm text-gray-800 mb-3 uppercase">
             {material?.material_name || lot.material_id}
           </p>
           <BarcodeSVG value={barcodeValue} />
+          {/* Bảng thông tin chi tiết lô hàng */}
           <table className="w-full text-xs mt-3">
             <tbody>
               <tr>
-                <td className="font-bold text-gray-500">Lot ID:</td>
+                <td className="font-bold text-gray-500">Mã Lô (Lot ID):</td>
                 <td className="text-gray-800">{lot.lot_id}</td>
               </tr>
               <tr>
-                <td className="font-bold text-gray-500">Mfr Lot:</td>
+                <td className="font-bold text-gray-500">Lô NSX (Mfr Lot):</td>
                 <td className="text-gray-800">{lot.manufacturer_lot}</td>
               </tr>
               <tr>
@@ -139,7 +171,7 @@ function PrintModal({ lot, material, barcodeValue, onClose }: PrintModalProps) {
                 </td>
               </tr>
               <tr>
-                <td className="font-bold text-gray-500">Vị trí:</td>
+                <td className="font-bold text-gray-500">Vị trí kho:</td>
                 <td className="text-gray-800">{lot.storage_location || "—"}</td>
               </tr>
             </tbody>
@@ -158,7 +190,7 @@ function PrintModal({ lot, material, barcodeValue, onClose }: PrintModalProps) {
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 flex items-center justify-center gap-2"
           >
             <Printer size={14} />
-            In ngay
+            In Ngay
           </button>
         </div>
       </div>
@@ -166,28 +198,30 @@ function PrintModal({ lot, material, barcodeValue, onClose }: PrintModalProps) {
   );
 }
 
-// ─── Barcode Card ─────────────────────────────────────────────────────
+// ─── Card hiển thị Barcode ──────────────────────────────────────────────
+// Hiển thị thông tin lô hàng kèm barcode, có thể copy và in
 
 interface BarcodeCardProps {
-  lot: InventoryLot;
-  material: Material | undefined;
+  lot: InventoryLot;  // Thông tin lô hàng
+  material: Material | undefined;  // Thông tin vật tư
 }
 
 function BarcodeCard({ lot, material }: BarcodeCardProps) {
-  const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [showPrint, setShowPrint] = useState(false);
+  const [copied, setCopied] = useState(false);  // Trạng thái đã copy
+  const [expanded, setExpanded] = useState(false);  // Mở rộng chi tiết
+  const [showPrint, setShowPrint] = useState(false);  // Hiển thị modal in
 
-  // Barcode value: lot_id as the canonical barcode
+  // Giá trị barcode là lot_id
   const barcodeValue = lot.lot_id;
 
+  // Xử lý copy mã lô vào clipboard
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(barcodeValue);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback
+      // Fallback cho trình duyệt không hỗ trợ clipboard API
       const el = document.createElement("input");
       el.value = barcodeValue;
       document.body.appendChild(el);
@@ -201,6 +235,7 @@ function BarcodeCard({ lot, material }: BarcodeCardProps) {
 
   return (
     <>
+      {/* Modal in barcode */}
       {showPrint && (
         <PrintModal
           lot={lot}
@@ -209,8 +244,9 @@ function BarcodeCard({ lot, material }: BarcodeCardProps) {
           onClose={() => setShowPrint(false)}
         />
       )}
+      {/* Card hiển thị thông tin và barcode */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-        {/* Header */}
+        {/* Header: Tên vật tư và trạng thái */}
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-black text-gray-900 text-sm truncate">
@@ -218,18 +254,20 @@ function BarcodeCard({ lot, material }: BarcodeCardProps) {
             </p>
             <p className="text-xs text-gray-400 font-mono mt-0.5">{lot.lot_id}</p>
           </div>
+          {/* Badge trạng thái Accepted */}
           <span className="shrink-0 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">
             Accepted
           </span>
         </div>
 
-        {/* Barcode */}
+        {/* Barcode SVG */}
         <div className="px-4 py-4">
           <BarcodeSVG value={barcodeValue} />
         </div>
 
-        {/* Actions */}
+        {/* Các nút hành động */}
         <div className="px-4 pb-3 flex items-center gap-2">
+          {/* Nút copy mã lô */}
           <button
             onClick={handleCopy}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
@@ -239,30 +277,32 @@ function BarcodeCard({ lot, material }: BarcodeCardProps) {
             }`}
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
-            {copied ? "Đã copy!" : "Copy mã"}
+            {copied ? "Đã Copy!" : "Copy Mã"}
           </button>
+          {/* Nút in barcode */}
           <button
             onClick={() => setShowPrint(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
           >
             <Printer size={13} />
-            In barcode
+            In Barcode
           </button>
+          {/* Nút mở rộng chi tiết */}
           <button
             onClick={() => setExpanded((v) => !v)}
             className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-bold transition"
           >
-            Chi tiết {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            Chi Tiết {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </div>
 
-        {/* Detail expand */}
+        {/* Chi tiết mở rộng */}
         {expanded && (
           <div className="px-4 pb-4 border-t border-gray-100 pt-3">
             <table className="w-full text-xs">
               <tbody className="space-y-1">
                 {[
-                  ["Mfr Lot", lot.manufacturer_lot],
+                  ["Lô NSX", lot.manufacturer_lot],
                   ["Nhà sản xuất", lot.manufacturer_name],
                   ["Nhà cung cấp", lot.supplier_name || "—"],
                   ["Số lượng", `${lot.quantity} ${lot.unit_of_measure}`],
@@ -278,8 +318,8 @@ function BarcodeCard({ lot, material }: BarcodeCardProps) {
                       ? new Date(lot.expiration_date).toLocaleDateString("vi-VN")
                       : "—",
                   ],
-                  ["Vị trí", lot.storage_location || "—"],
-                  ["Material type", material?.material_type || "—"],
+                  ["Vị trí kho", lot.storage_location || "—"],
+                  ["Loại vật tư", material?.material_type || "—"],
                 ].map(([k, v]) => (
                   <tr key={k}>
                     <td className="py-1 pr-3 font-bold text-gray-500 whitespace-nowrap w-32">{k}</td>

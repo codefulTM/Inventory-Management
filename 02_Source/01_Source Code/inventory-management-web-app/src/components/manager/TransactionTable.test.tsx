@@ -1,174 +1,206 @@
 /**
- * TransactionTable Component Tests
+ * FILE TEST CHO COMPONENT TRANSACTIONTABLE - MANAGER ROLE
  *
- * This test file documents the comprehensive test coverage for TransactionTableComponent.
- * 
- * SETUP REQUIRED:
+ * File này định nghĩa bộ test cases cho component TransactionTable (bảng giao dịch kho)
+ * Dành cho quản lý (Manager role) theo dõi lịch sử giao dịch nhập/xuất kho
+ *
+ * CÀI ĐẶT YÊU CẦU:
  * - npm install --save-dev @testing-library/react @testing-library/jest-dom @testing-library/user-event @types/jest jest
- * - Configure Jest in package.json or jest.config.js
- * 
- * Test Suites:
- * 
- * 1. Rendering Tests (6 tests)
- *    - Loading state shows spinner
- *    - Error state displays error message
- *    - Empty state displays "no transactions" message
- *    - Table renders with correct headers (9 columns)
- *    - Table rows render with transaction data
- *    - Transaction type badges render with correct colors
- * 
- * 2. Data Display Tests (4 tests)
- *    - Displays lot_id truncated to 8 characters
- *    - Displays material_id truncated to 8 characters
- *    - Formats transaction_date with locale-specific format
- *    - Handles optional fields (reference_number, notes) with dashes
- * 
- * 3. Pagination Tests (5 tests)
- *    - Previous button disabled on first page
- *    - Next button disabled on last page
- *    - Previous button enabled on non-first page
- *    - Next button enabled on non-last page
- *    - Page change callback triggered with correct page number
- * 
- * 4. User Interactions (2 tests)
- *    - Clicking Previous button calls onPageChange with page - 1
- *    - Clicking Next button calls onPageChange with page + 1
- * 
- * 5. Data Formatting Tests (3 tests)
- *    - Dates formatted correctly (MM/DD/YYYY HH:MM format)
- *    - Receipt type shows blue badge
- *    - Usage type shows orange badge
- * 
- * 6. Pagination Display (2 tests)
- *    - Shows correct transaction range (e.g., "1 to 20 of 100")
- *    - Shows correct page indicator (e.g., "Page 1 of 5")
- * 
- * 7. Accessibility Tests (2 tests)
- *    - Table has proper semantic structure
- *    - Pagination controls are keyboard accessible
+ * - Cấu hình Jest trong package.json hoặc jest.config.js
  *
- * Expected Coverage: ≥80%
- * 
- * NOTE: This file serves as test documentation. Actual tests should be implemented
- * after test libraries are installed and configured.
+ * CÁC PHẦN TEST (7 nhóm):
+ *
+ * 1. Rendering Tests (6 tests) - Test hiển thị
+ *    - Hiển thị trạng thái đang tải (loading skeleton)
+ *    - Hiển thị thông báo lỗi khi có lỗi
+ *    - Hiển thị thông báo "không có giao dịch" khi danh sách rỗng
+ *    - Render bảng với 9 cột header đúng
+ *    - Render các dòng dữ liệu giao dịch
+ *    - Hiển thị badge (thẻ) loại giao dịch đúng mầu
+ *
+ * 2. Data Display Tests (4 tests) - Test hiển thị dữ liệu
+ *    - Hiển thị lot_id được cắt ngắn còn 8 ký tự
+ *    - Hiển thị material_id được cắt ngắn còn 8 ký tự
+ *    - Định dạng ngày giao dịch theo locale
+ *    - Xử lý các trường tùy chọn (reference_number, notes) hiển thị dấu gạch ngang
+ *
+ * 3. Pagination Tests (5 tests) - Test phân trang
+ *    - Nút Previous bị vô hiệu hóa ở trang đầu
+ *    - Nút Next bị vô hiệu hóa ở trang cuối
+ *    - Nút Previous được kích hoạt ở trang không phải đầu
+ *    - Nút Next được kích hoạt ở trang không phải cuối
+ *    - Callback onPageChange được gọi với số trang đúng
+ *
+ * 4. User Interactions (2 tests) - Test tương tác người dùng
+ *    - Click nút Previous gọi onPageChange với page - 1
+ *    - Click nút Next gọi onPageChange với page + 1
+ *
+ * 5. Data Formatting Tests (3 tests) - Test định dạng dữ liệu
+ *    - Ngày được định dạng đúng (MM/DD/YYYY HH:MM)
+ *    - Loại Receipt hiển thị badge mầu xanh
+ *    - Loại Usage hiển thị badge mầu cam
+ *
+ * 6. Pagination Display (2 tests) - Test hiển thị phân trang
+ *    - Hiển thị đúng khoảng giao dịch (ví dụ: "1 đến 20 của 100")
+ *    - Hiển thị đúng chỉ số trang (ví dụ: "Trang 1 / 5")
+ *
+ * 7. Accessibility Tests (2 tests) - Test khả năng tiếp cận
+ *    - Bảng có cấu trúc semantic đúng
+ *    - Các điều khiển phân trang có thể thao tác bằng bàn phím
+ *
+ * MỤC TIÊU COVERAGE: ≥80%
+ *
+ * LƯU Ý: File này đóng vai trò tài liệu test. Các test thực tế cần được implement
+ * sau khi cài đặt và cấu hình xong các thư viện test.
  */
 
-describe('TransactionTableComponent', () => {
+// Bắt đầu test suite cho component TransactionTableComponent
+describe('TransactionTableComponent - Quản lý giao dịch kho (Manager)', () => {
+  // Mock function theo dõi việc gọi onPageChange
   const mockOnPageChange = jest.fn();
 
+  // Dữ liệu mẫu cho một giao dịch kho (dùng cho test)
   const sampleTransaction = {
     _id: '123',
     transaction_id: 'TXN001',
-    lot_id: 'LOT123456789',
-    material_id: 'MAT987654321',
-    transaction_type: 'Receipt',
-    quantity: 100,
-    unit_of_measure: 'kg',
+    lot_id: 'LOT123456789',      // Mã lô hàng
+    material_id: 'MAT987654321', // Mã vật tư
+    transaction_type: 'Receipt',  // Loại giao dịch: Nhập kho
+    quantity: 100,                // Số lượng
+    unit_of_measure: 'kg',       // Đơn vị tính
     transaction_date: new Date('2024-01-15T10:30:00'),
-    reference_number: 'REF123',
-    performed_by: 'USER123456789',
-    notes: 'Test transaction',
+    reference_number: 'REF123',   // Số tham chiếu
+    performed_by: 'USER123456789', // Người thực hiện
+    notes: 'Test transaction',    // Ghi chú
     created_date: new Date('2024-01-15T10:30:00'),
     modified_date: new Date('2024-01-15T10:30:00'),
   };
 
-  describe('Rendering', () => {
-    test('should show loading spinner when loading is true', () => {
-      // Test implementation here
+  // Nhóm test: Rendering - Kiểm tra hiển thị component
+  describe('Rendering - Hiển thị', () => {
+    // Test: Hiển thị loading skeleton khi đang tải dữ liệu
+    test('nên hiển thị loading skeleton khi loading = true', () => {
+      // Triển khai test tại đây
     });
 
-    test('should display error message when error exists', () => {
-      // Test implementation here
+    // Test: Hiển thị thông báo lỗi khi có lỗi
+    test('nên hiển thị thông báo lỗi khi có error', () => {
+      // Triển khai test tại đây
     });
 
-    test('should show empty state when no transactions', () => {
-      // Test implementation here
+    // Test: Hiển thị trạng thái rỗng khi không có giao dịch
+    test('nên hiển thị thông báo không có giao dịch khi danh sách rỗng', () => {
+      // Triển khai test tại đây
     });
 
-    test('should render table with correct headers', () => {
-      // Test implementation here
+    // Test: Render bảng với đúng 9 cột header
+    test('nên render bảng với đúng các cột header', () => {
+      // Triển khai test tại đây
     });
 
-    test('should render transaction rows', () => {
-      // Test implementation here
+    // Test: Render các dòng dữ liệu giao dịch
+    test('nên render các dòng dữ liệu giao dịch', () => {
+      // Triển khai test tại đây
     });
 
-    test('should apply correct color badge for transaction type', () => {
-      // Test implementation here
-    });
-  });
-
-  describe('Data Display', () => {
-    test('should truncate lot_id to 8 characters', () => {
-      // Test implementation here
-    });
-
-    test('should truncate material_id to 8 characters', () => {
-      // Test implementation here
-    });
-
-    test('should format transaction date correctly', () => {
-      // Test implementation here
-    });
-
-    test('should display dash for optional fields', () => {
-      // Test implementation here
+    // Test: Áp dụng mầu badge đúng cho từng loại giao dịch
+    test('nên áp dụng mầu badge đúng cho loại giao dịch', () => {
+      // Triển khai test tại đây
     });
   });
 
-  describe('Pagination', () => {
-    test('should disable Previous button on first page', () => {
-      // Test implementation here
+  // Nhóm test: Data Display - Hiển thị dữ liệu
+  describe('Data Display - Hiển thị dữ liệu', () => {
+    // Test: Kiểm tra lot_id được cắt ngắn còn 8 ký tự
+    test('nên hiển thị lot_id được cắt ngắn còn 8 ký tự', () => {
+      // Triển khai test tại đây
     });
 
-    test('should disable Next button on last page', () => {
-      // Test implementation here
+    // Test: Kiểm tra material_id được cắt ngắn còn 8 ký tự
+    test('nên hiển thị material_id được cắt ngắn còn 8 ký tự', () => {
+      // Triển khai test tại đây
     });
 
-    test('should enable Previous button on non-first page', () => {
-      // Test implementation here
+    // Test: Kiểm tra định dạng ngày giao dịch
+    test('nên định dạng ngày giao dịch đúng cách', () => {
+      // Triển khai test tại đây
     });
 
-    test('should enable Next button on non-last page', () => {
-      // Test implementation here
-    });
-
-    test('should display correct transaction count message', () => {
-      // Test implementation here
-    });
-  });
-
-  describe('User Interactions', () => {
-    test('should call onPageChange when Previous clicked', () => {
-      // Test implementation here
-    });
-
-    test('should call onPageChange when Next clicked', () => {
-      // Test implementation here
+    // Test: Hiển thị dấu gạch ngang cho các trường tùy chọn rỗng
+    test('nên hiển thị dấu gạch ngang cho các trường tùy chọn rỗng', () => {
+      // Triển khai test tại đây
     });
   });
 
-  describe('Data Formatting', () => {
-    test('should format dates with locale-specific format', () => {
-      // Test implementation here
+  // Nhóm test: Pagination - Phân trang
+  describe('Pagination - Phân trang', () => {
+    // Test: Nút Previous bị vô hiệu hóa ở trang đầu
+    test('nên vô hiệu hóa nút Previous ở trang đầu', () => {
+      // Triển khai test tại đây
     });
 
-    test('should show blue badge for Receipt type', () => {
-      // Test implementation here
+    // Test: Nút Next bị vô hiệu hóa ở trang cuối
+    test('nên vô hiệu hóa nút Next ở trang cuối', () => {
+      // Triển khai test tại đây
     });
 
-    test('should show orange badge for Usage type', () => {
-      // Test implementation here
+    // Test: Nút Previous được kích hoạt ở trang không phải đầu
+    test('nên kích hoạt nút Previous ở trang không phải đầu', () => {
+      // Triển khai test tại đây
+    });
+
+    // Test: Nút Next được kích hoạt ở trang không phải cuối
+    test('nên kích hoạt nút Next ở trang không phải cuối', () => {
+      // Triển khai test tại đây
+    });
+
+    // Test: Hiển thị đúng thông báo số lượng giao dịch
+    test('nên hiển thị đúng thông báo số lượng giao dịch', () => {
+      // Triển khai test tại đây
     });
   });
 
-  describe('Accessibility', () => {
-    test('should have semantic table structure', () => {
-      // Test implementation here
+  // Nhóm test: User Interactions - Tương tác người dùng
+  describe('User Interactions - Tương tác người dùng', () => {
+    // Test: Gọi onPageChange khi click nút Previous
+    test('nên gọi onPageChange khi click nút Previous', () => {
+      // Triển khai test tại đây
     });
 
-    test('should have keyboard accessible pagination controls', () => {
-      // Test implementation here
+    // Test: Gọi onPageChange khi click nút Next
+    test('nên gọi onPageChange khi click nút Next', () => {
+      // Triển khai test tại đây
+    });
+  });
+
+  // Nhóm test: Data Formatting - Định dạng dữ liệu
+  describe('Data Formatting - Định dạng dữ liệu', () => {
+    // Test: Định dạng ngày tháng theo locale
+    test('nên định dạng ngày tháng theo locale', () => {
+      // Triển khai test tại đây
+    });
+
+    // Test: Hiển thị badge mầu xanh cho loại Receipt (Nhập kho)
+    test('nên hiển thị badge mầu xanh cho loại Receipt', () => {
+      // Triển khai test tại đây
+    });
+
+    // Test: Hiển thị badge mầu cam cho loại Usage (Xuất kho)
+    test('nên hiển thị badge mầu cam cho loại Usage', () => {
+      // Triển khai test tại đây
+    });
+  });
+
+  // Nhóm test: Accessibility - Khả năng tiếp cận
+  describe('Accessibility - Khả năng tiếp cận', () => {
+    // Test: Bảng có cấu trúc semantic đúng
+    test('nên có cấu trúc bảng semantic đúng', () => {
+      // Triển khai test tại đây
+    });
+
+    // Test: Các điều khiển phân trang có thể thao tác bằng bàn phím
+    test('nên có điều khiển phân trang truy cập được bằng bàn phím', () => {
+      // Triển khai test tại đây
     });
   });
 });

@@ -1,8 +1,11 @@
 /**
- * Label Management page — Manager role
- * Full CRUD for Label Templates + Generate/Print capability
+ * LabelManagement - Trang quản lý mẫu nhãn dành cho Manager
+ * Chức năng: Quản lý toàn diện các mẫu nhãn mã vạch/QR code cho lô hàng và thành phẩm
+ * - Xem danh sách, chi tiết các mẫu nhãn
+ * - Tạo mới, chỉnh sửa, xóa mẫu nhãn
+ * - In nhãn với các tùy chọn (mã lô, mã vật tư, ngày sản xuất, hạn sử dụng...)
+ * Manager có thể thiết lập cấu hình nhãn để sử dụng trong quy trình kho hàng
  */
-
 import { useState, useCallback, useEffect } from "react";
 import { Tag, Plus } from "lucide-react";
 import type { LabelTemplate } from "../../types/label";
@@ -14,7 +17,9 @@ import {
   LabelPrint,
 } from "../../components/label";
 
+// Định nghĩa các chế độ hiển thị: danh sách, chi tiết, form, in
 type ViewMode = "list" | "detail" | "form" | "print";
+// Chế độ form: tạo mới hoặc chỉnh sửa
 type FormMode = "create" | "edit";
 
 export default function LabelManagement() {

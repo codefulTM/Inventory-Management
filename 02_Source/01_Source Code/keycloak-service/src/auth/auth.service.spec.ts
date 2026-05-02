@@ -1,3 +1,14 @@
+/**
+ * File: auth.service.spec.ts
+ * Mô tả: Unit tests cho AuthService trong keycloak-service.
+ *
+ * Kiểm tra các chức năng chính:
+ * - Đăng nhập: từ chối tài khoản bị khóa, gọi Keycloak xác thực đúng
+ * - Đăng ký: từ chối username/email trùng, tạo user trong cả Keycloak và MongoDB
+ *
+ * Mock: KeycloakService, UserService, MailService, AuditLogService, PasswordResetToken model
+ * đều được mock để test isolated business logic của AuthService.
+ */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
@@ -12,6 +23,7 @@ import { UserRole } from '../schemas/user.schema';
 describe('AuthService', () => {
   let service: AuthService;
 
+  // Mock KeycloakService: giả lập tương tác với Keycloak
   const mockKeycloakService = {
     loginUser: jest.fn(),
     findKeycloakUserByUsername: jest.fn(),
@@ -21,6 +33,7 @@ describe('AuthService', () => {
     createUser: jest.fn(),
     resetPassword: jest.fn(),
   };
+  // Mock UserService: giả lập truy cập MongoDB
   const mockUserService = {
     findByUsername: jest.fn(),
     findByKeycloakId: jest.fn(),
@@ -28,8 +41,11 @@ describe('AuthService', () => {
     create: jest.fn(),
     updateLastLogin: jest.fn(),
   };
+  // Mock MailService: giả lập gửi email
   const mockMailService = { sendResetPasswordEmail: jest.fn() };
+  // Mock AuditLogService: giả lập ghi audit log
   const mockAuditLogService = { log: jest.fn().mockResolvedValue(undefined) };
+  // Mock PasswordResetToken model: giả lập CRUD token đặt lại mật khẩu
   const mockResetTokenModel = {
     create: jest.fn(),
     findOne: jest.fn(),
@@ -52,7 +68,9 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
+  /** Test nhóm đăng nhập (login) */
   describe('login', () => {
+    /** Kiểm tra từ chối đăng nhập khi tài khoản bị vô hiệu hóa */
     it('should throw UnauthorizedException when account is deactivated', async () => {
       mockUserService.findByUsername.mockResolvedValue({
         is_active: false,
@@ -65,6 +83,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
+    /** Kiểm tra gọi Keycloak loginUser khi credentials hợp lệ */
     it('should call keycloakService.loginUser on valid credentials', async () => {
       mockUserService.findByUsername.mockResolvedValue({
         is_active: true,
@@ -91,7 +110,9 @@ describe('AuthService', () => {
     });
   });
 
+  /** Test nhóm đăng ký (register) */
   describe('register', () => {
+    /** Kiểm tra từ chối khi username đã tồn tại */
     it('should throw ConflictException when username already exists', async () => {
       mockUserService.findByUsername.mockResolvedValue({ username: 'existing' });
 
@@ -100,6 +121,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    /** Kiểm tra tạo user thành công trong cả Keycloak và MongoDB */
     it('should create user in Keycloak and MongoDB', async () => {
       mockUserService.findByUsername.mockResolvedValue(null);
       mockUserService.findByEmail.mockResolvedValue(null);

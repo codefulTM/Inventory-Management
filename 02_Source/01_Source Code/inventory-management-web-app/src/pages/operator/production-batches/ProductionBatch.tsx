@@ -1,27 +1,32 @@
 /**
- * Standalone API Test Page for Production Batch & Batch Component
- * Access: /api-test/batches  (no login required)
- *
- * Covers all endpoints:
- *   GET    /production-batches
- *   GET    /production-batches/status/:status
- *   GET    /production-batches/product/:productId
- *   GET    /production-batches/:id
- *   POST   /production-batches
- *   PATCH  /production-batches/:id
- *   DELETE /production-batches/:id
- *   GET    /production-batches/:id/components
- *   POST   /production-batches/:id/components
- *   PATCH  /production-batches/:id/components/:componentId
- *   DELETE /production-batches/:id/components/:componentId
+ * ProductionBatch API Test Page (Operator)
+ * Trang test API độc lập cho Production Batch & Batch Component
+ * 
+ * Mục đích: Cho phép Operator kiểm thử tất cả API endpoints mà không cần qua form phức tạp
+ * Access: /operator/production-batches/api-test
+ * 
+ * Các API endpoints được test:
+ *   GET    /production-batches - Danh sách lô sản xuất
+ *   GET    /production-batches/status/:status - Lọc theo trạng thái
+ *   GET    /production-batches/product/:productId - Lọc theo sản phẩm
+ *   GET    /production-batches/:id - Chi tiết một lô
+ *   POST   /production-batches - Tạo lô mới
+ *   PATCH  /production-batches/:id - Cập nhật lô
+ *   DELETE /production-batches/:id - Xóa lô
+ *   GET    /production-batches/:id/components - Danh sách nguyên liệu
+ *   POST   /production-batches/:id/components - Thêm nguyên liệu
+ *   PATCH  /production-batches/:id/components/:componentId - Sửa nguyên liệu
+ *   DELETE /production-batches/:id/components/:componentId - Xóa nguyên liệu
+ * 
+ * Lưu ý: Cần seed Inventory Lot trước khi thêm Batch Component (lot_id phải tồn tại)
  */
-
 import React, { useState, useCallback } from 'react';
 
 
 const API = 'http://localhost:3000';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── Hàm helper gọi API ──────────────────────────────────────────────────────────
+// Gọi API với method, path và body (tự động stringify JSON)
 async function call(
   method: string,
   path: string,
@@ -38,6 +43,7 @@ async function call(
   }
 }
 
+// Màu sắc cho từng trạng thái lô
 const statusColors: Record<string, string> = {
   'In Progress': 'bg-blue-100 text-blue-700',
   Complete: 'bg-green-100 text-green-700',
@@ -45,7 +51,9 @@ const statusColors: Record<string, string> = {
   Cancelled: 'bg-red-100 text-red-700',
 };
 
-// ── sub-components ────────────────────────────────────────────────────────────
+// ── Các component con ────────────────────────────────────────────────────────────
+
+// Component hiển thị JSON response từ API
 function JsonBox({ data }: { data: unknown }) {
   return (
     <pre className="bg-gray-950 text-green-300 text-xs p-4 rounded-xl overflow-x-auto max-h-72 leading-relaxed">
@@ -54,6 +62,7 @@ function JsonBox({ data }: { data: unknown }) {
   );
 }
 
+// Tiêu đề section với badge (ví dụ: GET, POST, PATCH...)
 function SectionTitle({ title, badge }: { title: string; badge?: string }) {
   return (
     <div className="flex items-center gap-3 mb-4">
@@ -67,6 +76,7 @@ function SectionTitle({ title, badge }: { title: string; badge?: string }) {
   );
 }
 
+// Nút bấm tái sử dụng với các màu sắc khác nhau
 function Btn({
   label,
   onClick,
@@ -91,11 +101,12 @@ function Btn({
       disabled={loading}
       className={`px-4 py-2 rounded-lg text-xs font-black transition-all disabled:opacity-40 ${cls}`}
     >
-      {loading ? '...' : label}
+      {loading ? 'Đang xử lý...' : label}
     </button>
   );
 }
 
+// Trường nhập liệu tái sử dụng
 function Field({
   label,
   value,
@@ -125,13 +136,14 @@ function Field({
   );
 }
 
-// ── Section: List Batches ─────────────────────────────────────────────────────
+// ── Section: Danh sách lô sản xuất (List Batches) ──────────────────────────────────
+// Cho phép xem danh sách, lọc theo trạng thái/sản phẩm
 function SectionList({
   onSelect,
   refreshKey,
 }: {
-  onSelect: (id: string) => void;
-  refreshKey: number;
+  onSelect: (id: string) => void;  // Callback khi chon một lô
+  refreshKey: number;  // Trigger reload khi có thay đổi
 }) {
   const [result, setResult] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
@@ -140,16 +152,20 @@ function SectionList({
   const [statusFilter, setStatusFilter] = useState('');
   const [productFilter, setProductFilter] = useState('');
 
+  // Gọi API lấy danh sách lô
   const run = useCallback(async () => {
     setLoading(true);
     let path = `/production-batches?page=${page}&limit=${limit}`;
+    // Lọc theo trạng thái
     if (statusFilter) path = `/production-batches/status/${encodeURIComponent(statusFilter)}?page=${page}&limit=${limit}`;
+    // Lọc theo sản phẩm
     if (productFilter) path = `/production-batches/product/${encodeURIComponent(productFilter)}?page=${page}&limit=${limit}`;
     const r = await call('GET', path);
     setResult(r);
     setLoading(false);
   }, [page, limit, statusFilter, productFilter, refreshKey]); // eslint-disable-line
 
+  // Lấy danh sách batches từ response
   const batches: unknown[] =
     result && typeof result === 'object' && (result as any).data?.data
       ? (result as any).data.data
@@ -157,35 +173,36 @@ function SectionList({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-      <SectionTitle title="List Batches" badge="GET" />
+      <SectionTitle title="Danh Sách Lô Sản Xuất" badge="GET" />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Field label="Page" value={page} onChange={setPage} type="number" />
-        <Field label="Limit" value={limit} onChange={setLimit} type="number" />
+        <Field label="Trang" value={page} onChange={setPage} type="number" />
+        <Field label="Số lượng/trang" value={limit} onChange={setLimit} type="number" />
         <div>
           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
-            Filter by Status
+            Lọc theo trạng thái
           </label>
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setProductFilter(''); }}
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-gray-50"
           >
-            <option value="">— All statuses —</option>
+            <option value="">— Tất cả —</option>
             <option>In Progress</option>
             <option>Complete</option>
             <option>On Hold</option>
             <option>Cancelled</option>
           </select>
         </div>
-        <Field label="Filter by product_id" value={productFilter} onChange={(v) => { setProductFilter(v); setStatusFilter(''); }} placeholder="e.g. PROD-001" />
+        <Field label="Lọc theo product_id" value={productFilter} onChange={(v) => { setProductFilter(v); setStatusFilter(''); }} placeholder="VD: PROD-001" />
       </div>
 
       <div className="flex gap-2">
         <Btn label="GET /production-batches" onClick={run} loading={loading} />
-        <Btn label="Clear" onClick={() => setResult(null)} color="gray" />
+        <Btn label="Xóa kết quả" onClick={() => setResult(null)} color="gray" />
       </div>
 
+      {/* Bảng hiển thị danh sách lô */}
       {batches.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-gray-100">
           <table className="w-full text-xs">
@@ -220,7 +237,7 @@ function SectionList({
                       onClick={() => onSelect(b.batch_id)}
                       className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black hover:bg-indigo-200"
                     >
-                      Select
+                      Chọn
                     </button>
                   </td>
                 </tr>

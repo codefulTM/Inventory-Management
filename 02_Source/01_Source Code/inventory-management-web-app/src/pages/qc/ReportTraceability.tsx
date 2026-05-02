@@ -1,3 +1,17 @@
+/**
+ * ReportTraceability Page (QC)
+ * Trang báo cáo và truy xuất nguồn gốc chất lượng
+ * 
+ * 3 Tab chính:
+ * - Tab 'history': Lịch sử kiểm nghiệm theo mã lô - Tra cứu kết quả QC của lô hàng
+ * - Tab 'supplier': Đánh giá hiệu suất nhà cung cấp - Tỷ lệ đạt, lô lỗi, xếp hạng
+ * - Tab 'AI-analysis': Phân tích AI về chất lượng nhà cung cấp - Sử dụng LLM để đánh giá rủi ro
+ * 
+ * Hiển thị kết quả Pass/Fail/Pending theo badge màu
+ * Hỗ trợ xuất COA (Certificate of Analysis) PDF và xuất CSV báo cáo
+ */
+
+
 import { useState, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Search } from 'lucide-react';
@@ -16,36 +30,46 @@ const RESULT_BADGE: Record<string, string> = {
 const SUPPLIER_PAGE_SIZE = 10;
 
 export default function ReportTraceability() {
+  // Tab hiện tại: 'history' | 'supplier' | 'AI-analysis'
   const [activeTab, setActiveTab] = useState<Tab>('history');
 
-  // History tab
-  const [searchInput, setSearchInput] = useState('');
-  const [qcHistory, setQcHistory] = useState<QCTest[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
+  // === State cho Tab Lịch sử QC (History) ===
+  const [searchInput, setSearchInput] = useState('');         // Mã lô cần tra cứu
+  const [qcHistory, setQcHistory] = useState<QCTest[]>([]);  // Lịch sử kiểm nghiệm của lô
+  const [searching, setSearching] = useState(false);           // Trạng thái đang tìm kiếm
+  const [selectedLotId, setSelectedLotId] = useState<string | null>(null);  // Lô đang được chọn
 
-  // Supplier tab
-  const [suppliers, setSuppliers] = useState<SupplierPerformance[]>([]);
-  const [supplierPage, setSupplierPage] = useState(1);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  // === State cho Tab Hiệu suất Nhà cung cấp (Supplier) ===
+  const [suppliers, setSuppliers] = useState<SupplierPerformance[]>([]);  // Danh sách nhà cung cấp
+  const [supplierPage, setSupplierPage] = useState(1);                  // Phân trang
+  const [dateFrom, setDateFrom] = useState('');                         // Từ ngày (lọc)
+  const [dateTo, setDateTo] = useState('');                             // Đến ngày (lọc)
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);       // Trạng thái đang tải
 
+  // Toast thông báo
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // AI Analysis tab state
-  type AiMode = 'all' | 'single';
-  const [aiMode, setAiMode] = useState<AiMode>('all');
-  const [aiSupplierInput, setAiSupplierInput] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<SupplierAnalysisResponse | null>(null);
+  // === State cho Tab Phân tích AI ===
+  type AiMode = 'all' | 'single';  // Chế độ: Tất cả nhà cung cấp hoặc 1 nhà cung cấp
+  const [aiMode, setAiMode] = useState<AiMode>('all');       // Chế độ phân tích AI
+  const [aiSupplierInput, setAiSupplierInput] = useState('');  // Tên nhà cung cấp (nếu chế độ single)
+  const [aiLoading, setAiLoading] = useState(false);           // Trạng thái đang phân tích
+  const [aiResult, setAiResult] = useState<SupplierAnalysisResponse | null>(null);  // Kết quả phân tích AI
 
+  /**
+   * Tải danh sách hiệu suất nhà cung cấp
+   * Có thể lọc theo khoảng thời gian (dateFrom, dateTo)
+   */
+  /**
+   * Tải danh sách hiệu suất nhà cung cấp
+   * Có thể lọc theo khoảng thời gian (dateFrom, dateTo)
+   */
   const loadSuppliers = useCallback(async (from?: string, to?: string) => {
     setLoadingSuppliers(true);
     try {
       const data = await getSupplierPerformance(from, to);
       setSuppliers(data);
-      setSupplierPage(1);
+      setSupplierPage(1);  // Reset vể trang 1 khi tải dữ liệu mới
     } catch {
       setToast({ message: 'Không thể tải báo cáo nhà cung cấp', type: 'error' });
     } finally {
@@ -53,16 +77,23 @@ export default function ReportTraceability() {
     }
   }, []);
 
+  // Tự động tải dữ liệu khi component mount
   useEffect(() => {
     void loadSuppliers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);  // intentionally run once on mount; user triggers re-fetch via "Áp dụng" button
+  }, []);  // Chỉ chạy một lần khi mount; user kích hoạt re-fetch qua nút "Áp dụng"
 
+  /**
+   * Tìm kiếm lịch sử QC theo mã lô
+   * Quy trình: Nhập mã lô → Gọi API → Hiển thị lịch sử kiểm nghiệm
+   */
   async function handleSearch() {
     const lotId = searchInput.trim();
     if (!lotId) return;
+    
     setSearching(true);
     try {
+      // Gọi API lấy lịch sử QC của lô
       const tests = await getQCTestsByLot(lotId);
       setQcHistory(tests);
       setSelectedLotId(lotId);
@@ -75,12 +106,14 @@ export default function ReportTraceability() {
     }
   }
 
-  // Derived supplier KPIs
+  // Tính toán KPI của nhà cung cấp
+  // Sắp xếp để tìm nhà cung cấp tốt nhất (chất lượng cao nhất) và tệ nhất
   const bestSupplier = [...suppliers].sort((a, b) => b.quality_rate - a.quality_rate)[0];
   const worstSupplier = [...suppliers].sort((a, b) => a.quality_rate - b.quality_rate)[0];
-  const totalBatches = suppliers.reduce((sum, s) => sum + s.total_batches, 0);
-  const supplierTotalItems = suppliers.length;
-  const supplierTotalPages = Math.max(1, Math.ceil(supplierTotalItems / SUPPLIER_PAGE_SIZE));
+  const totalBatches = suppliers.reduce((sum, s) => sum + s.total_batches, 0);  // Tổng số lô đã kiểm
+  const supplierTotalItems = suppliers.length;  // Số lượng nhà cung cấp
+  const supplierTotalPages = Math.max(1, Math.ceil(supplierTotalItems / SUPPLIER_PAGE_SIZE));  // Tổng số trang
+  // Phân trang cho danh sách nhà cung cấp
   const supplierStart = (supplierPage - 1) * SUPPLIER_PAGE_SIZE;
   const paginatedSuppliers = suppliers.slice(
     supplierStart,
@@ -92,12 +125,22 @@ export default function ReportTraceability() {
     supplierTotalItems,
   );
 
+  // Điểu chỉnh trang hiện tại nếu vượt quá tổng số trang
   useEffect(() => {
     if (supplierPage > supplierTotalPages) {
       setSupplierPage(supplierTotalPages);
     }
   }, [supplierPage, supplierTotalPages]);
 
+  /**
+   * Gọi AI để phân tích chất lượng nhà cung cấp
+   * 
+   * Chế độ:
+   * - 'all': Phân tích tất cả nhà cung cấp
+   * - 'single': Phân tích 1 nhà cung cấp cụ thể
+   * 
+   * Sử dụng mô hình LLM (HuggingFace) để đánh giá rủi ro
+   */
   async function handleAiAnalyze() {
     if (aiMode === 'single' && !aiSupplierInput.trim()) {
       setToast({ message: 'Vui lòng nhập tên nhà cung cấp', type: 'error' });
@@ -109,6 +152,7 @@ export default function ReportTraceability() {
       const from = dateFrom || undefined;
       const to = dateTo || undefined;
 
+      // Gọi API phân tích AI tương ứng với chế độ
       const result =
         aiMode === 'all'
           ? await analyzeAllSuppliers(from, to)
@@ -125,12 +169,19 @@ export default function ReportTraceability() {
     }
   }
 
+  /**
+   * Xuất báo cáo hiệu suất nhà cung cấp ra file CSV
+   * Định dạng: Nhà cung cấp, Tổng lô, Đạt, Từ chối, Tỷ lệ đạt (%)
+   * Sử dụng: Mở bằng Excel để phân tích thêm
+   */
   function exportCSV() {
     if (suppliers.length === 0) return;
+    // Tạo header và rows cho CSV
     const header = 'Nhà cung cấp,Tổng lô,Đạt,Từ chối,Tỷ lệ đạt (%)';
     const rows = suppliers.map(
       (s) => `${s.supplier_name},${s.total_batches},${s.approved},${s.rejected},${s.quality_rate.toFixed(2)}`,
     );
+    // Tạo blob và kích hoạt tải xuống
     const csv = [header, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -141,6 +192,10 @@ export default function ReportTraceability() {
     URL.revokeObjectURL(url);
   }
 
+  /**
+   * Escape các ký tự HTML đặc biệt để tránh XSS
+   * Sử dụng khi tạo nội dung HTML động cho PDF
+   */
   function escapeHtml(value: string): string {
     return value
       .replaceAll('&', '&amp;')
@@ -150,7 +205,21 @@ export default function ReportTraceability() {
       .replaceAll("'", '&#39;');
   }
 
+  /**
+   * Xuất COA (Certificate of Analysis) ra file PDF
+   * 
+   * Quy trình:
+   * 1. Kiểm tra lô đã chọn và có dữ liệu QC chưa
+   * 2. Lấy thông tin công ty từ env variables
+   * 3. Tạo HTML template cho COA
+   * 4. Dùng html2canvas để chuyển HTML thành canvas
+   * 5. Dùng jsPDF để chuyển canvas thành PDF
+   * 6. Tải xuống file PDF
+   * 
+   * COA là chứng nhận phân tích chất lượng, cần thiết cho việc xuất hàng
+   */
   async function exportCOAPdf() {
+    // Kiểm tra điều kiện xuất COA
     if (!selectedLotId) {
       setToast({ message: 'Vui lòng tìm và chọn lô hàng trước khi xuất COA', type: 'error' });
       return;
@@ -162,12 +231,14 @@ export default function ReportTraceability() {
     }
 
     try {
+      // Import động các thư viện (giảm kích thước bundle)
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import('html2canvas'),
         import('jspdf'),
       ]);
 
       const generatedAt = new Date();
+      // Lấy thông tin công ty từ env (có fallback giá trị mặc định)
       const companyInfo = {
         name: import.meta.env.VITE_COMPANY_NAME || 'Inventory Management Co., Ltd.',
         address:
@@ -179,6 +250,7 @@ export default function ReportTraceability() {
         issuedBy: import.meta.env.VITE_COA_ISSUED_BY || 'QC Department',
       };
 
+      // Tạo các hàng trong bảng kết quả QC
       const coaRows = qcHistory
         .map((test, idx) => {
           const date = test.test_date
@@ -199,15 +271,17 @@ export default function ReportTraceability() {
         })
         .join('');
 
+      // Tạo container HTML cho COA
       const container = document.createElement('div');
       container.style.position = 'fixed';
-      container.style.left = '-10000px';
+      container.style.left = '-10000px';  // Ẩn khỏi màn hình
       container.style.top = '0';
       container.style.width = '1000px';
       container.style.background = '#ffffff';
       container.style.padding = '24px';
       container.style.boxSizing = 'border-box';
       container.style.fontFamily = 'Arial, sans-serif';
+      // HTML template cho COA
       container.innerHTML = `
         <div style="border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
           <h2 style="margin: 0 0 8px 0; font-size: 18px; color: #111827;">${escapeHtml(companyInfo.name)}</h2>
@@ -247,14 +321,16 @@ export default function ReportTraceability() {
 
       document.body.appendChild(container);
 
+      // Chuyển HTML thành canvas
       const canvas = await html2canvas(container, {
-        scale: 2,
+        scale: 2,           // Độ phân giải cao
         useCORS: true,
         backgroundColor: '#ffffff',
       });
 
       document.body.removeChild(container);
 
+      // Chuyển canvas thành PDF
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -265,9 +341,11 @@ export default function ReportTraceability() {
       let heightLeft = imgHeight;
       let position = 0;
 
+      // Thêm trang đầu tiên
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
+      // Thêm các trang tiếp theo nếu nội dung dài
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -275,6 +353,7 @@ export default function ReportTraceability() {
         heightLeft -= pageHeight;
       }
 
+      // Tải xuống file PDF
       pdf.save(`COA_${selectedLotId}_${generatedAt.toISOString().slice(0, 10)}.pdf`);
       setToast({ message: 'Xuất COA PDF thành công', type: 'success' });
     } catch (err) {
@@ -285,13 +364,15 @@ export default function ReportTraceability() {
 
   return (
     <div className="p-6 space-y-5">
+      {/* Tiêu đề trang truy xuất và báo cáo */}
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-none uppercase">Truy vết & Báo cáo</h1>
         <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest mt-1">Lịch sử QC theo lô và hiệu suất nhà cung cấp</p>
       </div>
 
-      {/* Tabs */}
+      {/* Thanh Tab chuyển đổi giữa 3 chức năng chính */}
       <div className="flex border-b border-gray-200">
+        {/* Tab Lịch sử QC - Tra cứu kết quả kiểm nghiệm theo mã lô */}
         <button
           onClick={() => setActiveTab('history')}
           className={`m-2 px-5 py-3 text-sm font-semibold transition border-b-2 -mb-px ${
@@ -300,6 +381,7 @@ export default function ReportTraceability() {
         >
           Lịch sử QC
         </button>
+        {/* Tab Hiệu suất Nhà CC - Đánh giá nhà cung cấp */}
         <button
           onClick={() => setActiveTab('supplier')}
           className={`m-2 px-5 py-3 text-sm font-semibold transition border-b-2 -mb-px ${
@@ -308,6 +390,7 @@ export default function ReportTraceability() {
         >
           Hiệu suất Nhà CC
         </button>
+        {/* Tab Phân tích từ AI - Sử dụng LLM đánh giá rủi ro */}
         <button
           onClick={() => setActiveTab('AI-analysis')}
           className={`m-2 px-5 py-3 text-sm font-semibold transition border-b-2 -mb-px ${
@@ -318,7 +401,7 @@ export default function ReportTraceability() {
         </button>
       </div>
 
-      {/* History Tab */}
+      {/* === TAB LỊCH SỬ QC - Tra cứu kết quả kiểm nghiệm === */}
       {activeTab === 'history' && (
         <div className="space-y-5">
           {/* Search bar */}
@@ -426,10 +509,10 @@ export default function ReportTraceability() {
         </div>
       )}
 
-      {/* Supplier Tab */}
+      {/* === TAB HIỆU SỬT NHÀ CUNG CẤP === */}
       {activeTab === 'supplier' && (
         <div className="space-y-5">
-          {/* Date range filter */}
+          {/* Bộ lọc theo khoảng thời gian */}
           <div className="flex gap-3 items-end flex-wrap">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Từ ngày</label>
@@ -449,6 +532,7 @@ export default function ReportTraceability() {
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>
+            {/* Nút áp dụng bộ lọc */}
             <button
               onClick={() => void loadSuppliers(dateFrom || undefined, dateTo || undefined)}
               disabled={loadingSuppliers}
@@ -462,6 +546,7 @@ export default function ReportTraceability() {
               )}
               Áp dụng
             </button>
+            {/* Nút xuất CSV báo cáo */}
             <button
               onClick={exportCSV}
               disabled={suppliers.length === 0}
@@ -471,14 +556,16 @@ export default function ReportTraceability() {
             </button>
           </div>
 
-          {/* KPI summary cards */}
+          {/* KPI Cards - Hiển thị các chỉ số quan trọng */}
           {suppliers.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Tổng số lô đã kiểm */}
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <p className="text-xs font-medium text-blue-500 uppercase">Tổng lô đã kiểm</p>
                 <p className="text-2xl font-bold text-blue-700 mt-1">{totalBatches}</p>
                 <p className="text-xs text-blue-400 mt-0.5">{suppliers.length} nhà cung cấp</p>
               </div>
+              {/* Nhà cung cấp tốt nhất - Tỷ lệ đạt cao nhất */}
               {bestSupplier && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
                   <p className="text-xs font-medium text-green-500 uppercase">Tốt nhất</p>
@@ -486,6 +573,7 @@ export default function ReportTraceability() {
                   <p className="text-xs text-green-600">{bestSupplier.quality_rate.toFixed(1)}% đạt chuẩn</p>
                 </div>
               )}
+              {/* Nhà cung cấp cần cải thiện - Tỷ lệ đạt thấp nhất */}
               {worstSupplier && worstSupplier.supplier_name !== bestSupplier?.supplier_name && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
                   <p className="text-xs font-medium text-red-500 uppercase">Cần cải thiện</p>
@@ -496,227 +584,236 @@ export default function ReportTraceability() {
             </div>
           )}
 
-          {/* Supplier table */}
+          {/* === BẢNG DỮ LIỆU NHÀ CUNG CẤP === */}
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-            {loadingSuppliers ? (
-              <div className="p-6 space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
-                ))}
-              </div>
-            ) : suppliers.length === 0 ? (
-              <p className="p-10 text-center text-gray-400">Không có dữ liệu nhà cung cấp trong khoảng thời gian này.</p>
-            ) : (
-              <div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                      <tr>
-                        <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
-                        <th className="px-6 py-4 text-right font-bold tracking-wider">Tổng lô</th>
-                        <th className="px-6 py-4 text-right font-bold tracking-wider">Đạt</th>
-                        <th className="px-6 py-4 text-right font-bold tracking-wider">Từ chối</th>
-                        <th className="px-6 py-4 text-left font-bold tracking-wider">Chỉ số chất lượng</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {paginatedSuppliers.map((s) => (
-                        <tr key={s.supplier_name} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 font-semibold text-gray-800">{s.supplier_name}</td>
-                          <td className="px-6 py-4 text-right text-gray-700">{s.total_batches}</td>
-                          <td className="px-6 py-4 text-right text-green-600 font-medium">{s.approved}</td>
-                          <td className="px-6 py-4 text-right text-red-600 font-medium">{s.rejected}</td>
-                          <td className="px-5 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1 max-w-32 bg-gray-100 rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full ${
-                                    s.quality_rate >= 90 ? 'bg-green-500' :
-                                    s.quality_rate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${Math.min(s.quality_rate, 100)}%` }}
-                                />
-                              </div>
-                              <span className={`text-xs font-semibold min-w-10 ${
-                                s.quality_rate >= 90 ? 'text-green-600' :
-                                s.quality_rate >= 70 ? 'text-yellow-600' : 'text-red-600'
-                              }`}>
-                                {s.quality_rate.toFixed(1)}%
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {loadingSuppliers ? (
+                // Hiển thị loading skeleton khi đang tải
+                <div className="p-6 space-y-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+                  ))}
                 </div>
+              ) : suppliers.length === 0 ? (
+                // Hiển thị thông báo khi không có dữ liệu
+                <p className="p-10 text-center text-gray-400">Không có dữ liệu nhà cung cấp trong khoảng thời gian này.</p>
+              ) : (
+                <div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                        <tr>
+                          <th className="px-6 py-4 text-left font-bold tracking-wider">Nhà cung cấp</th>
+                          <th className="px-6 py-4 text-right font-bold tracking-wider">Tổng lô</th>
+                          <th className="px-6 py-4 text-right font-bold tracking-wider">Đạt</th>
+                          <th className="px-6 py-4 text-right font-bold tracking-wider">Từ chối</th>
+                          {/* Chỉ số chất lượng: Thanh tiến trình + Phần trăm */}
+                          <th className="px-6 py-4 text-left font-bold tracking-wider">Chỉ số chất lượng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {paginatedSuppliers.map((s) => (
+                          <tr key={s.supplier_name} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 font-semibold text-gray-800">{s.supplier_name}</td>
+                            <td className="px-6 py-4 text-right text-gray-700">{s.total_batches}</td>
+                            <td className="px-6 py-4 text-right text-green-600 font-medium">{s.approved}</td>
+                            <td className="px-6 py-4 text-right text-red-600 font-medium">{s.rejected}</td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-3">
+                                {/* Thanh tiến trình hiển thị tỷ lệ đạt */}
+                                <div className="flex-1 max-w-32 bg-gray-100 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full ${
+                                      s.quality_rate >= 90 ? 'bg-green-500' :
+                                      s.quality_rate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                                    }`}
+                                    style={{ width: `${Math.min(s.quality_rate, 100)}%` }}
+                                  />
+                                </div>
+                                {/* Phần trăm đạt chuẩn */}
+                                <span className={`text-xs font-semibold min-w-10 ${
+                                  s.quality_rate >= 90 ? 'text-green-600' :
+                                  s.quality_rate >= 70 ? 'text-yellow-600' : 'text-red-600'
+                                }`}>
+                                  {s.quality_rate.toFixed(1)}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-                  <p className="text-xs text-gray-500">
-                    Hiển thị {supplierDisplayFrom}-{supplierDisplayTo} / {supplierTotalItems} nhà cung cấp
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setSupplierPage((prev) => Math.max(1, prev - 1))}
-                      disabled={supplierPage === 1}
-                      className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Trước
-                    </button>
-                    <span className="text-xs text-gray-500">
-                      Trang {supplierPage}/{supplierTotalPages}
-                    </span>
-                    <button
-                      onClick={() => setSupplierPage((prev) => Math.min(supplierTotalPages, prev + 1))}
-                      disabled={supplierPage === supplierTotalPages}
-                      className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Sau
-                    </button>
+                  {/* Phân trang cho bảng nhà cung cấp */}
+                  <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                    <p className="text-xs text-gray-500">
+                      Hiển thị {supplierDisplayFrom}-{supplierDisplayTo} / {supplierTotalItems} nhà cung cấp
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSupplierPage((prev) => Math.max(1, prev - 1))}
+                        disabled={supplierPage === 1}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Trước
+                      </button>
+                      <span className="text-xs text-gray-500">
+                        Trang {supplierPage}/{supplierTotalPages}
+                      </span>
+                      <button
+                        onClick={() => setSupplierPage((prev) => Math.min(supplierTotalPages, prev + 1))}
+                        disabled={supplierPage === supplierTotalPages}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Sau
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* AI Analysis Tab */}
-      {activeTab === 'AI-analysis' && (
-        <div className="space-y-5">
-          {/* Mode card */}
-          <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🤖</span>
-              <div>
-                <h3 className="font-bold text-gray-900">Phân tích nhà cung cấp bằng AI</h3>
-                <p className="text-xs text-gray-400">Sử dụng dữ liệu QC test thực tế để đánh giá rủi ro</p>
-              </div>
-            </div>
-
-            {/* Mode selector */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setAiMode('all')}
-                className={`flex-1 py-3 px-4 rounded-lg border-2 text-sm font-semibold transition ${
-                  aiMode === 'all'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                }`}
-              >
-                📊 Tất cả nhà cung cấp
-              </button>
-              <button
-                onClick={() => setAiMode('single')}
-                className={`flex-1 py-3 px-4 rounded-lg border-2 text-sm font-semibold transition ${
-                  aiMode === 'single'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                }`}
-              >
-                🔍 Theo tên nhà cung cấp
-              </button>
-            </div>
-
-            {/* Single supplier input */}
-            {aiMode === 'single' && (
-              <input
-                type="text"
-                value={aiSupplierInput}
-                onChange={(e) => setAiSupplierInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') void handleAiAnalyze(); }}
-                placeholder="Nhập tên nhà cung cấp (VD: Công ty ABC)..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
-              />
-            )}
-
-            {/* Date range filter */}
-            <div className="flex gap-3 items-end flex-wrap">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Từ ngày</label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Đến ngày</label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <p className="text-xs text-gray-400 pb-2">Bỏ trống để phân tích toàn bộ dữ liệu</p>
-            </div>
-
-            {/* Analyze button */}
-            <button
-              onClick={() => void handleAiAnalyze()}
-              disabled={aiLoading}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 transition"
-            >
-              {aiLoading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                  Đang phân tích...
-                </>
-              ) : (
-                <>🤖 Phân tích với AI</>
               )}
-            </button>
+            </div>
           </div>
+        )}
 
-          {/* Result card */}
-          {aiResult && (
-            <div className={`bg-white border rounded-xl shadow-sm overflow-hidden ${
-              aiResult.success ? 'border-gray-100' : 'border-red-200'
-            }`}>
-              {/* Result header */}
-              <div className={`px-5 py-3 border-b flex items-center justify-between flex-wrap gap-2 ${
-                aiResult.success ? 'border-gray-100 bg-gray-50' : 'border-red-100 bg-red-50'
+        {/* === TAB PHÂN TÍCH TỪ AI === */}
+        {activeTab === 'AI-analysis' && (
+          <div className="space-y-5">
+            {/* Card chọn chế độ phân tích */}
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🤖</span>
+                <div>
+                  <h3 className="font-bold text-gray-900">Phân tích nhà cung cấp bằng AI</h3>
+                  <p className="text-xs text-gray-400">Sử dụng dữ liệu QC test thực tế để đánh giá rủi ro</p>
+                </div>
+              </div>
+
+              {/* Chọn chế độ: Tất cả hoặc 1 nhà cung cấp */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setAiMode('all')}
+                  className={`flex-1 py-3 px-4 rounded-lg border-2 text-sm font-semibold transition ${
+                    aiMode === 'all'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  📊 Tất cả nhà cung cấp
+                </button>
+                <button
+                  onClick={() => setAiMode('single')}
+                  className={`flex-1 py-3 px-4 rounded-lg border-2 text-sm font-semibold transition ${
+                    aiMode === 'single'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  🔍 Theo tên nhà cung cấp
+                </button>
+              </div>
+
+              {/* Ô nhập tên nhà cung cấp - Chỉ hiển thị khi chọn chế độ single */}
+              {aiMode === 'single' && (
+                <input
+                  type="text"
+                  value={aiSupplierInput}
+                  onChange={(e) => setAiSupplierInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleAiAnalyze(); }}
+                  placeholder="Nhập tên nhà cung cấp (VD: Công ty ABC)..."
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              )}
+
+              {/* Bộ lọc thời gian cho AI */}
+              <div className="flex gap-3 items-end flex-wrap">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Từ ngày</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Đến ngày</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 pb-2">Bỏ trống để phân tích toàn bộ dữ liệu</p>
+              </div>
+
+              {/* Nút kích hoạt phân tích AI */}
+              <button
+                onClick={() => void handleAiAnalyze()}
+                disabled={aiLoading}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 transition"
+              >
+                {aiLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Đang phân tích...
+                  </>
+                ) : (
+                  <>🤖 Phân tích với AI</>
+                )}
+              </button>
+            </div>
+
+            {/* Hiển thị kết quả phân tích AI */}
+            {aiResult && (
+              <div className={`bg-white border rounded-xl shadow-sm overflow-hidden ${
+                aiResult.success ? 'border-gray-100' : 'border-red-200'
               }`}>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                    aiResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {aiResult.success ? '✓ Thành công' : '✕ Lỗi'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    Đã phân tích: <strong>{aiResult.suppliers_analyzed}</strong> nhà cung cấp
-                  </span>
+                {/* Header kết quả */}
+                <div className={`px-5 py-3 border-b flex items-center justify-between flex-wrap gap-2 ${
+                  aiResult.success ? 'border-gray-100 bg-gray-50' : 'border-red-100 bg-red-50'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    {/* Badge thành công/thất bại */}
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      aiResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {aiResult.success ? '✓ Thành công' : '✕ Lỗi'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Đã phân tích: <strong>{aiResult.suppliers_analyzed}</strong> nhà cung cấp
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                    <span>Model: <span className="font-mono">{aiResult.model_used.split('/').pop()}</span></span>
+                    <span>{new Date(aiResult.timestamp).toLocaleString('vi-VN')}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400">
-                  <span>Model: <span className="font-mono">{aiResult.model_used.split('/').pop()}</span></span>
-                  <span>{new Date(aiResult.timestamp).toLocaleString('vi-VN')}</span>
+
+                {/* Nội dung phân tích - Sử dụng ReactMarkdown để hiển thị */}
+                <div className="px-5 py-4 prose prose-sm max-w-none text-gray-700">
+                  <ReactMarkdown>{aiResult.analysis}</ReactMarkdown>
                 </div>
               </div>
+            )}
 
-              {/* Analysis content */}
-              <div className="px-5 py-4 prose prose-sm max-w-none text-gray-700">
-                <ReactMarkdown>{aiResult.analysis}</ReactMarkdown>
+            {/* Empty state - Chưa có kết quả */}
+            {!aiResult && !aiLoading && (
+              <div className="p-12 bg-white border border-dashed border-gray-200 rounded-xl text-center text-gray-400">
+                <div className="text-4xl mb-3">🤖</div>
+                <p className="text-sm font-medium">Chưa có kết quả phân tích</p>
+                <p className="text-xs mt-1">Chọn chế độ và nhấn "Phân tích với AI" để bắt đầu</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {/* Empty state */}
-          {!aiResult && !aiLoading && (
-            <div className="p-12 bg-white border border-dashed border-gray-200 rounded-xl text-center text-gray-400">
-              <div className="text-4xl mb-3">🤖</div>
-              <p className="text-sm font-medium">Chưa có kết quả phân tích</p>
-              <p className="text-xs mt-1">Chọn chế độ và nhấn "Phân tích với AI" để bắt đầu</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        {/* Toast thông báo */}
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </div>
     </div>
   );
 }

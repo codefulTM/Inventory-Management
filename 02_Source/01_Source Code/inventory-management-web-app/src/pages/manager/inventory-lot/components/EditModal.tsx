@@ -1,3 +1,10 @@
+/**
+ * EditModal - Modal chỉnh sửa thông tin lô hàng (Inventory Lot) dành cho Manager
+ * Chức năng: Form chỉnh sửa thông tin của một lô hàng đã tồn tại
+ * Các trường có thể chỉnh sửa: vật tư, nhà sản xuất, số lượng, vị trí lưu trữ
+ * Ngày tháng, trạng thái (Accepted/Quarantine/Rejected/Depleted/Pending)
+ * Manager có thể cập nhật thông tin và lưu thay đổi
+ */
 import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
 import {
@@ -32,14 +39,16 @@ const EDITABLE_STATUSES = [
   "Depleted",
 ] as const;
 
+/** Props cho component EditModal */
 interface EditModalProps {
-  isOpen: boolean;
-  selectedLot: InventoryLot | null;
-  onClose: () => void;
-  onSubmit: (values: EditFormValues) => Promise<void>;
-  submitError?: string | null;
+  isOpen: boolean;              // Modal có đang mở không
+  selectedLot: InventoryLot | null;  // Lô hàng đang được chỉnh sửa
+  onClose: () => void;            // Hàm đóng modal
+  onSubmit: (values: EditFormValues) => Promise<void>; // Hàm xử lý lưu thay đổi
+  submitError?: string | null;    // Lỗi khi submit
 }
 
+/** Component chính: Modal chỉnh sửa lô hàng */
 export function EditModal({
   isOpen,
   selectedLot,
@@ -47,6 +56,7 @@ export function EditModal({
   onSubmit,
   submitError,
 }: EditModalProps) {
+  // Xác định trạng thái hợp lệ để điền vào form (mặc định là Pending nếu không hợp lệ)
   const mappedStatus: EditFormValues["status"] =
     selectedLot &&
     EDITABLE_STATUSES.includes(
@@ -55,11 +65,14 @@ export function EditModal({
       ? (selectedLot.status as EditFormValues["status"])
       : "Pending";
 
+  // Tải danh sách vật tư từ API để hiển thị trong select
   const {
     materials,
     loading: materialsLoading,
     error: materialsError,
   } = useMaterials();
+
+  // Khởi tạo react-hook-form với giá trị từ lô hàng đang chọn
   const {
     register,
     handleSubmit,
@@ -92,12 +105,14 @@ export function EditModal({
       : undefined,
   });
 
+  // Tải danh sách kho từ API
   const {
     warehouses,
     loading: warehousesLoading,
     error: warehousesError,
   } = useWarehouseList();
 
+  // Theo dõi kho đang chọn để tải danh sách vị trí kệ (bins)
   const warehouseId = watch("warehouse_id");
   const {
     bins,
@@ -105,6 +120,7 @@ export function EditModal({
     error: binsError,
   } = useBinWorklist(warehouseId || undefined);
 
+  // Ref theo dõi kho trước đó để reset vị trí khi đổi kho
   const prevWarehouseRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (prevWarehouseRef.current && prevWarehouseRef.current !== warehouseId) {
@@ -113,8 +129,10 @@ export function EditModal({
     prevWarehouseRef.current = warehouseId;
   }, [warehouseId]);
 
+  // Không hiển thị nếu modal đóng hoặc chưa chọn lô hàng
   if (!isOpen || !selectedLot) return null;
 
+  /** Xử lý submit form chỉnh sửa - gọi callback onSubmit từ parent */
   const handleFormSubmit = async (values: EditFormValues) => {
     await onSubmit(values);
   };

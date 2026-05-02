@@ -1,3 +1,15 @@
+/**
+ * BarcodeService - Dịch vụ tạo và xử lý mã vạch
+ *
+ * Chức năng:
+ * - Tạo mã vạch cho lô hàng sử dụng thư viện bwip-js
+ * - Hỗ trợ 3 định dạng: Code128, EAN13, QR Code
+ * - Xuất ảnh barcode dưới dạng PNG
+ * - Tra cứu thông tin lô hàng từ mã vạch (quét hoặc nhập tay)
+ * - Tạo hàng loạt barcode cho nhiều lô
+ *
+ * Định dạng mã vạch: LOT + 8 ký tự cuối của lot_id
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -7,6 +19,7 @@ import {
 } from '../schemas/inventory-lot.schema';
 import bwipjs from 'bwip-js';
 
+/** Cấu trúc dữ liệu mã vạch được tạo */
 export interface BarcodeData {
   _id?: string;
   lot_id: string;

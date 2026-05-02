@@ -1,13 +1,19 @@
+// File: components/warehouse/components/WarehouseDetail.tsx
+// Component hiển thị chi tiết thông tin của một kho
+// Bao gồm: mã kho, tên, trạng thái, mô tả, metadata (ngày tạo, ID)
+
 import React from "react";
 import type { Warehouse } from "../../../types/warehouse";
 
+// Props cho WarehouseDetail
 interface Props {
-  warehouse: Warehouse;
+  warehouse: Warehouse; // Dữ liệu kho cần hiển thị
 }
 
 export const WarehouseDetail: React.FC<Props> = ({ warehouse }) => {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {/* HEADER: Tên kho */}
       <div className="flex justify-between items-center px-5 py-6 border-b-2 border-gray-200 bg-gray-50">
         <h2 className="m-0 text-2xl text-gray-800 flex-1">
           {warehouse.warehouse_name}
@@ -15,11 +21,13 @@ export const WarehouseDetail: React.FC<Props> = ({ warehouse }) => {
       </div>
 
       <div className="px-5 py-6">
+        {/* PHẦN THÔNG TIN CƠ BẢN */}
         <section className="mb-6">
           <h3 className="m-0 mb-4 text-lg text-gray-800 border-b-2 border-gray-200 pb-2">
             Thông tin cơ bản
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Mã kho */}
             <div className="flex flex-col gap-1.5">
               <label className="font-bold text-gray-600 text-sm uppercase tracking-wide">
                 Mã kho
@@ -28,6 +36,8 @@ export const WarehouseDetail: React.FC<Props> = ({ warehouse }) => {
                 {warehouse.warehouse_id}
               </code>
             </div>
+
+            {/* Trạng thái */}
             <div className="flex flex-col gap-1.5">
               <label className="font-bold text-gray-600 text-sm uppercase tracking-wide">
                 Trạng thái
@@ -38,6 +48,8 @@ export const WarehouseDetail: React.FC<Props> = ({ warehouse }) => {
                 {warehouse.is_active ? "Đang hoạt động" : "Không hoạt động"}
               </span>
             </div>
+
+            {/* Mô tả */}
             <div className="flex flex-col gap-1.5 md:col-span-2">
               <label className="font-bold text-gray-600 text-sm uppercase tracking-wide">
                 Mô tả
@@ -49,11 +61,13 @@ export const WarehouseDetail: React.FC<Props> = ({ warehouse }) => {
           </div>
         </section>
 
+        {/* PHẦN METADATA */}
         <section className="mb-0">
           <h3 className="m-0 mb-4 text-lg text-gray-800 border-b-2 border-gray-200 pb-2">
             Metadata
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Ngày tạo */}
             <div className="flex flex-col gap-1.5">
               <label className="font-bold text-gray-600 text-sm uppercase tracking-wide">
                 Ngày tạo
@@ -62,6 +76,8 @@ export const WarehouseDetail: React.FC<Props> = ({ warehouse }) => {
                 {new Date(warehouse.created_date).toLocaleString()}
               </p>
             </div>
+
+            {/* ID (MongoDB _id) */}
             <div className="flex flex-col gap-1.5">
               <label className="font-bold text-gray-600 text-sm uppercase tracking-wide">
                 ID

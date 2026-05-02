@@ -1,17 +1,26 @@
+// File: components/ui/Button.tsx
+// Component Button tái sử dụng với nhiều biến thể (variant) và kích thước (size)
+// Hỗ trợ trạng thái loading với icon xoay (spinner)
+// Sử dụng forwardRef để hỗ trợ ref forwarding
+
 import type { ButtonHTMLAttributes } from 'react';
 import { forwardRef } from 'react';
 import { Loader2 } from 'lucide-react';
 
+// Các biến thể màu sắc của button
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
+// Các kích thước của button
 type ButtonSize = 'sm' | 'md' | 'lg';
 
+// Props cho component Button
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  loading?: boolean;
-  icon?: React.ReactNode;
+  variant?: ButtonVariant; // Biến thể màu sắc
+  size?: ButtonSize; // Kích thước
+  loading?: boolean; // Trạng thái đang tải
+  icon?: React.ReactNode; // Icon hiển thị bên trái text
 }
 
+// Định nghĩa styles cho từng biến thể
 const variantStyles: Record<ButtonVariant, string> = {
   primary: `
     bg-primary-600 text-white
@@ -41,12 +50,14 @@ const variantStyles: Record<ButtonVariant, string> = {
   `,
 };
 
+// Định nghĩa styles cho từng kích thước
 const sizeStyles: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-xs rounded-md',
   md: 'px-4 py-2.5 text-sm rounded-lg',
   lg: 'px-6 py-3 text-base rounded-lg',
 };
 
+// Component Button chính - Sử dụng forwardRef để hỗ trợ ref
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', loading, icon, className = '', children, disabled, ...props }, ref) => {
     const isDisabled = disabled || loading;
@@ -67,6 +78,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         `.trim().replace(/\s+/g, ' ')}
         {...props}
       >
+        {/* Hiển thị spinner khi loading, hoặc icon nếu có */}
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : icon ? (
