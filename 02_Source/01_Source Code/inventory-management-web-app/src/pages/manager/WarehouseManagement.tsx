@@ -1,3 +1,29 @@
+/**
+ * WarehouseManagement - Trang quản lý kho hàng (Warehouse) dành cho Manager
+ * ==========================================================================
+ * Chức năng chính:
+ * - Hiển thị danh sách tất cả kho hàng với phân trang (pagination)
+ * - Tạo mới kho hàng (create warehouse)
+ * - Xem chi tiết thông tin kho: tên kho, mã kho, địa chỉ, số lượng vị trí kệ (bins)
+ * - Chỉnh sửa thông tin kho (edit warehouse)
+ * - Xóa kho hàng (yêu cầu xác nhận trước khi xóa)
+ * 
+ * Warehouse (Kho hàng):
+ * - Là đơn vị lưu trữ vật tư, hàng hóa trong hệ thống
+ * - Mỗi kho có: mã kho (warehouse_id), tên kho (warehouse_name), địa chỉ (address)
+ * - Kho chứa các vị trí kệ (bins) để sắp xếp hàng hóa
+ * - Có thể có nhiều kho trong một hệ thống (đa kho)
+ * 
+ * Quy trình quản lý kho:
+ * 1. Tạo kho mới: Điền thông tin tên, địa chỉ, mã kho
+ * 2. Xem danh sách kho: Hiển thị tất cả kho với phân trang
+ * 3. Xem chi tiết: Xem thông tin chi tiết và danh sách vị trí kệ trong kho
+ * 4. Chỉnh sửa: Cập nhật thông tin kho khi cần thiết
+ * 5. Xóa kho: Xóa kho khỏi hệ thống (cần xác nhận)
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 import React, { useState } from "react";
 import { WarehouseList } from "../../components/warehouse";
 import { WarehouseForm } from "../../components/warehouse";

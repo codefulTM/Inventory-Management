@@ -28,18 +28,32 @@ const options: SchemaOptions = {
 
 /**
  * Master data cho vật tư/khoáng chất
+ * Đây là dữ liệu gốc (master data) cho tất cả vật tư trong hệ thống.
+ * Mọi lô hàng (lots) đều phải tham chiếu đến một material_id.
  */
 @Schema(options)
 export class Material {
+  /** Mã vật tư duy nhất (MAT-XXX) - Business key, sinh bởi Redis ID service */
   @Prop({ type: String, required: true, maxlength: 20 })
   material_id: string;
 
+  /** Mã part number (mã định danh vật tư từ nhà sản xuất) - Unique */
   @Prop({ type: String, required: true, maxlength: 20 })
   part_number: string;
 
+  /** Tên vật tư/khoáng chất (vd: "Vitamin D3", "Gelatin") */
   @Prop({ type: String, required: true, maxlength: 100 })
   material_name: string;
 
+  /** Loại vật tư:
+   * - API: Hoạt chất (Active Pharmaceutical Ingredient)
+   * - Excipient: Tá dược
+   * - Dietary Supplement: Thực phẩm chức năng
+   * - Container: Bao bì chứa đựng
+   * - Closure: Nắp đậy, seal
+   * - Process Chemical: Hóa chất quy trình
+   * - Testing Material: Vật tư thử nghiệm
+   */
   @Prop({
     type: String,
     enum: [
@@ -55,19 +69,29 @@ export class Material {
   })
   material_type: string;
 
+  /** Điều kiện bảo quản (vd: "2-8°C", "15-25°C", "Dry place") */
   @Prop({ type: String, maxlength: 100, default: null })
   storage_conditions?: string;
 
+  /** Đường dẫn tài liệu đặc tả kỹ thuật (specification document) */
   @Prop({ type: String, maxlength: 50, default: null })
   specification_document?: string;
 
-  // Traceability & workflow fields
+  // Traceability & workflow fields - Truy vết và luồng công việc
+
+  /** Người tạo vật tư (username hoặc user ID) */
   @Prop({ type: String, maxlength: 50, required: false })
   created_by?: string;
 
+  /** Người phê duyệt vật tư (Manager) */
   @Prop({ type: String, maxlength: 50, required: false })
   approved_by?: string;
 
+  /** Trạng thái phê duyệt:
+   * - Pending: Chờ phê duyệt
+   * - Approved: Đã phê duyệt (có thể sử dụng)
+   * - Rejected: Bị từ chối
+   */
   @Prop({
     type: String,
     enum: ['Pending', 'Approved', 'Rejected'],
@@ -80,24 +104,23 @@ export class Material {
 export const MaterialSchema = SchemaFactory.createForClass(Material);
 
 // ============================================
-// Database Indexes
+// Database Indexes - Các chỉ mục cơ sở dữ liệu
 // ============================================
-// Create indexes for fast queries and unique constraints
 
-// Unique index on material_id (business key)
+// Unique index trên material_id (business key - khóa nghiệp vụ)
 MaterialSchema.index({ material_id: 1 }, { unique: true });
 
-// Unique index on part_number (business key)
+// Unique index trên part_number (business key - mã định danh từ nhà sản xuất)
 MaterialSchema.index({ part_number: 1 }, { unique: true });
 
-// Text index on material_name for text search
+// Text index trên material_name để tìm kiếm toàn văn (full-text search)
 MaterialSchema.index({ material_name: 'text' });
 
-// Index on material_type for filtering
+// Index lọc theo loại vật tư
 MaterialSchema.index({ material_type: 1 });
 
-// Index on created_date for sorting by newest first
+// Index sắp xếp theo ngày tạo (mới nhất đầu tiên)
 MaterialSchema.index({ created_date: -1 });
 
-// Compound index for common queries (type + created_date)
+// Compound index cho query phổ biến: loại vật tư + ngày tạo
 MaterialSchema.index({ material_type: 1, created_date: -1 });

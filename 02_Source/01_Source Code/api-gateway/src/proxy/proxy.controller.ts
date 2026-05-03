@@ -2,14 +2,14 @@
  * File: proxy.controller.ts
  * Mô tả: Reverse Proxy Controller — chuyển tiếp HTTP request đến backend/ai-service
  * Chức năng: Đóng vai trò reverse proxy, forward mọi request không thuộc /auth/* và /reports/*
- * 
+ *
  * Cơ chế routing:
  * - /ai/* và /ai-agents/* → ai-service (http://localhost:3003)
  * - Còn lại → backend service (http://localhost:3001)
- * 
+ *
  * Sử dụng native fetch() của Node.js để forward request,
  * giữ nguyên method, body, headers (bao gồm Authorization)
- * 
+ *
  * Hỗ trợ binary response (PDF, image) — không decode thành text
  */
 import {
@@ -27,17 +27,17 @@ import { ConfigService } from "@nestjs/config";
 /**
  * ProxyController — chuyển tiếp tất cả HTTP request (trừ /auth/*, /reports/*)
  * đến backend service hoặc ai-service tùy theo đường dẫn
- * 
+ *
  * Chiến lược: HTTP reverse proxy qua native fetch()
  * Backend đã có REST API sẵn, gateway chỉ cần forward request
  * giữ nguyên method, body và Authorization header
- * 
+ *
  * Tương lai: Một số route có thể thay bằng gRPC khi cần
  */
 @Controller()
 export class ProxyController {
   private readonly logger = new Logger(ProxyController.name);
-  private readonly backendUrl: string;   // URL của backend service (NestJS, port 3001)
+  private readonly backendUrl: string; // URL của backend service (NestJS, port 3001)
   private readonly aiServiceUrl: string; // URL của AI service (port 3003)
 
   constructor(private readonly config: ConfigService) {
@@ -55,7 +55,7 @@ export class ProxyController {
   /**
    * Proxy tất cả route (trừ /auth/*, /reports/*) đến backend hoặc ai-service
    * Route pattern: *path (wildcard — khớp mọi đường dẫn)
-   * 
+   *
    * Logic routing:
    * - /reports/* → Trả về 404 (đã có ReportsController xử lý riêng qua gRPC)
    * - /ai/*, /ai-agents/* → Forward đến ai-service
@@ -91,8 +91,8 @@ export class ProxyController {
           (req.headers["x-forwarded-for"] as string) ??
           req.socket?.remoteAddress ??
           "",
-        "x-forwarded-host": req.hostname,  // Hostname của gateway
-        "user-agent": req.headers["user-agent"] ?? "",  // User-Agent của client gốc
+        "x-forwarded-host": req.hostname, // Hostname của gateway
+        "user-agent": req.headers["user-agent"] ?? "", // User-Agent của client gốc
       };
 
       // Forward Authorization header để upstream xác thực JWT
@@ -124,7 +124,9 @@ export class ProxyController {
         contentType.includes("application/octet-stream") ||
         contentType.includes("image/");
 
-      // Đọc response body: binary → Buffer, text → string
+      // Đọc response body: binary → Buffer
+      // (kiểu lưu trữ dữ liệu nhị phân raw bytes của Node.js),
+      // text → gọi text() giải mã thành chuỗi ký tự
       const responseBody = isBinary
         ? Buffer.from(await upstream.arrayBuffer())
         : await upstream.text();

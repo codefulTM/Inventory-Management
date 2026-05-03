@@ -1,11 +1,3 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import Redis from 'ioredis';
-import {
-  IdPrefix,
-  REDIS_ID_CLIENT,
-  REDIS_ID_KEY_MAP,
-} from './redis-id.constants';
-
 /**
  * RedisIdService - Dịch vụ tạo ID tự động tăng dần sử dụng Redis
  *

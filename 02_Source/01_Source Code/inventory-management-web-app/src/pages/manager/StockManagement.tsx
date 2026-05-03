@@ -1,3 +1,28 @@
+/**
+ * StockManagement - Trang quản lý phiếu kho (Warehouse Slip) dành cho Manager
+ * ============================================================================
+ * Chức năng chính:
+ * - Xem danh sách tất cả phiếu kho (Warehouse Slip): nhập kho (Inbound) và xuất kho (Outbound)
+ * - Phân trang (pagination) với 10 bản ghi mỗi trang
+ * - Lọc phiếu kho theo: loại phiếu (Inbound/Outbound), khoảng thời gian
+ * - Xem chi tiết phiếu kho (OrderDetailDrawer)
+ * - Phê duyệt phiếu kho (approveWarehouseSlip) - dành cho Manager
+ * - Từ chối phiếu kho (rejectWarehouseSlip) - dành cho Manager
+ * - Xác nhận phiếu đã được thực hiện tại kho (confirm) - chuyển sang Operator xử lý
+ * 
+ * Warehouse Slip (Phiếu kho):
+ * - Là chứng từ ghi nhận giao dịch nhập/xuất kho
+ * - Loại phiếu: Inbound (nhập kho), Outbound (xuất kho)
+ * - Trạng thái: PendingConfirmation (chờ xác nhận), Confirmed (đã xác nhận), Completed (hoàn thành)
+ * - Mỗi phiếu chứa danh sách vật tư, số lượng, vị trí lưu trữ
+ * 
+ * Phân quyền:
+ * - Operator: Tạo phiếu, xác nhận thực tế tại kho
+ * - Manager: Phê duyệt/từ chối phiếu, quản lý tồn kho
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import Toast from "../../components/Toast";
 import { Link } from "react-router-dom";

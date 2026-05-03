@@ -1,3 +1,29 @@
+/**
+ * ProductionBatches - Trang quản lý lô sản xuất (Production Batch) dành cho Manager
+ * ==============================================================================
+ * Chức năng chính:
+ * - Hiển thị danh sách tất cả lô sản xuất với phân trang (pagination)
+ * - Tạo mới lô sản xuất (Production Batch)
+ * - Xem chi tiết lô: thông tin chung, danh sách thành phần (batch components)
+ * - Cập nhật thông tin lô: số lượng, trạng thái, ngày sản xuất/hết hạn
+ * - Xóa lô sản xuất
+ * - Quản lý thành phần lô: thêm/xóa nguyên liệu sử dụng trong sản xuất
+ * 
+ * Production Batch (Lô sản xuất):
+ * - Là đơn vị sản xuất tạo ra thành phẩm từ các nguyên liệu đầu vào
+ * - Mỗi lô có: mã lô (batch_id), số lô (batch_number), sản phẩm (product_id)
+ * - Trạng thái: In Progress (đang SX), Complete (hoàn thành), On Hold (chờ), Cancelled (hủy)
+ * - Sử dụng các thành phần (BatchComponent): API (Hoạt chất), Excipient (Tá dược), Packaging (Bao bì)
+ * 
+ * Quy trình quản lý:
+ * 1. Tạo lô mới với thông tin cơ bản (sản phẩm, số lượng, ngày tháng)
+ * 2. Thêm các thành phần nguyên liệu sử dụng cho lô
+ * 3. Cập nhật trạng thái lô khi sản xuất tiến triển
+ * 4. Khi hoàn thành: chuyển trạng thái sang "Complete"
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 import { useState, useEffect, useCallback } from "react";
 
 import {

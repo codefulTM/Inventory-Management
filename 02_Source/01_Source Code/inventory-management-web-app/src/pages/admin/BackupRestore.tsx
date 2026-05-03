@@ -1,3 +1,18 @@
+/**
+ * BackupRestore - Trang Sao lưu và Khôi phục dữ liệu
+ * ===================================================
+ * Chức năng chính:
+ * - Tạo snapshot (ảnh chụp nhanh) trạng thái hệ thống tại thời điểm hiện tại
+ * - Lưu trữ thông tin: tổng số lô hàng, số lô đã cạn kiệt
+ * - Danh sách snapshot được lưu trong localStorage (tối đa 20 bản gần nhất)
+ * - Chức năng khôi phục (restore) snapshot - hiện tại chỉ hiển thị thông báo queue
+ * 
+ * Lưu ý: Đây là tính năng demo, dữ liệu chỉ lưu trên trình duyệt (localStorage)
+ * Trong môi trường production thực tế, backup sẽ lưu trên server hoặc cloud storage
+ * 
+ * Quyền truy cập: Chỉ IT Administrator (/admin/*)
+ */
+
 import { useEffect, useState } from 'react';
 import { Alert, Button, Card, List, Space, Typography, message } from 'antd';
 import { getInventoryStatusReport } from '../../services/reportsService';

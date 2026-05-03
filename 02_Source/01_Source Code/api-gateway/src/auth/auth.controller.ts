@@ -2,7 +2,7 @@
  * File: auth.controller.ts
  * Mô tả: Controller xử lý tất cả các route /auth/*
  * Chức năng: Là lớp API Gateway cho các chức năng xác thực, chuyển tiếp request đến keycloak-service qua gRPC
- * 
+ *
  * Các endpoint:
  * - POST /auth/login - Đăng nhập (public)
  * - POST /auth/register - Đăng ký tài khoản mới (public)
@@ -23,19 +23,19 @@ import {
   ValidationPipe,
   UseGuards,
   Logger,
-} from '@nestjs/common';
-import type { Request } from 'express';
-import { AuthGatewayService } from './auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { Public } from './decorators/public.decorator';
-import { CurrentUser } from './decorators/current-user.decorator';
-import type { AuthenticatedUser } from './strategies/jwt.strategy';
+} from "@nestjs/common";
+import type { Request } from "express";
+import { AuthGatewayService } from "./auth.service";
+import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { Public } from "./decorators/public.decorator";
+import { CurrentUser } from "./decorators/current-user.decorator";
+import type { AuthenticatedUser } from "./strategies/jwt.strategy";
 
 /**
  * AuthController (api-gateway)
  * Forwards /auth/* HTTP requests to keycloak-service via gRPC.
  */
-@Controller('auth')
+@Controller("auth")
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
@@ -49,9 +49,13 @@ export class AuthController {
   private extractCtx(req: Request) {
     return {
       // Lấy IP thực của client (hỗ trợ proxy qua x-forwarded-for)
-      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket?.remoteAddress ?? '',
-      // Lấy thông tin User-Agent của trình duyệt/client
-      user_agent: req.headers['user-agent'] ?? '',
+      ip:
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
+        req.socket?.remoteAddress ??
+        "",
+      // Lấy thông tin User-Agent của trình duyệt/client. User Agent chứa thông tin
+      // như loại browser, OS, thiết bị
+      user_agent: req.headers["user-agent"] ?? "",
     };
   }
 
@@ -64,9 +68,12 @@ export class AuthController {
    * @returns Thông tin user và JWT tokens (access_token, refresh_token)
    */
   @Public()
-  @Post('login')
+  @Post("login")
   @HttpCode(HttpStatus.OK)
-  async login(@Body(ValidationPipe) body: { username: string; password: string }, @Req() req: Request) {
+  async login(
+    @Body(ValidationPipe) body: { username: string; password: string },
+    @Req() req: Request,
+  ) {
     const ctx = this.extractCtx(req);
     const result = await this.authService.login({ ...body, ...ctx });
     return { success: true, data: result };
@@ -80,9 +87,16 @@ export class AuthController {
    * @returns Thông tin tài khoản vừa tạo
    */
   @Public()
-  @Post('register')
+  @Post("register")
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body(ValidationPipe) body: { username: string; email: string; password: string }) {
+  async register(
+    @Body(ValidationPipe)
+    body: {
+      username: string;
+      email: string;
+      password: string;
+    },
+  ) {
     return this.authService.register(body);
   }
 
@@ -93,7 +107,7 @@ export class AuthController {
    * @returns Access token mới và refresh token mới
    */
   @Public()
-  @Post('refresh')
+  @Post("refresh")
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() body: { refresh_token: string }) {
     return this.authService.refresh(body.refresh_token);
@@ -109,7 +123,7 @@ export class AuthController {
    * @returns Kết quả đăng xuất
    */
   @UseGuards(JwtAuthGuard)
-  @Post('logout')
+  @Post("logout")
   @HttpCode(HttpStatus.OK)
   async logout(
     @Body() body: { refresh_token: string },
@@ -132,7 +146,7 @@ export class AuthController {
    * @returns Thông báo đã gửi email (nếu email tồn tại)
    */
   @Public()
-  @Post('forgot-password')
+  @Post("forgot-password")
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() body: { email: string }, @Req() req: Request) {
     const ctx = this.extractCtx(req);
@@ -147,9 +161,12 @@ export class AuthController {
    * @returns Kết quả đặt lại mật khẩu
    */
   @Public()
-  @Post('reset-password')
+  @Post("reset-password")
   @HttpCode(HttpStatus.OK)
-  async resetPassword(@Body() body: { token: string; new_password: string }, @Req() req: Request) {
+  async resetPassword(
+    @Body() body: { token: string; new_password: string },
+    @Req() req: Request,
+  ) {
     const ctx = this.extractCtx(req);
     return this.authService.resetPassword({ ...body, ...ctx });
   }
@@ -162,7 +179,7 @@ export class AuthController {
    * @returns Thông tin chi tiết user từ Keycloak
    */
   @UseGuards(JwtAuthGuard)
-  @Get('me')
+  @Get("me")
   @HttpCode(HttpStatus.OK)
   async getMe(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getMe(user.keycloak_id);

@@ -154,46 +154,51 @@ export class KeycloakService {
   /**
    * Lấy admin access token để gọi Keycloak Admin REST API
    * Sử dụng cache: chỉ gọi lại khi token sắp hết hạn (còn < 60 giây)
-   *
-   * Luồng:
-   * - Nếu có adminUser/adminPassword → dùng password grant với master realm
-   * - Nếu không → dùng client_credentials grant với current realm
    */
   async getAdminToken(): Promise<string> {
     const now = Date.now();
-    // Trả về token từ cache nếu còn hạn
+
+    // ─── BƯỚC 1: KIỂM TRA CACHE ───────────────────────────────────────
+    // Nếu đã có token và còn hạn ít nhất 60 giây nữa → dùng token cũ
+    // (Tránh gọi Keycloak quá nhiều lần gây quá tải)
     if (this.adminToken && this.adminTokenExpiry > now + 60_000) {
       return this.adminToken;
     }
 
+    // ─── BƯỚC 2: CHUẨN BỊ DỮ LIỆU GỬI ĐI ─────────────────────────
     const body = new URLSearchParams();
-    // Use password grant with admin credentials if available (tránh hạn chế scope của service account)
-    // Admin user sống trong master realm → dùng admin-cli (public client).
-    // Fall back to client_credentials against the current realm if no admin user is configured.
+
+    // Hai cách lấy admin token khác nhau:
     if (this.adminUser && this.adminPassword) {
-      body.set('grant_type', 'password');
-      body.set('client_id', 'admin-cli'); // luôn dùng public client của master realm
-      body.set('username', this.adminUser);
-      body.set('password', this.adminPassword);
+      // CÁCH 1: Dùng tài khoản admin (sống trong master realm)
+      // → Có quyền cao nhất, nhưng cần username/password
+      body.set('grant_type', 'password');           // OAuth2 password grant
+      body.set('client_id', 'admin-cli');           // Public client của Keycloak (không cần secret)
+      body.set('username', this.adminUser);         // Admin username
+      body.set('password', this.adminPassword);     // Admin password
     } else {
-      body.set('grant_type', 'client_credentials');
-      body.set('client_id', this.adminClientId);
-      body.set('client_secret', this.adminClientSecret);
+      // CÁCH 2: Dùng Service Account (Client Credentials)
+      // → Không cần user/password, nhưng quyền hạn chế hơn
+      body.set('grant_type', 'client_credentials');  // OAuth2 client_credentials grant
+      body.set('client_id', this.adminClientId);     // Client ID đã đăng ký
+      body.set('client_secret', this.adminClientSecret); // Client Secret (như mật khẩu của app)
     }
 
-    // Xác định endpoint cần gọi
+    // ─── BƯỚC 3: CHỌN ENDPOINT ĐÚNG ─────────────────────────────────
     const usePasswordGrant = !!(this.adminUser && this.adminPassword);
     const endpoint = usePasswordGrant
-      ? this.masterTokenEndpoint
-      : this.tokenEndpoint;
+      ? this.masterTokenEndpoint  // → https://keycloak/realms/master/protocol/openid-connect/token
+      : this.tokenEndpoint;       // → https://keycloak/realms/inventory/protocol/openid-connect/token
 
     try {
+      // ─── BƯỚC 4: GỌI KEYCLOAK LẤY TOKEN ─────────────────────────
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
+        body: body.toString(),  // URL-encoded: grant_type=password&client_id=admin-cli&...
       });
 
+      // ─── BƯỚC 5: KIỂM TRA KẾT QUẢ ──────────────────────────────
       if (!res.ok) {
         const text = await res.text();
         this.logger.error(`Failed to get admin token: ${res.status} ${text}`);
@@ -202,15 +207,17 @@ export class KeycloakService {
         );
       }
 
+      // ─── BƯỚC 6: LƯU TOKEN VÀO CACHE ───────────────────────────
       const data = (await res.json()) as KeycloakTokenResponse;
-      this.adminToken = data.access_token;
-      this.adminTokenExpiry = now + data.expires_in * 1000;
+      this.adminToken = data.access_token;                    // Lưu token
+      this.adminTokenExpiry = now + data.expires_in * 1000;  // Tính thời điểm hết hạn (ms)
       return this.adminToken;
-    } catch (error) {
-      if (error instanceof InternalServerErrorException) {
-        throw error;
-      }
 
+    } catch (error) {
+      // ─── BƯỚC 7: XỬ LÝ LỖI ─────────────────────────────────────
+      if (error instanceof InternalServerErrorException) {
+        throw error;  // Lỗi đã biết, ném lại
+      }
       this.logger.error('Keycloak connection error', error as Error);
       throw new InternalServerErrorException('Cannot connect to Keycloak');
     }

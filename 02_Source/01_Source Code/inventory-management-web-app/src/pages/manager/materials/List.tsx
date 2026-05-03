@@ -1,3 +1,31 @@
+/**
+ * MaterialsList - Trang quản lý danh sách vật tư (Materials) dành cho Manager
+ * ============================================================================
+ * Chức năng chính:
+ * - Hiển thị danh sách tất cả vật tư trong hệ thống với phân trang (pagination)
+ * - Tìm kiếm vật tư theo: mã vật tư (material_id), tên vật tư (material_name)
+ * - Lọc vật tư theo: loại vật tư (material_type), trạng thái (status)
+ * - Thêm mới vật tư (chuyển đến trang FormPage)
+ * - Xem chi tiết vật tư (chuyển đến trang Detail)
+ * - Chỉnh sửa vật tư (chuyển đến trang FormPage với mode edit)
+ * - Xóa vật tư (yêu cầu xác nhận trước khi xóa)
+ * 
+ * Material (Vật tư):
+ * - Là nguyên liệu đầu vào cho sản xuất: API (Hoạt chất), Excipient (Tá dược), Packaging (Bao bì)
+ * - Mỗi vật tư có: mã vật tư, tên vật tư, loại, đơn vị tính (UOM), trạng thái
+ * - Trạng thái: Pending (chờ duyệt), Approved (đã duyệt), Rejected (từ chối)
+ * - Các loại vật tư khác: Dietary Supplement, Container, Process Chemical, Testing Material
+ * 
+ * Quy trình quản lý vật tư:
+ * 1. Tạo mới vật tư → Trạng thái "Pending" (chờ Manager duyệt)
+ * 2. Manager duyệt vật tư → Trạng thái "Approved" (có thể sử dụng trong sản xuất)
+ * 3. Nếu không đạt → Trạng thái "Rejected" (không được sử dụng)
+ * 4. Chỉnh sửa thông tin vật tư khi cần thiết
+ * 5. Xóa vật tư khỏi hệ thống (cần xác nhận)
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from "react";
 import {

@@ -1,4 +1,31 @@
 
+/**
+ * ProductInspection - Trang kiểm định thành phẩm dành cho QC Technician
+ * ==============================================================
+ * Chức năng chính:
+ * - Hiển thị danh sách các lô sản xuất (Production Batches) để kiểm định
+ * - Lọc theo trạng thái lô: In Progress, Complete, On Hold, Cancelled
+ * - Thực hiện kiểm nghiệm trên lô thành phẩm: độ tinh khiết, vi sinh, cảm quan
+ * - Đưa ra quyết định QC: Approved (đạt), Rejected (từ chối), Hold (tạm giữ)
+ * - Tự động sinh nhãn (Product Label) khi lô được Approved
+ * 
+ * Quy trình kiểm định thành phẩm:
+ * 1. QC chọn lô sản xuất đã hoàn thành (Complete) để kiểm tra
+ * 2. Nhập kết quả kiểm nghiệm: loại kiểm (test_type), phương pháp (test_method)
+ * 3. Đánh giá: ngoại quan (appearance), độ tinh khiết (purity), vi sinh (microbial)
+ * 4. Đưa ra quyết định: Approved / Rejected / Hold
+ * 5. Nếu Rejected: Nhập lý do từ chối
+ * 6. Nếu Approved: Hệ thống tự động sinh mã nhãn cho thành phẩm
+ * 
+ * Các loại kiểm nghiệm (Test Types):
+ * - Physical: Kiểm tra lý tính (màu sắc, hình dáng, độ rơi rã)
+ * - Chemical: Phân tích hóa học (hàm lượng hoạt chất, tạp chất)
+ * - Microbial: Kiểm tra vi sinh (tổng số vi khuẩn, E.coli, Salmonella)
+ * - Stability: Kiểm tra độ ổn định (thời gian hết hạn thực tế)
+ * 
+ * Quyền truy cập: Chỉ Quality Control Technician (/qc/*)
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, X } from 'lucide-react';
 import Toast from '../../components/Toast';

@@ -1,3 +1,32 @@
+/**
+ * ProductionBatchForm - Trang tạo mới/chỉnh sửa lô sản xuất (Production Batch) dành cho Manager
+ * ========================================================================================
+ * Chức năng chính:
+ * - Tạo mới lô sản xuất (Production Batch)
+ * - Chỉnh sửa thông tin lô sản xuất đã tồn tại (mode edit)
+ * - Nhập thông tin: mã lô, số lô, sản phẩm, kích thước lô, trạng thái
+ * - Chọn sản phẩm từ danh sách vật tư (Material) có sẵn trong hệ thống
+ * - Thiết lập hạn sử dụng (shelf life): giá trị và đơn vị (month/year)
+ * - Lưu thông tin lô vào hệ thống
+ * 
+ * Production Batch (Lô sản xuất):
+ * - Là đơn vị sản xuất tạo ra thành phẩm từ các nguyên liệu đầu vào
+ * - Mỗi lô có: mã lô (batch_id), số lô (batch_number), sản phẩm (product_id)
+ * - Trạng thái: In Progress (đang SX), Complete (hoàn thành), On Hold (chờ), Cancelled (hủy)
+ * - Kích thước lô (batch_size): Số lượng thành phẩm dự kiến sản xuất
+ * - Hạn sử dụng (shelf_life): Thời gian sản phẩm có thể sử dụng (tính từ ngày SX)
+ * 
+ * Quy trình tạo lô:
+ * 1. Chọn sản phẩm từ danh sách vật tư (Material)
+ * 2. Nhập thông tin lô: mã lô, số lô, kích thước lô
+ * 3. Thiết lập trạng thái ban đầu (thường là "On Hold" hoặc "In Progress")
+ * 4. Lưu lô vào hệ thống
+ * 5. Sau đó có thể thêm các thành phần nguyên liệu (Batch Components)
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ * Phân quyền: Manager có thể chỉnh sửa tất cả trường, Operator chỉ được sửa một số trường
+ */
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, FlaskConical } from "lucide-react";

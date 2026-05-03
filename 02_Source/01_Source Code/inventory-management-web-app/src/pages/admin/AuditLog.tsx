@@ -1,3 +1,24 @@
+/**
+ * AuditLog - Trang nhật ký kiểm toán (Audit Trail)
+ * ===================================================
+ * Chức năng chính:
+ * - Hiển thị lịch sử tất cả hoạt động của người dùng trong hệ thống
+ * - Theo dõi: đăng nhập, đăng xuất, tạo/cập nhật tài khoản, đặt lại mật khẩu, cập nhật lô hàng
+ * - Hỗ trợ tìm kiếm và lọc theo: người dùng, loại hoạt động, khoảng thời gian
+ * - Phân trang (pagination) với 50 bản ghi mỗi trang
+ * - Xuất dữ liệu ra CSV hoặc PDF để báo cáo/lưu trữ
+ * 
+ * Quyền truy cập: Chỉ IT Administrator (/admin/*)
+ * 
+ * Các loại hoạt động được theo dõi (ACTION_LABELS):
+ * - LOGIN_SUCCESS/LOGIN_FAILED: Đăng nhập thành công/thất bại
+ * - LOGOUT_SUCCESS/LOGOUT_FAILED: Đăng xuất thành công/thất bại  
+ * - USER_CREATED/USER_UPDATED: Tạo mới/cập nhật tài khoản
+ * - USER_LOCKED/USER_UNLOCKED: Khóa/mở khóa tài khoản
+ * - PASSWORD_RESET_REQUESTED/PASSWORD_RESET_COMPLETED: Yêu cầu/hoàn tất đặt lại mật khẩu
+ * - INVENTORY_LOT_UPDATED: Cập nhật thông tin lô hàng
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import { apiClient } from "../../services/apiClient";
 

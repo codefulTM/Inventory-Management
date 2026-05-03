@@ -1,3 +1,29 @@
+/**
+ * Reports - Trang báo cáo kiểm kê kho (Inventory Audit Report) dành cho Manager
+ * ============================================================================
+ * Chức năng chính:
+ * - Tạo mới báo cáo kiểm kê kho (Inventory Audit Report)
+ * - Xem danh sách tất cả báo cáo kiểm kê đã tạo với phân trang
+ * - Xem chi tiết báo cáo: danh sách vật tư, số lượng thực tế vs hệ thống
+ * - Tải xuống báo cáo dưới dạng file (PDF/Excel)
+ * - Lọc báo cáo theo: trạng thái, người tạo, khoảng thời gian
+ * 
+ * Inventory Audit Report (Báo cáo kiểm kê):
+ * - Là báo cáo đối soát số lượng thực tế trong kho vs số lượng trên hệ thống
+ * - Giúp phát hiện thừa/thiếu hàng hóa, sai lệch tồn kho
+ * - Trạng thái báo cáo: Pending (chờ thực hiện), In Progress (đang kiểm), Completed (hoàn thành)
+ * - Mỗi báo cáo bao gồm nhiều item (vật tư) cần kiểm đếm
+ * 
+ * Quy trình kiểm kê:
+ * 1. Manager tạo báo cáo kiểm kê mới (chọn kho, ngày kiểm kê)
+ * 2. Hệ thống sinh danh sách vật tư cần kiểm đếm
+ * 3. Nhân viên kho thực hiện kiểm đếm thực tế
+ * 4. Cập nhật số lượng thực tế vào báo cáo
+ * 5. Hoàn thành báo cáo và đối soát chênh lệch
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Toast from "../../components/Toast";
 import InventoryAuditReportCreateForm from "../../components/manager/inventory-audit-report/InventoryAuditReportCreateForm";

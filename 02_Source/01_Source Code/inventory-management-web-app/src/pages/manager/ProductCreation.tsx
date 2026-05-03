@@ -1,3 +1,27 @@
+/**
+ * ProductCreation - Trang tạo và quản lý lô sản xuất (Production Batch) dành cho Manager
+ * ===================================================================================
+ * Chức năng chính:
+ * - Tạo mới lô sản xuất (Production Batch) từ các nguyên liệu/vật tư có sẵn
+ * - Xem danh sách các lô sản xuất đã tạo với phân trang
+ * - Xem chi tiết lô sản xuất và cập nhật trạng thái lô
+ * - Quản lý các thành phần (components) của lô: thêm/xóa nguyên liệu sử dụng
+ * - Chuyển đổi trạng thái lô: In Progress → Complete / On Hold / Cancelled
+ * 
+ * Production Batch (Lô sản xuất):
+ * - Là đơn vị sản xuất tạo ra thành phẩm từ các nguyên liệu đầu vào
+ * - Mỗi lô có các thông tin: mã lô, sản phẩm, số lượng, trạng thái, ngày sản xuất
+ * - Sử dụng 3 loại nguyên liệu chính: API (Hoạt chất), Excipient (Tá dược), Packaging (Bao bì)
+ * - Trạng thái lô: In Progress (đang sản xuất), Complete (hoàn thành), On Hold (chờ xử lý), Cancelled (hủy)
+ * 
+ * Quy trình sản xuất:
+ * 1. Tạo lô mới: Chọn vật tư từ vị trí kệ (bin) → Chọn máy sản xuất → Tạo lô
+ * 2. Lô chuyển sang trạng thái "In Progress"
+ * 3. Khi hoàn thành: Cập nhật trạng thái "Complete" và số lượng thực tế
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 import React, { useState, useEffect } from "react";
 import {
   X,

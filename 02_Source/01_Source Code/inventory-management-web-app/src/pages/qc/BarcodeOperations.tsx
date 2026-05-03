@@ -1,3 +1,26 @@
+/**
+ * BarcodeOperations - Trang quản lý mã vạch (Barcode) dành cho QC Technician
+ * ==================================================================
+ * Chức năng chính:
+ * - Quét/tra cứu mã vạch (Barcode/QR Code) để xem thông tin lô hàng
+ * - Hiển thị thông tin chi tiết từ mã vạch: mã lô, vật tư, ngày SX, hạn dùng
+ * - Tìm kiếm lô hàng theo mã vạch (dùng camera hoặc nhập thủ công)
+ * - Xuất báo cáo (export) danh sách lô đã quét được
+ * - Lưu lịch sử các mã vạch đã quét trong phiên làm việc
+ * 
+ * Quy trình tra cứu mã vạch:
+ * 1. Nhập mã vạch (lot_id) hoặc sử dụng camera để quét QR/Barcode
+ * 2. Hệ thống truy vấn database để lấy thông tin lô hàng
+ * 3. Hiển thị thông tin: trạng thái, vị trí kho, số lượng, hạn dùng
+ * 4. QC có thể quyết định: Accept, Reject, hoặc Hold lô hàng
+ * 
+ * Tính năng xuất báo cáo:
+ * - Xuất danh sách lô đã quét dưới dạng CSV
+ * - Báo cáo bao gồm: mã lô, vật tư, trạng thái, ngày quét
+ * 
+ * Quyền truy cập: Chỉ Quality Control Technician (/qc/*)
+ */
+
 import React, { useState } from 'react';
 import {
   Container,

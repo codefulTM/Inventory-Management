@@ -1,3 +1,28 @@
+/**
+ * ProductionBatchDetail - Trang xem chi tiết lô sản xuất (Production Batch) dành cho Manager
+ * =======================================================================================
+ * Chức năng chính:
+ * - Hiển thị thông tin chi tiết của một lô sản xuất: mã lô, sản phẩm, số lượng, trạng thái
+ * - Xem danh sách các thành phần (Batch Components) trong lô: vật tư, số lượng dự kiến
+ * - Thêm mới thành phần cho lô (AddComponentModal)
+ * - Xóa thành phần khỏi lô
+ * - Xóa toàn bộ lô sản xuất (yêu cầu xác nhận)
+ * - Chuyển hướng đến trang chỉnh sửa lô (Edit)
+ * 
+ * Production Batch (Lô sản xuất):
+ * - Là đơn vị sản xuất tạo ra thành phẩm từ các nguyên liệu đầu vào
+ * - Mỗi lô có mã lô (batch_id), số lô (batch_number), sản phẩm (product_id)
+ * - Trạng thái: In Progress (đang SX), Complete (hoàn thành), On Hold (chờ), Cancelled (hủy)
+ * - Có các thông số: ngày SX, ngày hết hạn, kích thước lô (batch_size)
+ * 
+ * Batch Component (Thành phần lô):
+ * - Là nguyên liệu được sử dụng trong lô sản xuất
+ * - Mỗi thành phần có: mã lô hàng (lot_id), số lượng dự kiến (planned_quantity)
+ * - Đơn vị tính (unit_of_measure) và người thêm (added_by)
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {

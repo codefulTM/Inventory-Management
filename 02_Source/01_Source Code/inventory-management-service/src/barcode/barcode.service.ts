@@ -39,6 +39,12 @@ export class BarcodeService {
 
   /**
    * Generate barcode for a lot and save barcode data
+   *
+   * @param lot_id - ID của lô hàng cần tạo mã
+   * @param format - Định dạng mã vạch:
+   *   - 'code128': Mã vạch 1D cao độ, hỗ trợ chuỗi ký tự dài, phổ biến trong kho bãi
+   *   - 'ean13': Mã vạch 1D chuẩn quốc tế 13 chữ số, dùng cho sản phẩm bán lẻ
+   *   - 'qrcode': Mã vạch 2D dạng ma trận, lưu được nhiều dữ liệu, quét được bằng camera
    */
   async generateBarcodeForLot(
     lot_id: string,

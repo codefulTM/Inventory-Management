@@ -234,15 +234,3 @@ Giảng viên sẽ xoay quanh 4 trục:
 2. **Hiểu kiến trúc (system design)**
 3. **Hiểu flow (end-to-end)**
 4. **Hiểu quyết định kỹ thuật (why, not just how)**
-
----
-
-# Nếu bạn muốn chuẩn bị “chuẩn bài”
-
-Tôi có thể giúp bạn:
-
-- Giả lập **1 buổi vấn đáp thật** (hỏi xoáy như giảng viên)
-- Hoặc tạo **cheat sheet 1 trang A4** để bạn học nhanh trước khi thi
-- Hoặc kiểm tra xem kiến trúc bạn đang làm có “bị hỏi là toang” chỗ nào không
-
-Chỉ cần nói 👍

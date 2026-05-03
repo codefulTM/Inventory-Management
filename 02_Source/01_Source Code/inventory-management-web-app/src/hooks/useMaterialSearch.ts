@@ -1,10 +1,21 @@
 /**
- * useMaterialSearch Hook
- * Custom hook tìm kiếm nguyên liệu với debounce
- * Hỗ trợ: tìm kiếm theo từ khóa, lọc theo loại, phân trang
- * Debounce: chờ 500ms (mặc định) sau khi ngừng gõ mới gọi API
+ * useMaterialSearch Hook - Tìm kiếm vật tư với debounce
+ * 
+ * Chức năng:
+ * - Tìm kiếm vật tư theo từ khóa (query)
+ * - Lọc theo loại vật tư (material_type)
+ * - Hỗ trợ phân trang kết quả tìm kiếm
+ * - Debounce: Chờ 500ms (mặc định) sau khi ngừng gõ mới gọi API
+ *   (tránh gọi API quá nhiều khi người dùng đang gõ)
+ * 
+ * @param debounceMs - Thời gian debounce (ms), mặc định 500ms
+ * @returns Object chứa: results, total, loading, error, 
+ *          search, filterByType, clear, page, limit, hasNextPage, hasPreviousPage, nextPage, previousPage
+ * 
+ * Cách dùng:
+ * const { search, results, loading } = useMaterialSearch(500);
+ * search("Vitamin"); // Tìm kiếm với debounce
  */
-
 import { useState, useCallback, useEffect, useRef } from "react";
 import type {
   Material,
@@ -33,22 +44,32 @@ interface UseMaterialSearchReturn {
 }
 
 /**
- * Hook tìm kiếm nguyên liệu với debounce
+ * Hook tìm kiếm vật tư với debounce
  * @param debounceMs - Thời gian debounce (ms), mặc định 500ms
  */
 export const useMaterialSearch = (
   debounceMs: number = 500,
 ): UseMaterialSearchReturn => {
+  // State lưu kết quả tìm kiếm
   const [results, setResults] = useState<Material[]>([]);
+  // State tổng số kết quả
   const [total, setTotal] = useState(0);
+  // State trang hiện tại
   const [page, setPage] = useState(1);
+  // State số items mỗi trang
   const [limit] = useState(20);
+  // State loading
   const [loading, setLoading] = useState(false);
+  // State lỗi
   const [error, setError] = useState<Error | null>(null);
+  // State từ khóa tìm kiếm
   const [query, setQuery] = useState("");
+  // State lọc theo loại
   const [filterType, setFilterType] = useState<MaterialType | null>(null);
+  // Ref lưu timer debounce
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Hàm thực hiện tìm kiếm (không debounce)
   const performSearch = useCallback(
     async (q: string, type: MaterialType | null, p: number = 1) => {
       try {
@@ -58,16 +79,16 @@ export const useMaterialSearch = (
         let response: PaginatedMaterialResponse;
 
         if (type && !q) {
-          // Filter by type only
+          // Chỉ lọc theo loại (không tìm kiếm)
           response = await materialService.filterByType(type, p, limit);
         } else if (q && !type) {
-          // Search by query
+          // Chỉ tìm kiếm (không lọc loại)
           response = await materialService.search(q, p, limit);
         } else if (q && type) {
-          // Search with type filter (search takes precedence)
+          // Tìm kiếm và lọc loại (search takes precedence)
           response = await materialService.search(q, p, limit);
         } else {
-          // No query and no type, clear results
+          // Không có query và không có type -> xóa kết quả
           setResults([]);
           setTotal(0);
           setLoading(false);
@@ -80,7 +101,7 @@ export const useMaterialSearch = (
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Search failed");
         setError(error);
-        setResults([]);
+        setResults([]); // Xóa kết quả khi lỗi
       } finally {
         setLoading(false);
       }
@@ -88,18 +109,19 @@ export const useMaterialSearch = (
     [limit],
   );
 
+  // Hàm tìm kiếm với debounce (người dùng gọi hàm này)
   const search = useCallback(
     (q: string = "") => {
       const normalizedQuery = q.trim();
       setQuery(normalizedQuery);
-      setPage(1);
+      setPage(1); // Reset về trang 1 khi tìm kiếm mới
 
-      // Clear previous timer
+      // Xóa timer cũ (nếu có)
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
 
-      // If query is too short and no filter type, clear results immediately
+      // Nếu query quá ngắn và không có filter type -> xóa kết quả ngay
       if (normalizedQuery.length < 2 && !filterType) {
         setResults([]);
         setTotal(0);
@@ -107,7 +129,7 @@ export const useMaterialSearch = (
         return;
       }
 
-      // Set new timer for debounced search
+      // Đặt timer mới cho debounce search
       debounceTimer.current = setTimeout(() => {
         performSearch(normalizedQuery, filterType, 1);
       }, debounceMs);
@@ -115,16 +137,18 @@ export const useMaterialSearch = (
     [filterType, debounceMs, performSearch],
   );
 
+  // Hàm lọc theo loại vật tư
   const filterByType = useCallback(
     (type: MaterialType) => {
       setFilterType(type);
-      setQuery("");
-      setPage(1);
-      performSearch("", type, 1);
+      setQuery(""); // Xóa query khi lọc loại
+      setPage(1); // Reset trang
+      performSearch("", type, 1); // Tìm kiếm ngay (không debounce)
     },
     [performSearch],
   );
 
+  // Hàm xóa kết quả tìm kiếm
   const clear = useCallback(() => {
     setQuery("");
     setFilterType(null);
@@ -136,9 +160,11 @@ export const useMaterialSearch = (
     }
   }, []);
 
+  // Kiểm tra có trang tiếp theo và trang trước đó không
   const hasNextPage = page * limit < total;
   const hasPreviousPage = page > 1;
 
+  // Chuyển đến trang tiếp theo
   const nextPage = useCallback(() => {
     if (hasNextPage) {
       const newPage = page + 1;
@@ -147,6 +173,7 @@ export const useMaterialSearch = (
     }
   }, [hasNextPage, page, query, filterType, performSearch]);
 
+  // Chuyển đến trang trước đó
   const previousPage = useCallback(() => {
     if (hasPreviousPage) {
       const newPage = page - 1;
@@ -155,7 +182,7 @@ export const useMaterialSearch = (
     }
   }, [hasPreviousPage, page, query, filterType, performSearch]);
 
-  // Cleanup timer on unmount
+  // Cleanup timer khi unmount
   useEffect(() => {
     return () => {
       if (debounceTimer.current) {

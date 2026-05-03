@@ -4,23 +4,38 @@ import { InventoryAuditReportSnapshotItem } from '../inventory-audit-report.repo
 
 type PdfDoc = InstanceType<typeof PDFDocument>;
 
+/**
+ * Interface định nghĩa dữ liệu đầu vào để render báo cáo PDF
+ */
 export interface RenderInventoryAuditReportInput {
-  reportId: string;
-  periodFrom: Date;
-  periodTo: Date;
-  templateCode: string;
-  generatedBy: string;
-  approvedBy?: string;
-  generatedAt: Date;
-  summaryTotalItems: number;
-  summaryTotalQuantity: number;
-  summaryTotalValue: number;
-  items: InventoryAuditReportSnapshotItem[];
+  reportId: string;                    // Mã báo cáo
+  periodFrom: Date;                    // Từ ngày
+  periodTo: Date;                      // Đến ngày
+  templateCode: string;                // Mã mẫu báo cáo
+  generatedBy: string;                 // Người lập báo cáo
+  approvedBy?: string;                 // Người phê duyệt (tùy chọn)
+  generatedAt: Date;                   // Thời điểm xuất báo cáo
+  summaryTotalItems: number;           // Tổng số dòng báo cáo
+  summaryTotalQuantity: number;        // Tổng số lượng tồn
+  summaryTotalValue: number;           // Tổng giá trị tồn (tạm tính)
+  items: InventoryAuditReportSnapshotItem[]; // Danh sách chi tiết kiểm kê
 }
 
+/**
+ * Service render báo cáo kiểm kê ra file PDF sử dụng thư viện pdfkit
+ * File PDF bao gồm: Header, Tóm tắt, Bảng chi tiết, Footer
+ */
 @Injectable()
 export class InventoryAuditReportRenderer {
+  /**
+   * Render báo cáo ra file PDF
+   * Sử dụng PDFDocument dạng stream, thu thập chunks để tạo Buffer
+   * 
+   * @param input - Dữ liệu đầu vào để render
+   * @returns Promise<Buffer> - Nội dung file PDF
+   */
   async render(input: RenderInventoryAuditReportInput): Promise<Buffer> {
+    // Khởi tạo PDF với khổ A4, lề 40px
     const doc = new PDFDocument({
       size: 'A4',
       margin: 40,
@@ -34,17 +49,21 @@ export class InventoryAuditReportRenderer {
     const chunks: Buffer[] = [];
 
     return new Promise((resolve, reject) => {
+      // Thu thập dữ liệu từ stream
       doc.on('data', (chunk: Buffer | Uint8Array) => {
         chunks.push(Buffer.from(chunk));
       });
+      // Khi kết thúc stream, ghép các chunks thành một Buffer
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
+      // Render các phần của báo cáo
       this.renderHeader(doc, input);
       this.renderSummary(doc, input);
       this.renderTable(doc, input.items);
 
       // Footer — inline after table, no fixed y (avoids spurious new pages)
+      // Chân trang: Người lập và Người phê duyệt
       doc.moveDown(1.5).fontSize(8);
       const footerY = doc.y;
       doc.text(`Nguoi lap bao cao: ${input.generatedBy}`, 40, footerY, {
@@ -56,6 +75,7 @@ export class InventoryAuditReportRenderer {
         lineBreak: false,
         align: 'right',
       });
+      // Ghi chú: Chữ ký số được lưu trong metadata hệ thống, không append vào PDF
       doc.moveDown(0.8).text('[Da dong dau so trong metadata he thong]', {
         align: 'right',
       });
@@ -64,6 +84,10 @@ export class InventoryAuditReportRenderer {
     });
   }
 
+  /**
+   * Render phần tiêu đề báo cáo
+   * Bao gồm: Tên báo cáo, Mã báo cáo, Kỳ báo cáo, Mẫu biểu, Thời điểm xuất
+   */
   private renderHeader(doc: PdfDoc, input: RenderInventoryAuditReportInput) {
     doc.fontSize(16).text('BAO CAO KIEM KE HANG TON KHO', { align: 'center' });
     doc.moveDown(0.5);
@@ -79,9 +103,13 @@ export class InventoryAuditReportRenderer {
       .text(
         `Thoi diem xuat: ${input.generatedAt.toISOString().replace('T', ' ').slice(0, 19)} UTC`,
       );
-    doc.moveDown(1);
+    doc.moveDown(1); // Khoảng cách trước phần tóm tắt
   }
 
+  /**
+   * Render phần tóm tắt báo cáo
+   * Hiển thị: Số dòng báo cáo, Tổng số lượng tồn, Tổng giá trị tồn
+   */
   private renderSummary(doc: PdfDoc, input: RenderInventoryAuditReportInput) {
     doc.fontSize(11).text('Tong hop:');
     doc
@@ -92,11 +120,16 @@ export class InventoryAuditReportRenderer {
     doc.moveDown(1);
   }
 
+  /**
+   * Render bảng chi tiết kiểm kê
+   * Hiển thị tối đa 120 dòng, các dòng còn lại sẽ có ghi chú
+   * Tự động sang trang mới nếu vượt quá chiều cao trang
+   */
   private renderTable(doc: PdfDoc, items: InventoryAuditReportSnapshotItem[]) {
     doc.fontSize(11).text('Chi tiet kiem ke:');
     doc.moveDown(0.5);
 
-    // Column definitions: [label, x, width]
+    // Định nghĩa các cột: [Tiêu đề, Tọa độ X, Độ rộng]
     const cols: [string, number, number][] = [
       ['LOT',       40,  90],
       ['MATERIAL',  135, 75],
@@ -107,27 +140,30 @@ export class InventoryAuditReportRenderer {
       ['TRANG THAI',490, 75],
     ];
 
-    const maxRows = 120;
+    const maxRows = 120; // Giới hạn số dòng hiển thị trong PDF
     const rows = items.slice(0, maxRows);
-    const rowHeight = 14;
+    const rowHeight = 14; // Chiều cao mỗi dòng
 
-    // Header row
+    // Vẽ header của bảng
     let y = doc.y;
-    doc.fontSize(8).font('Helvetica-Bold');
+    doc.fontSize(8).font('Helvetica-Bold'); // Font đậm cho header
     for (const [label, x, w] of cols) {
       doc.text(label, x, y, { width: w, lineBreak: false });
     }
     y += rowHeight - 2;
-    doc.moveTo(40, y).lineTo(565, y).lineWidth(0.5).stroke();
+    doc.moveTo(40, y).lineTo(565, y).lineWidth(0.5).stroke(); // Đường kẻ ngang
     y += 4;
 
-    doc.font('Helvetica');
+    // Vẽ các dòng dữ liệu
+    doc.font('Helvetica'); // Font thường cho dữ liệu
     for (const row of rows) {
+      // Tự động sang trang mới nếu vượt quá chiều cao trang (780px)
       if (y > 780) {
         doc.addPage();
         y = 40;
       }
 
+      // Chuẩn bị dữ liệu cho mỗi ô
       const cells: [string, number, number][] = [
         [row.lot_id,          40,  90],
         [row.material_id,     135, 75],
@@ -140,14 +176,16 @@ export class InventoryAuditReportRenderer {
 
       doc.fontSize(7.5);
       for (const [val, x, w] of cells) {
+        // Hiển thị giá trị, nếu null/undefined thì hiển thị '-'
         doc.text(val ?? '-', x, y, { width: w, lineBreak: false, ellipsis: true });
       }
       y += rowHeight;
     }
 
-    // Move cursor past the table
+    // Cập nhật con trỏ y sau bảng
     doc.y = y + 4;
 
+    // Ghi chú nếu số dòng vượt quá giới hạn
     if (items.length > maxRows) {
       doc
         .moveDown(0.5)

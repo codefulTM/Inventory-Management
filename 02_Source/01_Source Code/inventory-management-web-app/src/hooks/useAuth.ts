@@ -1,8 +1,16 @@
 /**
- * useAuth Hook
- * Custom hook để sử dụng authentication utilities trong React components
+ * useAuth Hook - Hook quản lý trạng thái xác thực người dùng
+ * 
+ * Chức năng chính:
+ * - Kiểm tra token có hợp lệ không (isAuthenticated)
+ * - Lấy thông tin user (user, userRole)
+ * - Kiểm tra vai trò (isManager, isOperator, isQC, isITAdmin)
+ * - Kiểm tra quyền hạn (hasPermission)
+ * - Theo dõi thời gian hết hạn token (tokenExpirationTime, isTokenExpiringSoon)
+ * - Xử lý đăng xuất (logout)
+ * 
+ * Tự động kiểm tra mỗi 60 giây để cập nhật trạng thái
  */
-
 import { useState, useEffect } from 'react';
 import {
   isTokenValid,
@@ -18,54 +26,58 @@ import {
   isTokenExpiringSoon,
 } from '../utils/authUtils';
 
+/** Interface định nghĩa thông tin người dùng */
 interface User {
-  user_id?: string;
-  role?: string;
-  username?: string;
-  email?: string;
+  user_id?: string;  // ID người dùng
+  role?: string;      // Vai trò (manager, operator, ...)
+  username?: string;  // Tên đăng nhập
+  email?: string;     // Email
 }
 
+/** Interface định nghĩa giá trị trả về từ useAuth hook */
 interface UseAuthReturn {
-  // Authentication status
-  isAuthenticated: boolean;
-  isLoading: boolean;
+  // Trạng thái xác thực
+  isAuthenticated: boolean;  // Đã đăng nhập chưa
+  isLoading: boolean;       // Đang kiểm tra
 
-  // User info
-  user: User | null;
-  userRole: string | null;
+  // Thông tin người dùng
+  user: User | null;      // Thông tin user
+  userRole: string | null;  // Vai trò hiện tại
 
-  // Role checks
-  isManager: boolean;
-  isOperator: boolean;
-  isQCTechnician: boolean;
-  isITAdmin: boolean;
+  // Kiểm tra vai trò nhanh
+  isManager: boolean;        // Có phải Manager?
+  isOperator: boolean;       // Có phải Operator?
+  isQCTechnician: boolean; // Có phải QC?
+  isITAdmin: boolean;       // Có phải IT Admin?
 
-  // Permission check
-  hasPermission: (roles: string | string[]) => boolean;
+  // Kiểm tra quyền hạn
+  hasPermission: (roles: string | string[]) => boolean; // Check quyền
 
-  // Token info
-  tokenExpirationTime: number | null;
-  isTokenExpiringSoon: boolean;
+  // Thông tin token
+  tokenExpirationTime: number | null;  // Thời gian hết hạn (timestamp)
+  isTokenExpiringSoon: boolean;    // Sắp hết hạn (<5 phút)?
 
-  // Logout
+  // Đăng xuất
   logout: () => void;
 }
 
 /**
- * Hook để quản lý authentication state
- * Tự động re-render khi auth status thay đổi
+ * Hook chính quản lý xác thực
+ * Tự động cập nhật trạng thái mỗi 60 giây
  */
 export function useAuth(): UseAuthReturn {
-  const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [tokenExpirationTime, setTokenExpirationTime] = useState<number | null>(null);
-  const [isTokenExpiringSoonState, setIsTokenExpiringSoonState] = useState(false);
+  // Các state lưu trữ trạng thái xác thực
+  const [isLoading, setIsLoading] = useState(true); // Đang tải thông tin xác thực
+  const [user, setUser] = useState<User | null>(null); // Thông tin user
+  const [userRole, setUserRole] = useState<string | null>(null); // Vai trò
+  const [tokenExpirationTime, setTokenExpirationTime] = useState<number | null>(null); // Hết hạn
+  const [isTokenExpiringSoonState, setIsTokenExpiringSoonState] = useState(false); // Sắp hết hạn
 
   useEffect(() => {
-    // Check auth status on mount
+    // Hàm kiểm tra trạng thái xác thực
     const checkAuth = () => {
       if (isTokenValid()) {
+        // Token hợp lệ -> Lấy thông tin user
         const currentUser = getCurrentUser();
         const currentRole = getCurrentUserRole();
         const expTime = getTokenExpirationTime();
@@ -76,37 +88,39 @@ export function useAuth(): UseAuthReturn {
         setTokenExpirationTime(expTime);
         setIsTokenExpiringSoonState(expiringSoon);
       } else {
+        // Token không hợp lệ -> Reset
         setUser(null);
         setUserRole(null);
       }
       setIsLoading(false);
     };
 
-    checkAuth();
+    checkAuth(); // Kiểm tra ngay khi mount
 
-    // Set up interval to check token expiration
-    const interval = setInterval(checkAuth, 60000); // Check every minute
+    // Thiết lập interval kiểm tra mỗi 60 giây
+    const interval = setInterval(checkAuth, 60000); // 60000ms = 1 phút
 
-    return () => clearInterval(interval);
+    return () => clearInterval(interval); // Cleanup khi unmount
   }, []);
 
+  // Hàm xử lý đăng xuất
   const handleLogout = () => {
-    logout();
+    logout(); // Gọi hàm logout từ authUtils (xóa token)
     setUser(null);
     setUserRole(null);
-    window.location.href = '/login';
+    window.location.href = '/login'; // Redirect về trang login
   };
 
   return {
-    isAuthenticated: isTokenValid(),
+    isAuthenticated: isTokenValid(), // Kiểm tra token có hợp lệ không
     isLoading,
     user,
     userRole,
-    isManager: isManager(),
+    isManager: isManager(), // Gọi thẳng từ authUtils
     isOperator: isOperator(),
     isQCTechnician: isQCTechnician(),
     isITAdmin: isITAdmin(),
-    hasPermission,
+    hasPermission, // Hàm check quyền từ authUtils
     tokenExpirationTime,
     isTokenExpiringSoon: isTokenExpiringSoonState,
     logout: handleLogout,
@@ -114,37 +128,40 @@ export function useAuth(): UseAuthReturn {
 }
 
 /**
- * Hook để check specific permission
- * @param requiredRoles - Role(s) cần check
- * @returns boolean
+ * Hook kiểm tra quyền hạn cụ thể
+ * @param requiredRoles - Vai trò cần kiểm tra (string hoặc array)
+ * @returns boolean - Có quyền hay không
+ * 
+ * Ví dụ: usePermission('manager') hoặc usePermission(['manager', 'operator'])
  */
 export function usePermission(requiredRoles: string | string[]): boolean {
   const { userRole } = useAuth();
 
-  if (!userRole) return false;
+  if (!userRole) return false; // Chưa đăng nhập -> false
 
   if (typeof requiredRoles === 'string') {
-    return userRole === requiredRoles;
+    return userRole === requiredRoles; // 1 vai trò
   }
 
-  return requiredRoles.includes(userRole);
+  return requiredRoles.includes(userRole); // Nhiều vai trò
 }
 
-/**
- * Hook để check if user is specific role
- */
+/** Hook kiểm tra có phải Manager không */
 export function useIsManager(): boolean {
   return usePermission('manager');
 }
 
+/** Hook kiểm tra có phải Operator không */
 export function useIsOperator(): boolean {
   return usePermission('operator');
 }
 
+/** Hook kiểm tra có phải QC Technician không */
 export function useIsQCTechnician(): boolean {
   return usePermission('quality-control');
 }
 
+/** Hook kiểm tra có phải IT Admin không */
 export function useIsITAdmin(): boolean {
   return usePermission('it_admin');
 }

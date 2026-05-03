@@ -1,3 +1,22 @@
+/**
+ * BinWorklist - Trang quản lý danh sách vị trí kệ (Bin Worklist) dành cho Manager
+ * ===========================================================================
+ * Chức năng chính:
+ * - Hiển thị danh sách tất cả các vị trí kệ (bin) trong kho
+ * - Tìm kiếm bin theo mã vị trí (bin_code) hoặc mã kho (warehouse_id)
+ * - Xem chi tiết thông tin một bin cụ thể (thông qua BinDetailDrawer)
+ * - Chỉnh sửa thông tin bin: số lượng dự kiến (expected_qty), mã kho (warehouse_id)
+ * - Phân trang (pagination) với 20 bản ghi mỗi trang
+ * 
+ * Bin (Vị trí kệ): Là vị trí lưu trữ cụ thể trong kho, dùng để chứa các lô hàng
+ * - Mỗi bin có mã định danh duy nhất (bin_code)
+ * - Liên kết với một kho hàng cụ thể (warehouse_id)
+ * - Có số lượng dự kiến (expected_qty) để theo dõi lượng hàng dự kiến lưu trữ
+ * - Có ngày kiểm kê cuối cùng (last_cycle_count_date) để quản lý chu kỳ kiểm kê
+ * 
+ * Quyền truy cập: Chỉ Manager (/manager/*)
+ */
+
 import { useEffect, useState } from "react";
 import { Table, Button, Input, Space } from "antd";
 import type { ColumnsType } from "antd/es/table";
