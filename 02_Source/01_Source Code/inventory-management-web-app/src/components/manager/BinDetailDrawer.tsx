@@ -1,2 +1,4 @@
-// === BinDetailDrawer.tsx ===
-// Drawer xem chi tiết bin (thanh trượt bên phải): hiển thị lô hàng trong bin, nhập số lượng kiểm đếm thực tế (counted_qty), ghi chú, xem/submit kết quả kiểm kê. API: BinAPI.getBinDetails, BinAPI.fetchCounts, BinAPI.submitCounts.
+// === BinDetailDrawer ===
+// Drawer xem chi tiết bin (thanh trượt bên phải)
+// Props: binId, onClose
+// Features: hiển thị lô hàng trong bin, nhập số lượng kiểm đếm (counted_qty), ghi chú, submit kết quả kiểm kê

@@ -1,4 +1,3 @@
 // === importExportOrderService.ts ===
-// Service API xử lý đơn nhập/xuất kho (Import/Export Order)
-// Methods/Features: createImportExportOrder, fetchImportExportOrders, fetchImportExportOrderWorklist, fetchImportExportOrderDetail, updateImportExportOrder, confirmImportExportOrder, rejectImportExportOrder, uploadImportExportOrderAttachment, resolveImportExportOrderScan, fetchMaterialOptions, fetchInventoryLotOptions, fetchWarehouseOptions, fetchStorageLocationOptions
-// API/Dependencies: API_ENDPOINTS, apiClient, types/importExportOrder
+// Service xử lý: Tạo/cập nhật/xem chi tiết đơn nhập/xuất kho
+// APIs: createImportExportOrder, fetchImportExportOrders, fetchImportExportOrderDetail, confirm, reject, upload attachment

@@ -1,2 +1,4 @@
-// === LabelPrint.tsx ===
-// Component in nhãn từ template: chọn mẫu nhãn, chọn Lot/Batch (searchable dropdown), sinh nội dung (labelService.generateLabel), preview, copy to clipboard, print (window.open). API dependencies: labelService, fetchInventoryLotOptions, fetchProductionBatches.
+// === LabelPrint ===
+// Component in nhãn từ template
+// Props: onPrint, onClose
+// Features: chọn mẫu nhãn, chọn Lot/Batch (searchable dropdown), sinh nội dung, preview, copy to clipboard, print
