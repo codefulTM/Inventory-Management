@@ -1,3 +1,8 @@
+// === LOG CONTROLLER ===
+// Controller xử lý các API quản lý log hệ thống
+// Chỉ IT Administrator mới có quyền truy cập các endpoint này
+// Sử dụng JWT Guard và RolesGuard để xác thực
+
 import {
   Controller,
   Get,
@@ -14,53 +19,31 @@ import { RolesGuard } from '../common/auth/roles.guard';
 import { Roles } from '../common/auth/decorators/roles.decorator';
 import { UserRole } from '../schemas/user.schema';
 
-/**
- * LogController - Điều khiển các API quản lý log hệ thống
- * Chỉ IT Administrator mới có quyền truy cập các endpoint này
- */
 @Controller('logs')
-// Sử dụng JWT Guard để xác thực người dùng và RolesGuard để kiểm tra quyền truy cập
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LogController {
   constructor(private readonly logService: LogService) {}
 
-  /**
-   * API lấy danh sách log với các bộ lọc và phân trang
-   * GET /logs
-   * @param level - Mức độ log (info, warn, error, debug)
-   * @param errorCode - Mã lỗi để lọc
-   * @param module - Tên module phát sinh log
-   * @param page - Số trang (mặc định: 1)
-   * @param limit - Số lượng log trên mỗi trang (mặc định: 50)
-   * @returns Danh sách log kèm thông tin phân trang
-   */
+  // GET /logs
+  // Lấy danh sách log với filters và phân trang
+  // Query params: level?, error_code?, module?, page (default 1), limit (default 50)
+  // Chỉ IT_ADMINISTRATOR được truy cập
   @Get()
-  // Chỉ IT Administrator mới được phép truy cập
   @Roles(UserRole.IT_ADMINISTRATOR)
   async getLogs(
     @Query('level') level?: string,
     @Query('error_code') errorCode?: string,
     @Query('module') module?: string,
-    // ParseIntPipe với optional: true để chuyển đổi chuỗi sang số, cho phép giá trị rỗng
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 50,
   ): Promise<Record<string, unknown>> {
-    return this.logService.getLogs(
-      { level, error_code: errorCode, module },
-      page,
-      limit,
-    );
+    // [RÚT GỌN: Gọi logService.getLogs({ level, error_code: errorCode, module }, page, limit)]
   }
 
-  /**
-   * API tìm kiếm log theo từ khóa
-   * GET /logs/search?q=từ_khóa
-   * Tìm kiếm trong các trường: message, error_code, session_id
-   * @param query - Từ khóa tìm kiếm
-   * @param page - Số trang (mặc định: 1)
-   * @param limit - Số lượng kết quả trên mỗi trang (mặc định: 50)
-   * @returns Danh sách log khớp với từ khóa tìm kiếm
-   */
+  // GET /logs/search?q=từ_khóa
+  // Tìm kiếm log theo từ khóa trong message, error_code, session_id
+  // Query params: q, page (default 1), limit (default 50)
+  // Chỉ IT_ADMINISTRATOR được truy cập
   @Get('search')
   @Roles(UserRole.IT_ADMINISTRATOR)
   async searchLogs(
@@ -68,36 +51,30 @@ export class LogController {
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 50,
   ): Promise<Record<string, unknown>> {
-    return this.logService.searchLogs(query, page, limit);
+    // [RÚT GỌN: Gọi logService.searchLogs(query, page, limit)]
   }
 
-  /**
-   * API lấy thống kê log theo mức độ (level)
-   * GET /logs/stats
-   * Trả về số lượng log cho mỗi mức độ: info, warn, error, debug
-   * @returns Mảng các object { _id: level, count: số_lượng }
-   */
+  // GET /logs/stats
+  // Lấy thống kê log theo mức độ (level)
+  // Output: [{ _id: 'error', count: 15 }, { _id: 'info', count: 200 }]
+  // Chỉ IT_ADMINISTRATOR được truy cập
   @Get('stats')
   @Roles(UserRole.IT_ADMINISTRATOR)
   async getStats(): Promise<unknown[]> {
-    return (await this.logService.getDashboardStats()) as unknown[];
+    // [RÚT GỌN: Gọi logService.getDashboardStats()]
   }
 
-  /**
-   * API xóa log cũ được tạo trước một thời điểm nhất định
-   * DELETE /logs?before=2026-05-01T00:00:00Z
-   * @param before - Thời điểm chuẩn ISO 8601, các log trước thời điểm này sẽ bị xóa
-   * @returns Kết quả thao tác xóa (deletedCount)
-   */
+  // DELETE /logs?before=2026-05-01T00:00:00Z
+  // Xóa log cũ được tạo trước một thời điểm nhất định
+  // Query params: before (ISO 8601 Date)
+  // Output: { deletedCount }
+  // Chỉ IT_ADMINISTRATOR được truy cập
   @Delete()
   @Roles(UserRole.IT_ADMINISTRATOR)
-  // Trả về HTTP 200 OK thay vì 204 No Content mặc định của DELETE
   @HttpCode(HttpStatus.OK)
   async deleteLogs(
     @Query('before') before: string,
   ): Promise<Record<string, unknown>> {
-    // Chuyển đổi chuỗi thời gian sang đối tượng Date
-    const date = new Date(before);
-    return await this.logService.deleteLogs(date);
+    // [RÚT GỌN: Parse string to Date → gọi logService.deleteLogs(date)]
   }
 }
