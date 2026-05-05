@@ -1,24 +1,7 @@
-/**
- * File: auth.service.ts
- * Mô tả: Service xử lý logic nghiệp vụ xác thực (Authentication & Authorization).
- *
- * Chức năng chính:
- * - Đăng nhập: Xác thực qua Keycloak, đồng bộ user với MongoDB local
- * - Đăng xuất: Thu hồi refresh_token tại Keycloak, ghi audit log
- * - Làm mới token: Sử dụng refresh_token để lấy access_token mới
- * - Đăng ký: Tự đăng ký tài khoản (chỉ role Operator)
- * - Quên mật khẩu: Tạo token đặt lại, gửi email, xử lý đặt lại mật khẩu
- * - Lấy thông tin user: Trả về thông tin từ MongoDB dựa trên keycloak_id
- *
- * Luồng đăng nhập:
- * 1. Kiểm tra trạng thái user trong MongoDB (bị khóa hay không)
- * 2. Xác thực credentials qua Keycloak (loginUser)
- * 3. Tìm hoặc tạo user trong MongoDB local
- * 4. Cập nhật last_login
- * 5. Ghi audit log LOGIN_SUCCESS
- * 6. Trả về tokens + thông tin user
- */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+// === auth.service.ts ===
+// Service xác thực: login, logout, register, refreshToken, forgotPassword, resetPassword
+// Key methods: login, logout, register, getMe, forgotPassword, resetPassword
+// API: Keycloak (keycloakService), MongoDB (userService), Mail (mailService), AuditLog
 import {
   Injectable,
   Logger,
@@ -39,14 +22,8 @@ import { AuditAction } from '../audit-log/audit-log.schema';
 import { UserDocument, UserRole } from '../schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import {
-  buildFallbackEmail,
-  mapRealmRolesToUserRole,
-} from './utils/role-mapper';
-import {
-  PasswordResetToken,
-  PasswordResetTokenDocument,
-} from '../schemas/password-reset-token.schema';
+import { buildFallbackEmail, mapRealmRolesToUserRole } from './utils/role-mapper';
+import { PasswordResetToken, PasswordResetTokenDocument } from '../schemas/password-reset-token.schema';
 
 @Injectable()
 export class AuthService {
@@ -63,150 +40,20 @@ export class AuthService {
 
   /**
    * Đăng nhập: xác thực qua Keycloak, cập nhật last_login trong MongoDB.
-   * @param dto - Thông tin đăng nhập (username, password)
-   * @param ctx - Thông tin ngữ cảnh (IP, User Agent) để ghi audit log
    */
   async login(dto: LoginDto, ctx: LogContext = {}) {
-    try {
-      // 1. Kiểm tra trạng thái tài khoản trong MongoDB trước
-      const existingUser = await this.userService.findByUsername(dto.username);
-      if (existingUser && !existingUser.is_active) {
-        const lockType = (existingUser as any).lock_type ?? 'deactivated';
-        const lockReason = (existingUser as any).lock_reason ?? '';
-        const msg =
-          lockType === 'locked'
-            ? `ACCOUNT_LOCKED:${lockReason}`
-            : `ACCOUNT_DEACTIVATED:${lockReason}`;
-        throw new UnauthorizedException(msg);
-      }
-
-      // 2. Xác thực qua Keycloak
-      const tokenSet = await this.keycloakService.loginUser(
-        dto.username,
-        dto.password,
-      );
-
-      // 3. Tìm user trong MongoDB theo username
-      let user = await this.userService.findByUsername(dto.username);
-      if (!user) {
-        // Nếu không có user trong MongoDB, lấy info từ Keycloak
-        const kcUser = await this.keycloakService.findKeycloakUserByUsername(
-          dto.username,
-        );
-        if (!kcUser) {
-          throw new UnauthorizedException('Không tìm thấy tài khoản Keycloak');
-        }
-        // Lấy realm roles từ Keycloak
-        const realmRoles = await this.keycloakService.getRealmRolesForUser(
-          kcUser.id,
-        );
-        const role = mapRealmRolesToUserRole(realmRoles, dto.username);
-        const safeEmail =
-          kcUser.email && kcUser.email.trim().length > 0
-            ? kcUser.email
-            : buildFallbackEmail(kcUser.username || dto.username);
-        // Tạo user trong MongoDB
-        const userCreated = await this.userService.create({
-          username: kcUser.username || dto.username,
-          email: safeEmail,
-          keycloak_id: kcUser.id,
-          role,
-          is_active: kcUser.enabled,
-        });
-        if (!userCreated) {
-          throw new UnauthorizedException(
-            'Không thể tạo tài khoản trong hệ thống',
-          );
-        }
-        user = <UserDocument>{
-          user_id: userCreated.user_id,
-          username: userCreated.username,
-          email: userCreated.email,
-          role: userCreated.role,
-          is_active: userCreated.is_active,
-        };
-      }
-
-      if (!user.is_active) {
-        const lockType = (user as any).lock_type ?? 'deactivated';
-        const lockReason = (user as any).lock_reason ?? '';
-        const msg =
-          lockType === 'locked'
-            ? `ACCOUNT_LOCKED:${lockReason}`
-            : `ACCOUNT_DEACTIVATED:${lockReason}`;
-        throw new UnauthorizedException(msg);
-      }
-
-      // 4. Cập nhật last_login
-      await this.userService.updateLastLogin(user.user_id);
-
-      this.logger.log(`User logged in: ${dto.username}`);
-      await this.auditLogService.log(
-        dto.username,
-        AuditAction.LOGIN_SUCCESS,
-        ctx,
-        undefined,
-        user.user_id,
-      );
-
-      return {
-        access_token: tokenSet.access_token,
-        refresh_token: tokenSet.refresh_token,
-        expires_in: tokenSet.expires_in,
-        token_type: tokenSet.token_type,
-        user: {
-          user_id: user.user_id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          is_active: user.is_active,
-        },
-      };
-    } catch (error) {
-      this.logger.warn(
-        `Login failed for username: ${dto.username} - ${error.message}`,
-      );
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      const msg: string = error.message || '';
-      await this.auditLogService
-        .log(dto.username, AuditAction.LOGIN_FAILED, ctx, { reason: msg })
-        .catch(() => {});
-      if (
-        msg.startsWith('ACCOUNT_LOCKED:') ||
-        msg.startsWith('ACCOUNT_DEACTIVATED:')
-      ) {
-        throw new UnauthorizedException(msg);
-      }
-      throw new UnauthorizedException(
-        'Đăng nhập thất bại: Tên đăng nhập hoặc mật khẩu không đúng',
-      );
-    }
+    // [SKELETON: Check account status in MongoDB → Verify credentials via Keycloak → Find or create user in MongoDB → Update last_login → Return token + user info]
   }
 
   /**
    * Refresh token - Làm mới access_token bằng refresh_token
-   * @param refreshToken - Refresh token từ client
    */
   async refreshToken(refreshToken: string) {
-    const tokenSet = await this.keycloakService.refreshToken(refreshToken);
-    return {
-      access_token: tokenSet.access_token,
-      refresh_token: tokenSet.refresh_token,
-      expires_in: tokenSet.expires_in,
-      token_type: tokenSet.token_type,
-    };
+    // [SKELETON: Verify refresh token with Keycloak → Return new access token]
   }
 
   /**
    * Logout — thu hồi token tại Keycloak và ghi audit log
-   * @param refreshToken - Refresh token cần thu hồi
-   * @param username - Tên đăng nhập (để ghi log)
-   * @param userId - ID user (để ghi log)
-   * @param ctx - Thông tin ngữ cảnh
    */
   async logout(
     refreshToken: string,
@@ -214,47 +61,7 @@ export class AuthService {
     userId?: string,
     ctx: LogContext = {},
   ): Promise<{ message: string }> {
-    try {
-      console.log('[AuthService] logout called with:', {
-        username,
-        userId,
-        ctx,
-      });
-      await this.keycloakService.logoutUser(refreshToken);
-
-      // Ghi audit log khi logout thành công
-      if (username) {
-        this.logger.log(`User logged out: ${username}`);
-        console.log('[AuthService] Logging LOGOUT_SUCCESS for:', username);
-        await this.auditLogService
-          .log(username, AuditAction.LOGOUT_SUCCESS, ctx, undefined, userId)
-          .catch((err) => {
-            console.error('[AuthService] Failed to log LOGOUT_SUCCESS:', err);
-          });
-      } else {
-        console.warn('[AuthService] logout called without username');
-      }
-
-      return { message: 'Đăng xuất thành công' };
-    } catch (error) {
-      // Ghi audit log khi logout thất bại
-      if (username) {
-        this.logger.warn(
-          `Logout failed for username: ${username} - ${error.message}`,
-        );
-        console.log('[AuthService] Logging LOGOUT_FAILED for:', username);
-        await this.auditLogService
-          .log(
-            username,
-            AuditAction.LOGOUT_FAILED,
-            ctx,
-            { reason: error.message },
-            userId,
-          )
-          .catch(() => {});
-      }
-      throw error;
-    }
+    // [SKELETON: Revoke token at Keycloak → Log audit success/failure → Return message]
   }
 
   /**
@@ -262,118 +69,27 @@ export class AuthService {
    * Tạo user trong cả Keycloak và MongoDB.
    */
   async register(dto: RegisterDto) {
-    // Kiểm tra trùng trong MongoDB
-    const existingUser = await this.userService.findByUsername(dto.username);
-    if (existingUser) {
-      throw new ConflictException(`Username '${dto.username}' đã được sử dụng`);
-    }
-
-    const existingEmail = await this.userService.findByEmail(dto.email);
-    if (existingEmail) {
-      throw new ConflictException(`Email '${dto.email}' đã được sử dụng`);
-    }
-
-    // Tạo user trong Keycloak
-    const keycloakId = await this.keycloakService.createUser({
-      username: dto.username,
-      email: dto.email,
-      password: dto.password,
-      role: UserRole.OPERATOR,
-    });
-
-    // Tạo user trong MongoDB
-    const user = await this.userService.create({
-      username: dto.username,
-      email: dto.email,
-      role: UserRole.OPERATOR,
-      keycloak_id: keycloakId,
-    });
-
-    this.logger.log(`New user registered: ${dto.username} (${keycloakId})`);
-
-    return {
-      message: 'Đăng ký thành công',
-      user: {
-        user_id: user.user_id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      },
-    };
+    // [SKELETON: Check duplicate username/email → Create user in Keycloak → Create user in MongoDB → Return user info]
   }
 
   /**
    * Lấy thông tin user hiện tại từ token
    */
   async getMe(keycloakId: string) {
-    const user = await this.userService.findByKeycloakId(keycloakId);
-    if (!user) {
-      throw new NotFoundException('Không tìm thấy thông tin người dùng');
-    }
-    return user;
+    // [SKELETON: Find user by keycloak_id → Return user info]
   }
 
   /**
    * Gửi link đặt lại mật khẩu về email
-   * @param email - Email của user yêu cầu đặt lại mật khẩu
-   * @param ctx - Thông tin ngữ cảnh
    */
   async forgotPassword(email: string, ctx: LogContext = {}): Promise<{ message: string }> {
-    const user = await this.userService.findByEmail(email);
-    // Trả về cùng message dù email có tồn tại hay không (tránh lộ thông tin)
-    if (!user || !user.keycloak_id) {
-      return {
-        message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi',
-      };
-    }
-
-    const token = uuidv4();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
-
-    await this.resetTokenModel.create({
-      token,
-      user_id: user.user_id,
-      email: user.email,
-      expires_at: expiresAt,
-      used: false,
-    });
-
-    const resetLink = `${process.env.FRONTEND_URL || 'https://inventory-system.cloud'}/auth/reset-password?token=${token}`;
-    await this.mailService.sendResetPasswordEmail(
-      user.email,
-      user.username,
-      resetLink,
-    );
-
-    this.logger.log(`Password reset requested for: ${user.email}`);
-    await this.auditLogService.log(user.username, AuditAction.PASSWORD_RESET_REQUESTED, ctx, { email: user.email }, user.user_id).catch(() => {});
-    return { message: 'Nếu email tồn tại, link đặt lại mật khẩu đã được gửi' };
+    // [SKELETON: Find user by email → Generate reset token → Send reset email → Return generic message (avoid info leakage)]
   }
 
   /**
    * Đặt lại mật khẩu bằng token
-   * @param token - Token đặt lại mật khẩu
-   * @param newPassword - Mật khẩu mới
-   * @param ctx - Thông tin ngữ cảnh
    */
   async resetPassword(token: string, newPassword: string, ctx: LogContext = {}): Promise<{ message: string }> {
-    const record = await this.resetTokenModel.findOne({ token });
-
-    if (!record) throw new BadRequestException('Token không hợp lệ');
-    if (record.used) throw new BadRequestException('Token đã được sử dụng');
-    if (record.expires_at < new Date())
-      throw new BadRequestException('Token đã hết hạn');
-
-    const user = await this.userService.findByEmail(record.email);
-    if (!user || !user.keycloak_id)
-      throw new NotFoundException('Không tìm thấy tài khoản');
-
-    await this.keycloakService.resetPassword(user.keycloak_id, newPassword);
-
-    await this.resetTokenModel.updateOne({ token }, { used: true });
-
-    this.logger.log(`Password reset completed for: ${record.email}`);
-    await this.auditLogService.log(user.username, AuditAction.PASSWORD_RESET_COMPLETED, ctx, { email: user.email }, user.user_id).catch(() => {});
-    return { message: 'Đặt lại mật khẩu thành công' };
+    // [SKELETON: Validate token (exists, not used, not expired) → Find user → Reset password in Keycloak → Mark token as used → Return success]
   }
 }
